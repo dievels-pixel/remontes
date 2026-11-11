@@ -2,7 +2,7 @@
 import { CONFIG } from '../config';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
-import { rectBotonDeshacer, rectBotonVelocidad } from '../render/escena';
+import { layoutSelector, rectBotonDeshacer, rectBotonVelocidad } from '../render/escena';
 
 export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara: Camara): void {
   let activo: number | null = null;
@@ -29,11 +29,28 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       e.preventDefault();
       return;
     }
+    // Con el selector de color abierto, el toque es para él: elegir un color
+    // posible o, fuera del panel, cerrarlo.
+    if (juego.selector) {
+      const { panel, botones } = layoutSelector(camara.aPantalla(juego.selector.punto), r.width, r.height);
+      const boton = botones.find((b) => dentro(b.caja));
+      if (boton) {
+        if (juego.selector.colores.find((c) => c.color === boton.color)!.factible) juego.elegirColor(boton.color);
+      } else if (!dentro(panel)) {
+        juego.cerrarSelector();
+      }
+      e.preventDefault();
+      return;
+    }
     if (juego.empezarArrastre(enMundo(e), radio(), sep())) {
       activo = e.pointerId;
       lienzo.setPointerCapture(e.pointerId);
       e.preventDefault();
+      return;
     }
+    // Fuera de los nodos: un proyecto de pista abre el selector.
+    juego.tocar(enMundo(e), CONFIG.entrada.toleranciaProyecto / camara.escala);
+    e.preventDefault();
   });
   lienzo.addEventListener('pointermove', (e) => {
     if (e.pointerId !== activo) return;

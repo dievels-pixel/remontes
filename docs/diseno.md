@@ -63,7 +63,7 @@ Al crear un remonte de X (punto bajo) a T (punto alto) se proponen:
 Para evitar una maraña de trazos:
 
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección.
-- Los trazos solo se muestran para la última obra o al tocar un nodo.
+- Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
 
 El remonte pasa a funcionar en cuanto el jugador activa cualquier pista que salga de su cima (no tiene por qué ser una de las dos que vuelven a X). Mientras tanto se ve en gris y los proyectos a trazos de su cima siguen visibles como recordatorio.
@@ -80,10 +80,12 @@ p = ΔH / L = ΔH / (s · D)
 
 Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real de la pista y s = L / D la sinuosidad (s = 1 es la recta).
 
-- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (orientativo: s_max entre 1,6 y 2, por ajustar).
+- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (orientativo: s_max entre 1,6 y 2, por ajustar; provisional 2).
+- Consecuencia: como s_max / s_min ≈ 2, una pareja abarca a lo sumo dos colores contiguos. Para que haya verdes y negras, el mapa necesita parejas con pendientes en recta muy distintas (por debajo de 0,2 para verdes y por encima de 0,5 para negras con las bandas provisionales).
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 (por ejemplo 1,1) para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente. Al elegir color se toma la pendiente central de la banda, se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
-- Trazado: curva Bézier cúbica (o serpentina sinusoidal) con puntos de control desplazados lateralmente una amplitud a. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. Una semilla fija por pareja de nodos mantiene la forma estable.
+- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,2 en las dos laterales de un remonte, que dan s ≈ 1,1, y b pequeño en el resto) y el segundo una serpentina de n ondas (n según la distancia) y amplitud a. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
+- El lado de la primera pista de una pareja sale de una semilla fija por pareja; la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
 - La velocidad de los esquiadores depende de la pendiente efectiva, así que una pista negra se ve más rápida que una verde.
 
@@ -94,11 +96,11 @@ Los umbrales de pendiente de cada color son parámetros ajustables. Pendiente: c
 Ningún esquiador puede quedar atrapado en un nodo sin salida. La garantía sale de dos definiciones y tres reglas.
 
 - Un nodo está activo si ha sido alcanzado por un remonte (o es una base). Desde un nodo activo se pueden construir remontes.
-- Un nodo es viable como destino de una pista si es una base o tiene alguna salida operativa: una pista activa que salga de él o un remonte en servicio que salga de él.
+- Un nodo es viable como destino de una pista si desde él se puede llegar a una base siguiendo pistas y remontes en servicio. Basta con que sea una base. (Antes bastaba con tener alguna salida operativa, pero eso permitía bucles cerrados, por ejemplo intermedio → cima por remonte y cima → intermedio por pista, de los que no se vuelve nunca a una base.) Al evaluar una pista se cuenta como ya abierta, porque puede poner en servicio el remonte que llega a su origen.
 
 1. Los remontes solo salen de nodos activos.
 2. Un remonte solo funciona cuando hay al menos una pista activa desde su cima, o cuando continúa por un punto de paso en otro remonte que funciona. Así nadie llega a una cima por remonte sin tener bajada. Un remonte que llega a un emplazamiento que ya tiene pistas funciona desde que se construye.
-3. Solo se proponen pistas que terminen en un nodo viable. Un nodo activo cuya cima aún no tiene salida operativa no recibe pistas hasta que la tenga.
+3. Solo se proponen pistas que terminen en un nodo viable. Un nodo activo desde el que aún no se llega a una base no recibe pistas hasta que se pueda.
 
 Deshacer: un botón deshace la última construcción (remonte o pista), y pulsándolo varias veces se van deshaciendo en orden inverso. Como se deshace siempre lo último, la red vuelve exactamente a un estado anterior, que ya cumplía estas reglas, y no hace falta revalidar el grafo. Quien estaba en la cola o subiendo en un remonte deshecho se va de la estación; quien bajaba por una pista deshecha llega directamente a su destino. Si un remonte deja de funcionar, su cola busca otra salida, y quien llega a un punto sin salida se va. Demoler un elemento cualquiera, no el último, sí exigiría revalidar el grafo. Lo mismo para las averías futuras: la viabilidad de un nodo se vuelve a evaluar cuando un remonte cambia de estado.
 
@@ -160,7 +162,6 @@ Música generativa como en Mini Metro: cada evento dispara una nota de una escal
 Se construye por etapas, y cada una debe poder jugarse antes de pasar a la siguiente.
 
 1. Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
-   - Provisional de la etapa 1 (hasta que lleguen los proyectos de la etapa 2): las pistas se abren con el mismo gesto que los remontes, arrastrando desde un nodo activo hacia uno más bajo, con un color neutro y una curva de amplitud fija. Ya se aplica la regla de nodo viable, porque sin ella los esquiadores podían quedar atrapados.
 2. Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
 3. Niveles de esquiador, colores, aburrimiento y colas con anillo.
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
@@ -205,7 +206,7 @@ Notas técnicas:
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
 - [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
-- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales.
+- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L): verde 0,05–0,15, azul 0,15–0,25, roja 0,25–0,40, negra 0,40–0,60. Con el mapa actual solo salen azules y rojas (las rectas entre nodos tienen pendientes de 0,28 a 0,45): hay que decidir si se cambian las bandas o el mapa.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.

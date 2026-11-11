@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
-import { redPequena } from './apoyo';
+import { abrir, redPequena } from './apoyo';
 
 const P: ParametrosSimulacion = {
   velocidadRemonte: CONFIG.remonte.velocidad,
@@ -10,7 +10,7 @@ const P: ParametrosSimulacion = {
   capacidadBolita: CONFIG.remonte.capacidad,
   ...CONFIG.esquiador,
 };
-const ENTRADA = { x: 150, y: 1100 };
+const ENTRADA = { x: 150, y: 3100 };
 const DT = 1 / 60;
 
 function correr(sim: Simulacion, segundos: number, alPaso?: () => void) {
@@ -33,7 +33,7 @@ describe('Simulación', () => {
   it('con remonte y pista los esquiadores suben, bajan y completan bajadas', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(1));
     const vistos = new Set<string>();
     correr(sim, 60, () => sim.esquiadores.forEach((e) => vistos.add(e.estado)));
@@ -46,10 +46,10 @@ describe('Simulación', () => {
   it('nadie queda atascado en una red con varios caminos', () => {
     const red = redPequena();
     red.construirRemonte(0, 2);
-    red.abrirPista(2, 1); // baja a la base sin remonte: tendrá que cruzar la plaza
+    abrir(red, 2, 1); // baja a la base sin remonte: tendrá que cruzar la plaza
     red.construirRemonte(2, 3);
-    red.abrirPista(3, 2);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 2);
+    abrir(red, 3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(3));
     correr(sim, 120);
     // Todos los esquiadores están en un solo sitio: o en una cola o fuera de ellas.
@@ -63,7 +63,7 @@ describe('Simulación', () => {
   it('las bolitas salen con separación fija y no superan la capacidad', () => {
     const red = redPequena();
     const r = red.construirRemonte(0, 3);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(5));
     correr(sim, 3);
     const b = sim.bolitas[r.id];
@@ -74,15 +74,15 @@ describe('Simulación', () => {
     }
   });
 
-  it('la velocidad en pista crece con la pendiente', () => {
+  it('la velocidad en pista crece con la pendiente: una roja va más rápida que una azul', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
-    const empinada = red.abrirPista(3, 0);
-    const suave = red.abrirPista(2, 1);
+    const azul = red.abrirPista(2, 1, 'azul');
+    const roja = red.abrirPista(3, 2, 'roja');
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(1));
-    expect(empinada.pendiente).toBeGreaterThan(suave.pendiente);
-    expect(sim.velocidadEnPista(empinada)).toBeGreaterThan(sim.velocidadEnPista(suave));
+    expect(roja.pendiente).toBeGreaterThan(azul.pendiente);
+    expect(sim.velocidadEnPista(roja)).toBeGreaterThan(sim.velocidadEnPista(azul));
   });
 
   it('reconoce como contiguas las bases cercanas', () => {
@@ -95,8 +95,8 @@ describe('Simulación', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
-    red.abrirPista(3, 0);
-    red.abrirPista(2, 1);
+    abrir(red, 3, 0);
+    abrir(red, 2, 1);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(2));
     let cambios = 0;
     correr(sim, 120, () =>
@@ -111,8 +111,8 @@ describe('Simulación', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
-    red.abrirPista(3, 0);
-    red.abrirPista(2, 1);
+    abrir(red, 3, 0);
+    abrir(red, 2, 1);
     const sim = new Simulacion(red, { ...P, distanciaBasesContiguas: 100 }, ENTRADA, crearAzar(2));
     correr(sim, 120, () =>
       sim.esquiadores.forEach((e) => {
@@ -126,7 +126,7 @@ describe('Simulación', () => {
     const a = red.construirRemonte(0, 3);
     const b = red.construirRemonte(1, 3);
     expect(a.estacionHasta).not.toBe(b.estacionHasta);
-    const pista = red.abrirPista(3, 0); // una sola pista: sirve a las dos llegadas
+    const pista = abrir(red, 3, 0); // una sola pista: sirve a las dos llegadas
     expect(red.enServicio(a) && red.enServicio(b)).toBe(true);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(4));
     const subidos = new Set<number>();
@@ -142,9 +142,9 @@ describe('Simulación', () => {
   it('al deshacer, nadie queda en un remonte o una pista que ya no existe', () => {
     const red = redPequena();
     red.construirRemonte(0, 2);
-    red.abrirPista(2, 1);
+    abrir(red, 2, 1);
     red.construirRemonte(2, 3);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(6));
     const coherente = () => {
       for (const e of sim.esquiadores.values()) {
