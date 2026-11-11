@@ -7,6 +7,7 @@ Actualizado: 2026-11-11
 Juego minimalista de gestión en tiempo real: el jugador construye remontes entre puntos fijos de una montaña y decide qué pistas abrir para que los esquiadores no se acumulen en las colas.
 
 - Referencia: Mini Metro, por la conexión de puntos con líneas, la música generativa y la sensación relajante.
+- Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), pensada para pantalla táctil y para probarse desde el navegador del móvil. Si más adelante compensa, se porta a un motor para publicar en Android.
 - Alcance del prototipo: un mapa fijo hecho a mano, sin economía ni niveles de esquiador al principio.
 - Prioridad: encontrar primero algo que funcione y ajustar el resto probando.
@@ -155,6 +156,7 @@ Música generativa como en Mini Metro: cada evento dispara una nota de una escal
 Se construye por etapas, y cada una debe poder jugarse antes de pasar a la siguiente.
 
 1. Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
+   - Provisional de la etapa 1 (hasta que lleguen los proyectos de la etapa 2): las pistas se abren con el mismo gesto que los remontes, arrastrando desde un nodo activo hacia uno más bajo, con un color neutro y una curva de amplitud fija. Ya se aplica la regla de nodo viable, porque sin ella los esquiadores podían quedar atrapados.
 2. Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
 3. Niveles de esquiador, colores, aburrimiento y colas con anillo.
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
@@ -182,6 +184,7 @@ Notas técnicas:
 - En fases posteriores puede haber varias carreteras de acceso.
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
+- Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), para iterar rápido y probar desde el móvil. Portar a un motor solo si más adelante compensa.
 
 ## Decisiones abiertas
