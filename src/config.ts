@@ -35,14 +35,25 @@ export const CONFIG = {
     separacionPx: 22, // px de pantalla entre centros (símbolo de 19 px + hueco)
   },
 
-  // Pistas. En la etapa 1 la curva usa una amplitud fija; el cálculo de la
-  // sinuosidad por bisección es de la etapa 2.
+  // Pistas. Color por pendiente media efectiva p = ΔH / L. PROVISIONAL: las
+  // bandas son una decisión abierta (contrastar con estaciones reales).
   pista: {
-    amplitudRelativa: 0.22, // desplazamiento lateral de la curva / distancia
-    variacionAmplitud: 0.06, // variación estable por semilla de la pareja
+    bandas: {
+      verde: [0.05, 0.15],
+      azul: [0.15, 0.25],
+      roja: [0.25, 0.4],
+      negra: [0.4, 0.6],
+    },
+    sinuosidadMaxima: 2.0, // s = L / D; el diseño la sitúa entre 1,6 y 2
+    // Abombamiento lateral / distancia. 0,2 da s ≈ 1,1 en las laterales de un
+    // remonte (lente); el resto apenas se separa de la recta.
+    abombamientoLateral: 0.2,
+    abombamientoNormal: 0.06,
+    longitudOnda: 650, // m por oscilación de la serpentina
     separacionNodo: 45, // m que la pista se separa del nodo en cada extremo
     maxPorPareja: 2, // forma de lente: una a cada lado
-    muestras: 48,
+    // Proyectos propuestos por dirección (desde la cima, hacia la base).
+    proyectosPorDireccion: 2,
   },
 
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí
@@ -63,6 +74,7 @@ export const CONFIG = {
   // Entrada: interacción táctil.
   entrada: {
     radioToque: 34, // px de pantalla para acertar un nodo con el dedo
+    toleranciaProyecto: 18, // px de pantalla para acertar un trazo de proyecto
   },
 } as const;
 

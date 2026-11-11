@@ -2,7 +2,9 @@
 // convertidas con la cámara.
 import { CONFIG } from '../config';
 import { PLAZA } from '../core/mapa';
-import type { Estacion, Pista, TipoEstacion } from '../core/red';
+import { COLORES, type ColorPista } from '../core/colores';
+import type { Polilinea } from '../core/polilinea';
+import type { Estacion, TipoEstacion } from '../core/red';
 import { interpolar, type Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from './camara';
@@ -12,11 +14,18 @@ const COLOR = {
   tinta: '#262a31',
   remonteParado: '#8b9298',
   hueco: '#f1f3f4',
-  pista: '#7356c0', // PROVISIONAL: color neutro hasta que haya niveles (etapa 3)
+  proyecto: 'rgba(38, 42, 49, 0.6)',
   esquiador: '#262a31',
   plaza: 'rgba(240, 236, 226, 0.75)',
   valido: '#2f9e6a',
   invalido: '#b9473b',
+};
+
+export const COLOR_PISTA: Record<ColorPista, string> = {
+  verde: '#3e9b5b',
+  azul: '#2f6fc0',
+  roja: '#d24a3c',
+  negra: '#1d2026',
 };
 
 const RADIO_NODO = 9;
@@ -58,7 +67,16 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // Pistas.
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (const p of red.pistas) dibujarPista(ctx, p, P, COLOR.pista, 3);
+  for (const p of red.pistas) dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3);
+
+  // Proyectos de pista a trazos; el que tiene el selector abierto, más grueso.
+  const elegido = juego.selector?.proyecto;
+  ctx.setLineDash([6, 6]);
+  for (const pr of juego.proyectosVisibles()) {
+    const activo = elegido && elegido.desde === pr.desde && elegido.hasta === pr.hasta && elegido.lado === pr.lado;
+    dibujarTrazado(ctx, juego.trazadoProyecto(pr), P, COLOR.proyecto, activo ? 4 : 2);
+  }
+  ctx.setLineDash([]);
 
   // Remontes con sus bolitas.
   for (const r of red.remontes) {
@@ -91,7 +109,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // Emplazamientos: sus estaciones en fila y la cota a la derecha de la fila.
   for (const n of red.nodos) {
     let marca: 'valido' | 'invalido' | null = null;
-    if (arr && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id).motivo === 'ok' ? 'valido' : 'invalido';
+    if (arr?.movido && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id) === 'ok' ? 'valido' : 'invalido';
     const activo = red.activo(n.id);
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
     for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
@@ -141,6 +159,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.fill();
   }
 
+  if (juego.selector) dibujarSelector(ctx, juego, P(juego.selector.punto), ancho, alto);
   dibujarTextos(ctx, juego, ancho);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
   dibujarBotonDeshacer(ctx, juego, alto);
@@ -228,10 +247,11 @@ function dibujarBotonVelocidad(ctx: CanvasRenderingContext2D, juego: Juego, anch
   ctx.fillText(`${juego.velocidad}×`, b.x + b.ancho - 9, cy + 1);
 }
 
-function dibujarPista(ctx: CanvasRenderingContext2D, p: Pista, P: (p: Punto) => Punto, color: string, grosor: number): void {
-  const L = p.trazado.longitud;
+function dibujarTrazado(ctx: CanvasRenderingContext2D, trazado: Polilinea, P: (p: Punto) => Punto, color: string, grosor: number): void {
+  // La pista empieza y acaba algo separada del nodo para que se lea mejor.
+  const L = trazado.longitud;
   const sep = Math.min(CONFIG.pista.separacionNodo, L * 0.2);
-  const tramo = p.trazado.tramo(sep, L - sep).map(P);
+  const tramo = trazado.tramo(sep, L - sep).map(P);
   ctx.strokeStyle = color;
   ctx.lineWidth = grosor;
   ctx.beginPath();
@@ -262,28 +282,16 @@ function dibujarArrastre(
   PE: (e: Pick<Estacion, 'nodo' | 'ox' | 'oy'>) => Punto,
 ): void {
   const arr = juego.arrastre!;
+  if (!arr.movido) return;
   const red = juego.red;
   const obj = arr.objetivo;
   if (obj && obj.motivo === 'ok') {
-    if (obj.tipo === 'remonte') {
-      // Estaciones que usaría el remonte; las nuevas se ven ya en su sitio.
-      const ed = red.planearEstacion(arr.origen, 'salida', obj.nodo)!;
-      const eh = red.planearEstacion(obj.nodo, 'llegada', arr.origen)!;
-      const pos = (p: typeof ed) => ('id' in p ? red.estaciones[p.id] : p.nueva);
-      dibujarRemonte(ctx, PE(pos(ed)), PE(pos(eh)), COLOR.tinta);
-      for (const p of [ed, eh]) if ('nueva' in p) dibujarEstacion(ctx, p.nueva.tipo, PE(p.nueva), true, 'valido');
-    } else {
-      const a = P(red.nodo(arr.origen));
-      const b = P(red.nodo(obj.nodo));
-      ctx.strokeStyle = COLOR.pista;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([7, 6]);
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
+    // Estaciones que usaría el remonte; las nuevas se ven ya en su sitio.
+    const ed = red.planearEstacion(arr.origen, 'salida', obj.nodo)!;
+    const eh = red.planearEstacion(obj.nodo, 'llegada', arr.origen)!;
+    const pos = (p: typeof ed) => ('id' in p ? red.estaciones[p.id] : p.nueva);
+    dibujarRemonte(ctx, PE(pos(ed)), PE(pos(eh)), COLOR.tinta);
+    for (const p of [ed, eh]) if ('nueva' in p) dibujarEstacion(ctx, p.nueva.tipo, PE(p.nueva), true, 'valido');
     return;
   }
   const a = P(red.nodo(arr.origen));
@@ -368,3 +376,60 @@ function partirTexto(ctx: CanvasRenderingContext2D, texto: string, max: number):
   return lineas;
 }
 
+
+type Caja = { x: number; y: number; ancho: number; alto: number };
+
+/**
+ * Posición del selector de color y de sus cuatro botones, encima del punto
+ * tocado y dentro de la pantalla. La comparte la entrada para acertar el toque.
+ */
+export function layoutSelector(punto: Punto, ancho: number, alto: number): { panel: Caja; botones: { color: ColorPista; caja: Caja }[] } {
+  const lado = 44;
+  const hueco = 8;
+  const w = COLORES.length * lado + (COLORES.length + 1) * hueco;
+  const h = lado + 2 * hueco;
+  const x = Math.min(Math.max(punto.x - w / 2, 8), ancho - w - 8);
+  let y = punto.y - h - 24;
+  if (y < 70) y = punto.y + 24;
+  y = Math.min(y, alto - h - 70);
+  return {
+    panel: { x, y, ancho: w, alto: h },
+    botones: COLORES.map((color, i) => ({ color, caja: { x: x + hueco + i * (lado + hueco), y: y + hueco, ancho: lado, alto: lado } })),
+  };
+}
+
+function dibujarSelector(ctx: CanvasRenderingContext2D, juego: Juego, punto: Punto, ancho: number, alto: number): void {
+  const sel = juego.selector!;
+  const { panel, botones } = layoutSelector(punto, ancho, alto);
+  ctx.save();
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.96)';
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(panel.x, panel.y, panel.ancho, panel.alto, 12);
+  ctx.fill();
+  ctx.stroke();
+  for (const { color, caja } of botones) {
+    const factible = sel.colores.find((c) => c.color === color)!.factible;
+    const cx = caja.x + caja.ancho / 2;
+    const cy = caja.y + caja.alto / 2;
+    ctx.globalAlpha = factible ? 1 : 0.22;
+    ctx.fillStyle = COLOR_PISTA[color];
+    ctx.beginPath();
+    ctx.arc(cx, cy, caja.ancho / 2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (!factible) {
+      // Aspa: este color no cabe con la pendiente de esa pareja.
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = COLOR.tinta;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 9, cy - 9);
+      ctx.lineTo(cx + 9, cy + 9);
+      ctx.moveTo(cx + 9, cy - 9);
+      ctx.lineTo(cx - 9, cy + 9);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Red } from '../src/core/red';
-import { REGLAS, redPequena } from './apoyo';
+import { abrir, REGLAS, redPequena } from './apoyo';
 
 describe('Red: activación y reglas de construcción', () => {
   it('al empezar solo están activas las bases', () => {
@@ -91,7 +91,7 @@ describe('Red: activación y reglas de construcción', () => {
     const red = redPequena();
     const r = red.construirRemonte(0, 2);
     expect(red.enServicio(r)).toBe(false);
-    red.abrirPista(2, 1); // no vuelve a su base, pero sale de su cima
+    abrir(red, 2, 1); // no vuelve a su base, pero sale de su cima
     expect(red.enServicio(r)).toBe(true);
   });
 
@@ -111,7 +111,7 @@ describe('Red: activación y reglas de construcción', () => {
     // El intermedio está activo pero su único remonte saliente no existe: no es viable.
     expect(red.viable(2)).toBe(false);
     expect(red.puedeAbrirPista(3, 2)).toBe('destino-no-viable');
-    red.abrirPista(2, 0);
+    abrir(red, 2, 0);
     expect(red.viable(2)).toBe(true);
     expect(red.puedeAbrirPista(3, 2)).toBe('ok');
   });
@@ -119,8 +119,8 @@ describe('Red: activación y reglas de construcción', () => {
   it('admite dos pistas por pareja, a lados opuestos (lente)', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    const a = red.abrirPista(3, 0);
-    const b = red.abrirPista(3, 0);
+    const a = abrir(red, 3, 0);
+    const b = abrir(red, 3, 0);
     expect(b.lado).toBe(-a.lado);
     expect(red.puedeAbrirPista(3, 0)).toBe('ya-existe');
   });
@@ -128,7 +128,7 @@ describe('Red: activación y reglas de construcción', () => {
   it('la pendiente efectiva es ΔH / L con L la longitud real de la curva', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    const p = red.abrirPista(3, 0);
+    const p = abrir(red, 3, 0);
     expect(p.pendiente).toBeCloseTo(900 / p.trazado.longitud, 10);
     const recta = Math.hypot(200, 1000);
     expect(p.trazado.longitud).toBeGreaterThan(recta);
@@ -138,7 +138,7 @@ describe('Red: activación y reglas de construcción', () => {
     const red = redPequena();
     const abajo = red.construirRemonte(0, 2); // llega al cuadrado
     const arriba = red.construirRemonte(2, 3); // sale del cuadrado: misma línea
-    red.abrirPista(3, 1);
+    abrir(red, 3, 1);
     expect(red.enServicio(arriba)).toBe(true);
     expect(red.enServicio(abajo)).toBe(true);
   });
@@ -148,7 +148,7 @@ describe('Red: activación y reglas de construcción', () => {
     red.construirRemonte(0, 2); // cuadrado: llegada
     red.construirRemonte(2, 3); // cuadrado: salida
     const otro = red.construirRemonte(1, 2); // triángulo de desdoble
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     expect(red.estaciones[otro.estacionHasta].tipo).toBe('llegada');
     expect(red.enServicio(otro)).toBe(false);
   });
@@ -156,15 +156,15 @@ describe('Red: activación y reglas de construcción', () => {
   it('un remonte que llega a una cima que ya tiene pistas funciona desde el principio', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     const nuevo = red.construirRemonte(1, 3);
     expect(red.enServicio(nuevo)).toBe(true);
   });
 
   it('los remontes no pueden cruzarse, pero sí compartir emplazamiento', () => {
-    // 0 (0,1000) → 3 (200,0) y 1 (300,1000) → 4 (−100,500) se cruzan.
+    // 0 (0,3000) → 3 (400,0) y 1 (300,3000) → 4 (−300,1500) se cruzan.
     const nodos = redPequena().nodos.map((n) => ({ ...n }));
-    nodos.push({ id: 4, tipo: 'intermedio', x: -100, y: 500, cota: 1900 });
+    nodos.push({ id: 4, tipo: 'intermedio', x: -300, y: 1500, cota: 1900 });
     const red = new Red(nodos, REGLAS);
     red.construirRemonte(0, 3);
     expect(red.puedeConstruirRemonte(1, 4)).toBe('cruza-remonte');
@@ -176,7 +176,7 @@ describe('Red: activación y reglas de construcción', () => {
     const red = redPequena();
     expect(red.puedeDeshacer).toBe(false);
     const r = red.construirRemonte(0, 3);
-    red.abrirPista(3, 0);
+    abrir(red, 3, 0);
     red.construirRemonte(1, 3); // desdobla la cima
     expect(red.estaciones.length).toBe(5);
     expect(red.deshacer()).toMatchObject({ tipo: 'remonte' });
@@ -187,5 +187,41 @@ describe('Red: activación y reglas de construcción', () => {
     red.deshacer();
     expect(red.activo(3)).toBe(false);
     expect(red.deshacer()).toBeNull();
+  });
+
+  it('la pista sale con la pendiente central de la banda del color elegido', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    const p = red.abrirPista(3, 0, 'azul');
+    expect(p.pendiente).toBeCloseTo(0.2, 2);
+    expect(p.color).toBe('azul');
+  });
+
+  it('rechaza un color que no cabe y una pareja demasiado plana', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    expect(red.puedeAbrirPista(3, 0, 'negra')).toBe('color-imposible');
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    nodos.push({ id: 4, tipo: 'intermedio', x: 2000, y: 3000, cota: 1540 }); // casi llano respecto a la base
+    const llana = new Red(nodos, REGLAS);
+    llana.construirRemonte(0, 4);
+    expect(llana.puedeAbrirPista(4, 1)).toBe('demasiado-plana');
+  });
+
+  it('no se abren pistas hacia un bucle del que no se vuelve a una base', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2);
+    red.construirRemonte(2, 3);
+    // 3→2 dejaría el bucle 2→3→2 en servicio sin bajada a ninguna base.
+    expect(red.puedeAbrirPista(3, 2)).toBe('destino-no-viable');
+    abrir(red, 2, 1);
+    expect(red.puedeAbrirPista(3, 2)).toBe('ok');
+  });
+
+  it('una pista hacia la base de su propio remonte es viable aunque lo ponga en servicio', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    expect(red.viable(0)).toBe(true);
+    expect(red.puedeAbrirPista(3, 0)).toBe('ok');
   });
 });

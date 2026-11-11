@@ -25,6 +25,8 @@ function redimensionar(): void {
 window.addEventListener('resize', redimensionar);
 redimensionar();
 conectarPuntero(lienzo, juego, camara);
+// Solo en desarrollo: acceso desde la consola y las pruebas de navegador.
+if (import.meta.env.DEV) Object.assign(window, { juego, camara });
 
 // Paso fijo de simulación, independiente de la frecuencia de pantalla.
 const DT = 1 / 60;

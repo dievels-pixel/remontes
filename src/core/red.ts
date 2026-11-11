@@ -1,7 +1,8 @@
 // Red de la estación como grafo dirigido: nodos fijos, remontes (suben) y
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
-import { trazarPista, type ParametrosCurva } from './curva';
+import { evaluarColores, type Bandas, type ColorPista, type Factibilidad } from './colores';
+import { pistaConSinuosidad, sinuosidadMinima, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
 import { distancia, segmentosSeCruzan } from './vector';
 
@@ -52,15 +53,27 @@ export interface Pista {
   desde: number;
   hasta: number;
   lado: 1 | -1;
+  color: ColorPista;
   trazado: Polilinea;
   /** Pendiente media efectiva: ΔH / L. */
   pendiente: number;
 }
 
+export interface ReglasPista {
+  bandas: Bandas;
+  sinuosidadMaxima: number;
+  /** Abombamiento de las dos pistas que vuelven a la base de su remonte. */
+  abombamientoLateral: number;
+  /** Abombamiento del resto de pistas. */
+  abombamientoNormal: number;
+  /** Longitud de cada oscilación de la serpentina, en metros. */
+  longitudOnda: number;
+}
+
 export interface ReglasRed {
   desnivelMinimoRemonte: number;
   maxPistasPorPareja: number;
-  curva: ParametrosCurva;
+  pista: ReglasPista;
   maxEstacionesPorNodo: number;
 }
 
@@ -76,7 +89,10 @@ export type Motivo =
   | 'origen-lleno'
   | 'destino-lleno'
   | 'pista-desde-base'
-  | 'destino-no-viable';
+  | 'destino-no-viable'
+  | 'demasiado-plana'
+  | 'sin-color'
+  | 'color-imposible';
 
 /** Construcción registrada en el historial. */
 export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
@@ -156,18 +172,76 @@ export class Red {
    * Un remonte funciona si hay al menos una pista activa desde su llegada. Si
    * llega a un punto de paso y sigue desde ahí, los dos tramos son la misma
    * línea: el de abajo funciona en cuanto funciona el de arriba.
+   * `extra` es el origen de una pista hipotética, para evaluar antes de abrirla.
    */
-  enServicio(r: Remonte): boolean {
-    if (this.pistas.some((p) => p.desde === r.hasta)) return true;
+  enServicio(r: Remonte, extra?: number): boolean {
+    if (r.hasta === extra || this.pistas.some((p) => p.desde === r.hasta)) return true;
     if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
     const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
-    return sigue !== undefined && this.enServicio(sigue);
+    return sigue !== undefined && this.enServicio(sigue, extra);
   }
 
-  /** Viable como destino de pista: base o con alguna salida operativa. */
-  viable(id: number): boolean {
-    if (this.nodos[id].tipo === 'base') return true;
-    return this.pistas.some((p) => p.desde === id) || this.remontes.some((r) => r.desde === id && this.enServicio(r));
+  /**
+   * Viable como destino de pista: desde él se puede llegar a una base por
+   * pistas y remontes en servicio. Así no hay puntos ciegos ni bucles de los
+   * que no se vuelve. `extra` es una pista hipotética que se cuenta como abierta.
+   */
+  viable(id: number, extra?: { desde: number; hasta: number }): boolean {
+    const aristas: [number, number][] = this.pistas.map((p) => [p.desde, p.hasta]);
+    if (extra) aristas.push([extra.desde, extra.hasta]);
+    for (const r of this.remontes) if (this.enServicio(r, extra?.desde)) aristas.push([r.desde, r.hasta]);
+    // Búsqueda hacia atrás desde las bases.
+    const alcanza = new Set(this.nodos.filter((n) => n.tipo === 'base').map((n) => n.id));
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      for (const [a, b] of aristas) {
+        if (alcanza.has(b) && !alcanza.has(a)) {
+          alcanza.add(a);
+          cambio = true;
+        }
+      }
+    }
+    return alcanza.has(id);
+  }
+
+  /** Forma de la pista desde→hasta por el lado dado (estable por pareja). */
+  forma(desde: number, hasta: number, lado: 1 | -1): FormaPista {
+    const lateral = this.remontes.some((r) => r.desde === hasta && r.hasta === desde);
+    const rp = this.reglas.pista;
+    const d = distancia(this.nodos[desde], this.nodos[hasta]);
+    return {
+      lado,
+      abombamiento: lateral ? rp.abombamientoLateral : rp.abombamientoNormal,
+      ondas: Math.max(1, Math.round(d / rp.longitudOnda)),
+    };
+  }
+
+  /**
+   * Lado libre para una pista nueva entre la pareja: la primera elige por
+   * semilla y la segunda va al contrario (lente). null si no queda.
+   */
+  ladoLibre(desde: number, hasta: number): 1 | -1 | null {
+    const existentes = this.pistasEntre(desde, hasta);
+    if (existentes.length >= this.reglas.maxPistasPorPareja) return null;
+    if (existentes.length > 0) return -existentes[0].lado as 1 | -1;
+    return hashPareja(desde, hasta) & 1 ? 1 : -1;
+  }
+
+  /** Lados disponibles: los dos si la pareja no tiene pistas, si no el contrario. */
+  ladosLibres(desde: number, hasta: number): (1 | -1)[] {
+    const primero = this.ladoLibre(desde, hasta);
+    if (primero === null) return [];
+    if (this.pistasEntre(desde, hasta).length > 0 || this.reglas.maxPistasPorPareja < 2) return [primero];
+    return [primero, -primero as 1 | -1];
+  }
+
+  /** Factibilidad de cada color para la pareja y el lado. */
+  colores(desde: number, hasta: number, lado: 1 | -1): Factibilidad[] {
+    const a = this.nodos[desde];
+    const b = this.nodos[hasta];
+    const sMin = sinuosidadMinima(a, b, this.forma(desde, hasta, lado));
+    return evaluarColores(a.cota - b.cota, distancia(a, b), sMin, this.reglas.pista.sinuosidadMaxima, this.reglas.pista.bandas);
   }
 
   puedeConstruirRemonte(desde: number, hasta: number): Motivo {
@@ -184,13 +258,21 @@ export class Red {
     return 'ok';
   }
 
-  puedeAbrirPista(desde: number, hasta: number): Motivo {
+  /** Sin color, comprueba si hay alguno posible; con color, ese en concreto. */
+  puedeAbrirPista(desde: number, hasta: number, color?: ColorPista, lado?: 1 | -1): Motivo {
     if (desde === hasta) return 'mismo-nodo';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
-    if (this.pistasEntre(desde, hasta).length >= this.reglas.maxPistasPorPareja) return 'ya-existe';
-    if (!this.viable(hasta)) return 'destino-no-viable';
+    const libres = this.ladosLibres(desde, hasta);
+    if (libres.length === 0 || (lado !== undefined && !libres.includes(lado))) return 'ya-existe';
+    const a = this.nodos[desde];
+    const b = this.nodos[hasta];
+    if ((a.cota - b.cota) / distancia(a, b) < this.reglas.pista.bandas.verde[0]) return 'demasiado-plana';
+    const colores = this.colores(desde, hasta, lado ?? libres[0]);
+    if (!colores.some((c) => c.factible)) return 'sin-color';
+    if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
+    if (!this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
     return 'ok';
   }
 
@@ -226,22 +308,20 @@ export class Red {
     return r;
   }
 
-  abrirPista(desde: number, hasta: number): Pista {
-    const motivo = this.puedeAbrirPista(desde, hasta);
+  abrirPista(desde: number, hasta: number, color: ColorPista, lado?: 1 | -1): Pista {
+    const motivo = this.puedeAbrirPista(desde, hasta, color, lado);
     if (motivo !== 'ok') throw new Error(`No se puede abrir la pista: ${motivo}`);
-    const semilla = hashPareja(desde, hasta);
-    const existentes = this.pistasEntre(desde, hasta);
-    // La primera pista de la pareja elige lado por semilla; la segunda va al
-    // lado contrario, formando la lente alrededor del remonte.
-    const lado: 1 | -1 = existentes.length > 0 ? (-existentes[0].lado as 1 | -1) : semilla & 1 ? 1 : -1;
+    const l = lado ?? this.ladoLibre(desde, hasta)!;
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
-    const trazado = trazarPista(a, b, lado, semilla + existentes.length, this.reglas.curva);
+    const s = this.colores(desde, hasta, l).find((c) => c.color === color)!.s;
+    const trazado = pistaConSinuosidad(a, b, this.forma(desde, hasta, l), s)!;
     const p: Pista = {
       id: this.pistas.length,
       desde,
       hasta,
-      lado,
+      lado: l,
+      color,
       trazado,
       pendiente: (a.cota - b.cota) / trazado.longitud,
     };
