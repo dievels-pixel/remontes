@@ -4,7 +4,7 @@ import { CONFIG } from '../config';
 import { PLAZA } from '../core/mapa';
 import { COLORES, type ColorPista } from '../core/colores';
 import type { Polilinea } from '../core/polilinea';
-import type { Estacion, TipoEstacion } from '../core/red';
+import type { Estacion, Pista, TipoEstacion } from '../core/red';
 import { interpolar, type Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from './camara';
@@ -34,6 +34,17 @@ const RADIO_PUNTO = 2.2;
 export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number): void {
   const { red, sim } = juego;
   const P = (p: Punto) => camara.aPantalla(p);
+  // Desplazamiento en pantalla de cada pista hacia sus estaciones de salida y
+  // llegada (puntos desdoblados), calculado una vez por fotograma.
+  const despPorPista = new Map<number, (s: number) => Punto>();
+  const desplazamientoPista = (p: Pista): ((s: number) => Punto) => {
+    let f = despPorPista.get(p.id);
+    if (!f) {
+      f = funcionDesplazamiento(red.estacionDePista(p, 'salida'), red.estacionDePista(p, 'llegada'), p.trazado.longitud, p.lateral);
+      despPorPista.set(p.id, f);
+    }
+    return f;
+  };
   // Posición en pantalla de una estación: su nodo más el desplazamiento en la
   // fila, en píxeles, para que queden pegadas en cualquier pantalla.
   const PE = (e: Pick<Estacion, 'nodo' | 'ox' | 'oy'>) => {
@@ -72,7 +83,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // se ve a trazos cortos.
   for (const p of red.pistas) {
     if (p.fueraDeRango) ctx.setLineDash([3, 4]);
-    dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido);
+    dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido, desplazamientoPista(p));
     ctx.setLineDash([]);
   }
 
@@ -155,7 +166,13 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
         q = P(interpolar(e.origen, red.nodo(e.hacia), Math.min(e.recorrido / e.largo, 1)));
         break;
       case 'pista':
-        q = P(red.pistas[e.pista].trazado.puntoEn(e.recorrido));
+        {
+          // Sobre la misma curva desplazada hacia las estaciones que se dibuja.
+          const pi = red.pistas[e.pista];
+          const base = P(pi.trazado.puntoEn(e.recorrido));
+          const d = desplazamientoPista(pi)(e.recorrido);
+          q = { x: base.x + d.x, y: base.y + d.y };
+        }
         break;
       case 'remonte':
         break; // va dentro de su bolita
@@ -262,6 +279,7 @@ function dibujarTrazado(
   color: string,
   grosor: number,
   compartido: { inicio: number; fin: number } | null = null,
+  desplazar?: (s: number) => Punto,
 ): void {
   // La pista empieza y acaba algo separada del nodo para que se lea mejor.
   const L = trazado.longitud;
@@ -276,12 +294,49 @@ function dibujarTrazado(
   ctx.lineWidth = grosor;
   for (const [a, b] of tramos) {
     if (b <= a) continue;
-    const tramo = trazado.tramo(a, b).map(P);
+    const tramo = puntosConLongitud(trazado, a, b).map(({ p, s }) => {
+      const q = P(p);
+      if (!desplazar) return q;
+      const d = desplazar(s);
+      return { x: q.x + d.x, y: q.y + d.y };
+    });
     ctx.beginPath();
     ctx.moveTo(tramo[0].x, tramo[0].y);
     for (let i = 1; i < tramo.length; i++) ctx.lineTo(tramo[i].x, tramo[i].y);
     ctx.stroke();
   }
+}
+
+/** Puntos de la polilínea entre las longitudes a y b, con su longitud recorrida. */
+function puntosConLongitud(l: Polilinea, a: number, b: number): { p: Punto; s: number }[] {
+  const r = [{ p: l.puntoEn(a), s: a }];
+  for (let i = 0; i < l.puntos.length; i++) if (l.acumulada[i] > a && l.acumulada[i] < b) r.push({ p: l.puntos[i], s: l.acumulada[i] });
+  r.push({ p: l.puntoEn(b), s: b });
+  return r;
+}
+
+/**
+ * Desplazamiento en pantalla (px) a lo largo de una pista: el primer y el
+ * último tramo se llevan suavemente desde el centro del punto hasta su
+ * estación; en medio, nada. Las laterales se desplazan a lo largo de toda la
+ * pista, como su remonte (que se dibuja de estación a estación), para que la
+ * lente siga envolviéndolo y no cruce los remontes vecinos.
+ */
+function funcionDesplazamiento(salida: Estacion, llegada: Estacion, L: number, lateral: boolean): (s: number) => Punto {
+  const sep = CONFIG.estaciones.separacionPx;
+  if (lateral) {
+    return (s: number) => {
+      const t = Math.min(Math.max(s / L, 0), 1);
+      return { x: (salida.ox * (1 - t) + llegada.ox * t) * sep, y: (salida.oy * (1 - t) + llegada.oy * t) * sep };
+    };
+  }
+  const tramo = Math.min(CONFIG.pista.tramoEstacion, L / 2);
+  const suave = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  return (s: number) => {
+    const w0 = suave(1 - s / tramo);
+    const w1 = suave(1 - (L - s) / tramo);
+    return { x: (salida.ox * w0 + llegada.ox * w1) * sep, y: (salida.oy * w0 + llegada.oy * w1) * sep };
+  };
 }
 
 /** Línea doble: gruesa del color de tinta con otra fina clara encima. */

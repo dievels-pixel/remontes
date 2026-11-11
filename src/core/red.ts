@@ -190,6 +190,40 @@ export class Red {
     return this.nodos[id];
   }
 
+  /**
+   * Estación por la que sale (o llega) una pista en un punto desdoblado. Solo
+   * afecta al dibujo: el grafo, los colores y las confluencias no cambian.
+   * - Las laterales (las que vuelven a la base de su remonte) salen de la
+   *   estación donde llega ese remonte y llegan a la estación de donde sale.
+   * - El resto, por la estación que queda del lado hacia el que va la pista
+   *   (o del que viene), proyectando su dirección sobre la fila de estaciones.
+   * Se calcula cada vez: si el punto se desdobla después, la pista cambia de
+   * estación.
+   */
+  estacionDePista(p: Pick<Pista, 'desde' | 'hasta' | 'lateral'>, extremo: 'salida' | 'llegada'): Estacion {
+    const nodo = extremo === 'salida' ? p.desde : p.hasta;
+    const otro = extremo === 'salida' ? p.hasta : p.desde;
+    const propias = this.estacionesDe(nodo);
+    if (propias.length === 1) return propias[0];
+    const remonte = this.remontes.find((r) => r.desde === p.hasta && r.hasta === p.desde);
+    if (p.lateral && remonte) return this.estaciones[extremo === 'salida' ? remonte.estacionHasta : remonte.estacionDesde];
+    const n = this.nodos[nodo];
+    const o = this.nodos[otro];
+    const d = distancia(n, o) || 1;
+    const dir = { x: (o.x - n.x) / d, y: (o.y - n.y) / d };
+    // La de mayor proyección hacia ese lado; a igualdad, la más central.
+    let mejor = propias[0];
+    let valor = -Infinity;
+    for (const e of propias) {
+      const v = e.ox * dir.x + e.oy * dir.y - 1e-6 * Math.hypot(e.ox, e.oy);
+      if (v > valor) {
+        valor = v;
+        mejor = e;
+      }
+    }
+    return mejor;
+  }
+
   /** Activo: es una base o lo alcanza algún remonte. */
   activo(id: number): boolean {
     return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id);

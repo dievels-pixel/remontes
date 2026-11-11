@@ -70,6 +70,9 @@ export const CONFIG = {
     margenConfluencia: 120, // m
     tramoCompartidoMinimo: 100, // m
     separacionNodo: 45, // m que la pista se separa del nodo en cada extremo
+    // En un punto desdoblado, longitud del primer y el último tramo de la pista
+    // que se desplaza (solo al dibujar) hasta su estación.
+    tramoEstacion: 120, // m
     maxPorPareja: 2, // forma de lente: una a cada lado
     // Proyectos propuestos por dirección (desde la cima, hacia la base).
     proyectosPorDireccion: 2,
