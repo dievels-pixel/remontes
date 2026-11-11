@@ -7,6 +7,11 @@ export type ColorPista = (typeof COLORES)[number];
 
 export type Bandas = Record<ColorPista, readonly [number, number]>;
 
+/** Copia independiente de unas bandas (para poder cambiarlas en memoria). */
+export function copiarBandas(b: Bandas): Bandas {
+  return Object.fromEntries(COLORES.map((c) => [c, [b[c][0], b[c][1]] as const])) as unknown as Bandas;
+}
+
 export function pendienteCentral(bandas: Bandas, color: ColorPista): number {
   const [a, b] = bandas[color];
   return (a + b) / 2;

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG } from '../src/config';
 import { evaluarColores, pendienteCentral } from '../src/core/colores';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from '../src/core/curva';
 import { Polilinea } from '../src/core/polilinea';
 import { segmentosSeCruzan } from '../src/core/vector';
+import { BANDAS_CLASICAS } from './apoyo';
 
 describe('Polilínea', () => {
   const l = new Polilinea([
@@ -141,7 +141,7 @@ describe('Temblor de la serpentina', () => {
 });
 
 describe('Colores por pendiente', () => {
-  const bandas = CONFIG.pista.bandas;
+  const bandas = BANDAS_CLASICAS;
 
   it('la sinuosidad necesaria es ΔH / (p_central · D)', () => {
     const r = evaluarColores(600, 2000, 1, 2, bandas);
@@ -175,7 +175,7 @@ describe('Cruce de segmentos', () => {
 });
 
 describe('Pendiente objetivo «cercana»', () => {
-  const bandas = CONFIG.pista.bandas;
+  const bandas = BANDAS_CLASICAS;
 
   it('toma la pendiente de la banda más próxima a la recta, que pide menos sinuosidad', () => {
     // p en recta 0,3 con sMin 1,05: la azul [0,15–0,25] toma 0,25 (s = 1,2).
@@ -197,5 +197,26 @@ describe('Pendiente objetivo «cercana»', () => {
   it('abre más colores que «central» en la misma pareja', () => {
     const n = (m: 'central' | 'cercana') => evaluarColores(600, 2000, 1.05, 2, bandas, m).filter((c) => c.factible).length;
     expect(n('cercana')).toBeGreaterThan(n('central'));
+  });
+});
+
+describe('Bandas solapadas', () => {
+  const solapadas = {
+    verde: [0.05, 0.2],
+    azul: [0.13, 0.3],
+    roja: [0.22, 0.42],
+    negra: [0.35, 0.6],
+  } as const;
+
+  it('una misma pendiente puede ser de dos colores, y una pareja admite más colores', () => {
+    // Recta con pendiente 0,25 y sMin 1: azul y roja la aceptan tal cual (s = 1).
+    const r = evaluarColores(500, 2000, 1, 1.55, solapadas, 'cercana');
+    const f = Object.fromEntries(r.map((c) => [c.color, c]));
+    expect(f.azul.factible && f.roja.factible).toBe(true);
+    expect(f.azul.s).toBeCloseTo(1, 10);
+    expect(f.roja.s).toBeCloseTo(1, 10);
+    expect(f.verde.factible).toBe(true); // 0,2 con s = 1,25
+    const sinSolape = evaluarColores(500, 2000, 1, 1.55, BANDAS_CLASICAS, 'cercana').filter((c) => c.factible).length;
+    expect(r.filter((c) => c.factible).length).toBeGreaterThan(sinSolape);
   });
 });

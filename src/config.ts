@@ -37,14 +37,15 @@ export const CONFIG = {
     separacionPx: 22, // px de pantalla entre centros (símbolo de 19 px + hueco)
   },
 
-  // Pistas. Color por pendiente media efectiva p = ΔH / L. PROVISIONAL: las
-  // bandas son una decisión abierta (contrastar con estaciones reales).
+  // Pistas. Color por pendiente media efectiva p = ΔH / L. Las bandas se
+  // solapan: con la misma pendiente, una pista más ancha es más fácil.
+  // PROVISIONAL: por calibrar con el panel de ajustes.
   pista: {
     bandas: {
-      verde: [0.05, 0.15],
-      azul: [0.15, 0.25],
-      roja: [0.25, 0.4],
-      negra: [0.4, 0.6],
+      verde: [0.05, 0.2],
+      azul: [0.13, 0.3],
+      roja: [0.22, 0.42],
+      negra: [0.35, 0.6],
     },
     sinuosidadMaxima: 1.55, // s = L / D; calibrado con el panel de ajustes
     // Abombamiento lateral / distancia: separa de su remonte las dos laterales

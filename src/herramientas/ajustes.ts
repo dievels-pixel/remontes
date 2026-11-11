@@ -4,19 +4,65 @@
 // src/config.ts no se tocan) y recalcula al momento las pistas abiertas y los
 // proyectos. "Copiar valores" deja en el portapapeles el bloque de config.ts.
 import { CONFIG } from '../config';
-import type { PendienteObjetivo } from '../core/colores';
+import { copiarBandas, type ColorPista, type PendienteObjetivo } from '../core/colores';
 import type { Juego } from '../juego';
 import { textoConfigPista } from './textoConfig';
 
+type ParametrosPista = Juego['red']['reglas']['pista'];
+
+interface Deslizador {
+  nombre: string;
+  min: number;
+  max: number;
+  paso: number;
+  decimales: number;
+  unidad?: string;
+  leer: (p: ParametrosPista) => number;
+  escribir: (p: ParametrosPista, v: number) => void;
+}
+
 type ClaveNumerica = 'longitudOnda' | 'sinuosidadMaxima' | 'abombamientoLateral' | 'abombamientoNormal' | 'irregularidad' | 'temblor';
 
-const DESLIZADORES: { clave: ClaveNumerica; nombre: string; min: number; max: number; paso: number; decimales: number; unidad?: string }[] = [
-  { clave: 'longitudOnda', nombre: 'Onda', min: 150, max: 1200, paso: 10, decimales: 0, unidad: 'm' },
-  { clave: 'sinuosidadMaxima', nombre: 'Sinuosidad máx.', min: 1.2, max: 2.5, paso: 0.05, decimales: 2 },
-  { clave: 'abombamientoLateral', nombre: 'Abomb. lateral', min: 0, max: 0.3, paso: 0.01, decimales: 2 },
-  { clave: 'abombamientoNormal', nombre: 'Abomb. normal', min: 0, max: 0.2, paso: 0.01, decimales: 2 },
-  { clave: 'irregularidad', nombre: 'Irregularidad', min: 0, max: 1, paso: 0.05, decimales: 2 },
-  { clave: 'temblor', nombre: 'Temblor', min: 0, max: 80, paso: 1, decimales: 0, unidad: 'm' },
+const simple = (clave: ClaveNumerica, nombre: string, min: number, max: number, paso: number, decimales: number, unidad?: string): Deslizador => ({
+  nombre,
+  min,
+  max,
+  paso,
+  decimales,
+  unidad,
+  leer: (p) => p[clave],
+  escribir: (p, v) => (p[clave] = v),
+});
+
+/** Extremo de la banda de un color; si se cruza con el otro extremo, lo arrastra. */
+const banda = (color: ColorPista, extremo: 0 | 1, nombre: string): Deslizador => ({
+  nombre,
+  min: 0,
+  max: 0.8,
+  paso: 0.01,
+  decimales: 2,
+  leer: (p) => p.bandas[color][extremo],
+  escribir: (p, v) => {
+    const [lo, hi] = p.bandas[color];
+    p.bandas[color] = extremo === 0 ? [v, Math.max(hi, v)] : [Math.min(lo, v), v];
+  },
+});
+
+const DESLIZADORES: Deslizador[] = [
+  simple('longitudOnda', 'Onda', 150, 1200, 10, 0, 'm'),
+  simple('sinuosidadMaxima', 'Sinuosidad máx.', 1.2, 2.5, 0.05, 2),
+  simple('abombamientoLateral', 'Abomb. lateral', 0, 0.3, 0.01, 2),
+  simple('abombamientoNormal', 'Abomb. normal', 0, 0.2, 0.01, 2),
+  simple('irregularidad', 'Irregularidad', 0, 1, 0.05, 2),
+  simple('temblor', 'Temblor', 0, 80, 1, 0, 'm'),
+  banda('verde', 0, 'Verde mín.'),
+  banda('verde', 1, 'Verde máx.'),
+  banda('azul', 0, 'Azul mín.'),
+  banda('azul', 1, 'Azul máx.'),
+  banda('roja', 0, 'Roja mín.'),
+  banda('roja', 1, 'Roja máx.'),
+  banda('negra', 0, 'Negra mín.'),
+  banda('negra', 1, 'Negra máx.'),
 ];
 
 // Franja compacta arriba, a todo lo ancho: en vertical, la parte alta del
@@ -49,7 +95,7 @@ const coma = (x: number, d: number) => x.toFixed(d).replace('.', ',');
  */
 export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) => void): void {
   const pista = juego.red.reglas.pista;
-  const iniciales = { ...pista };
+  const iniciales = { ...pista, bandas: copiarBandas(pista.bandas) };
 
   const estilo = document.createElement('style');
   estilo.textContent = ESTILO;
@@ -83,12 +129,13 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
     input.max = String(d.max);
     input.step = String(d.paso);
     const pintar = () => {
-      input.value = String(pista[d.clave]);
-      valor.textContent = `${coma(pista[d.clave], d.decimales)}${d.unidad ? ' ' + d.unidad : ''}`;
+      input.value = String(d.leer(pista));
+      valor.textContent = `${coma(d.leer(pista), d.decimales)}${d.unidad ? ' ' + d.unidad : ''}`;
     };
     input.addEventListener('input', () => {
-      pista[d.clave] = Number(input.value);
-      pintar();
+      d.escribir(pista, Number(input.value));
+      // Repinta todos: mover un extremo de banda puede arrastrar el otro.
+      refrescos.forEach((f) => f());
       recalcular();
     });
     pintar();
@@ -124,7 +171,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   const restablecer = document.createElement('button');
   restablecer.textContent = 'Restablecer';
   restablecer.addEventListener('click', () => {
-    Object.assign(pista, iniciales);
+    Object.assign(pista, { ...iniciales, bandas: copiarBandas(iniciales.bandas) });
     refrescos.forEach((f) => f());
     recalcular();
   });
