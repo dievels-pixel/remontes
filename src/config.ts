@@ -81,7 +81,11 @@ export const CONFIG = {
     // un remonte o cruce (sin unirse) más pistas que este máximo.
     maxCrucesPistas: 1,
     // Tope de pistas por punto, donde peor se lee la maraña.
-    maxPistasSalida: 3, // saliendo de una cima o intermedio
+    // Saliendo de una cima o intermedio. La última (la cuarta) solo si sale con
+    // una dirección separada de las demás al menos anguloMinimoSalida.
+    maxPistasSalida: 4,
+    anguloMinimoSalida: 25, // grados. PROVISIONAL
+    longitudDireccionSalida: 200, // m con los que se mide la dirección de salida
     maxPistasLlegada: 4, // llegando a un punto (base o intermedio)
     // Acuerdo curvo al unirse a otra pista o separarse de ella, para que
     // emboque tangente y no en perpendicular.
@@ -89,6 +93,9 @@ export const CONFIG = {
     // Margen alrededor de la plaza del pie de pistas: ningún proyecto de pista
     // puede entrar en el círculo de la plaza más este margen. PROVISIONAL.
     margenObstaculo: 30, // m
+    // Si el trazado previsto se acerca a otra pista a menos de esto, cuenta como
+    // encuentro y se une a ella; si no puede unirse, no se propone. PROVISIONAL.
+    distanciaMinimaPistas: 50, // m
   },
 
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí

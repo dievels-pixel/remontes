@@ -17,8 +17,11 @@ export interface PistaExistente {
 
 export interface Confluencia {
   trazado: Polilinea;
-  /** Tramo del trazado (por longitud recorrida) que comparte con otra pista. */
-  compartido: { inicio: number; fin: number; pista: number } | null;
+  /**
+   * Tramo del trazado (por longitud recorrida) que comparte con otra pista.
+   * `inicioPista` es dónde empieza ese tramo medido sobre la otra pista.
+   */
+  compartido: { inicio: number; fin: number; pista: number; inicioPista: number } | null;
 }
 
 export interface ParametrosConfluencia {
@@ -28,6 +31,8 @@ export interface ParametrosConfluencia {
   tramoMinimo: number;
   /** Longitud del acuerdo curvo al unirse (m), para que emboque tangente. */
   radioAcuerdo: number;
+  /** Acercarse a otra pista a menos de esta distancia (m) cuenta como encuentro. */
+  distanciaMinima?: number;
 }
 
 /** Corte de los segmentos ab y cd: parámetros t (en ab) y u (en cd), o null. */
@@ -43,27 +48,67 @@ function corte(a: Punto, b: Punto, c: Punto, d: Punto): { t: number; u: number }
   return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { t, u } : null;
 }
 
-/** Primer punto (por longitud de la nueva) donde toca a una pista existente. */
+/** Punto de la polilínea más cercano a p: distancia y longitud recorrida hasta él. */
+export function puntoMasCercano(l: Polilinea, p: Punto): { d: number; s: number } {
+  let mejor = { d: Infinity, s: 0 };
+  for (let j = 1; j < l.puntos.length; j++) {
+    const a = l.puntos[j - 1];
+    const b = l.puntos[j];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.min(Math.max(((p.x - a.x) * dx + (p.y - a.y) * dy) / l2, 0), 1) : 0;
+    const d = Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
+    if (d < mejor.d) mejor = { d, s: l.acumulada[j - 1] + t * (l.acumulada[j] - l.acumulada[j - 1]) };
+  }
+  return mejor;
+}
+
+/** Caja que envuelve la polilínea, ampliada un margen. */
+function caja(l: Polilinea, m: number) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of l.puntos) {
+    x0 = Math.min(x0, q.x);
+    y0 = Math.min(y0, q.y);
+    x1 = Math.max(x1, q.x);
+    y1 = Math.max(y1, q.y);
+  }
+  return { x0: x0 - m, y0: y0 - m, x1: x1 + m, y1: y1 + m };
+}
+
+/**
+ * Primer punto (por longitud de la nueva) donde se encuentra con una pista
+ * existente: donde la cruza o, antes, donde se le acerca a menos de
+ * `distanciaMinima` (así no quedan pistas paralelas casi pegadas).
+ */
 export function primerEncuentro(
   propio: Polilinea,
   existentes: PistaExistente[],
   margenInicio: number,
+  distanciaMinima = 0,
 ): { s: number; pista: PistaExistente; sPista: number } | null {
   const pp = propio.puntos;
+  const cajas = existentes.map((e) => caja(e.trazado, distanciaMinima));
   for (let i = 1; i < pp.length; i++) {
     if (propio.acumulada[i] < margenInicio) continue;
     let mejor: { s: number; pista: PistaExistente; sPista: number } | null = null;
-    for (const e of existentes) {
+    existentes.forEach((e, k) => {
       const ep = e.trazado.puntos;
       for (let j = 1; j < ep.length; j++) {
-        const k = corte(pp[i - 1], pp[i], ep[j - 1], ep[j]);
-        if (!k) continue;
-        const s = propio.acumulada[i - 1] + k.t * (propio.acumulada[i] - propio.acumulada[i - 1]);
+        const c = corte(pp[i - 1], pp[i], ep[j - 1], ep[j]);
+        if (!c) continue;
+        const s = propio.acumulada[i - 1] + c.t * (propio.acumulada[i] - propio.acumulada[i - 1]);
         if (s < margenInicio) continue;
-        const sPista = e.trazado.acumulada[j - 1] + k.u * (e.trazado.acumulada[j] - e.trazado.acumulada[j - 1]);
+        const sPista = e.trazado.acumulada[j - 1] + c.u * (e.trazado.acumulada[j] - e.trazado.acumulada[j - 1]);
         if (!mejor || s < mejor.s) mejor = { s, pista: e, sPista };
       }
-    }
+      // Acercamiento: el punto i a menos de la distancia mínima.
+      const cj = cajas[k];
+      if (distanciaMinima > 0 && pp[i].x >= cj.x0 && pp[i].x <= cj.x1 && pp[i].y >= cj.y0 && pp[i].y <= cj.y1) {
+        const m = puntoMasCercano(e.trazado, pp[i]);
+        if (m.d < distanciaMinima && (!mejor || propio.acumulada[i] < mejor.s)) mejor = { s: propio.acumulada[i], pista: e, sPista: m.s };
+      }
+    });
     if (mejor) return mejor;
   }
   return null;
@@ -101,7 +146,7 @@ export function confluir(
   existentes: PistaExistente[],
   p: ParametrosConfluencia,
 ): Confluencia {
-  const encuentro = primerEncuentro(propio, existentes, p.margenInicio);
+  const encuentro = primerEncuentro(propio, existentes, p.margenInicio, p.distanciaMinima ?? 0);
   if (!encuentro) return { trazado: propio, compartido: null };
   const { s, pista, sPista } = encuentro;
   const L = pista.trazado.longitud;
@@ -117,7 +162,7 @@ export function confluir(
   if (pista.hasta === destino.id) {
     if (L - sB < p.tramoMinimo) return { trazado: propio, compartido: null };
     const puntos = [...entrada, ...pista.trazado.tramo(sB, L).slice(1)];
-    return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (L - sB), pista: pista.id } };
+    return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (L - sB), pista: pista.id, inicioPista: sB } };
   }
 
   // Otro destino: sigue la existente hasta el punto más cercano a su destino
@@ -142,7 +187,7 @@ export function confluir(
   const dd = Math.hypot(haciaDestino.x, haciaDestino.y) || 1;
   const ramal = acuerdo(salida, tangente(pista.trazado, sSalida), destino, { x: haciaDestino.x / dd, y: haciaDestino.y / dd }, 24);
   const puntos = [...entrada, ...pista.trazado.tramo(sB, sSalida).slice(1), ...ramal.slice(1)];
-  return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (sSalida - sB), pista: pista.id } };
+  return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (sSalida - sB), pista: pista.id, inicioPista: sB } };
 }
 
 /**
@@ -182,4 +227,36 @@ export function pistasCruzadas(
     if (cruza) n++;
   }
   return n;
+}
+
+/**
+ * ¿Queda alguna pista existente a menos de `distancia` del trazado, fuera de
+ * los tramos inicial y final y de la zona de su propia confluencia? Si es así,
+ * la pista iría casi pegada a otra sin unirse a ella.
+ */
+export function demasiadoCerca(
+  conf: Confluencia,
+  existentes: (PistaExistente & { compartido: Confluencia['compartido'] })[],
+  distancia: number,
+  margen: number,
+  radioAcuerdo: number,
+): boolean {
+  if (distancia <= 0) return false;
+  const t = conf.trazado;
+  const L = t.longitud;
+  const excluido = (s: number) =>
+    s < margen ||
+    s > L - margen ||
+    (conf.compartido !== null && s > conf.compartido.inicio - 3 * radioAcuerdo && s < conf.compartido.fin + 2 * radioAcuerdo);
+  for (const e of existentes) {
+    const cj = caja(e.trazado, distancia);
+    for (let i = 0; i < t.puntos.length; i++) {
+      const q = t.puntos[i];
+      if (excluido(t.acumulada[i]) || q.x < cj.x0 || q.x > cj.x1 || q.y < cj.y0 || q.y > cj.y1) continue;
+      const m = puntoMasCercano(e.trazado, q);
+      const visible = !e.compartido || m.s < e.compartido.inicio || m.s > e.compartido.fin;
+      if (visible && m.d < distancia) return true;
+    }
+  }
+  return false;
 }

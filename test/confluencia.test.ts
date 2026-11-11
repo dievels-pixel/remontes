@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { confluir, pistasCruzadas, type PistaExistente } from '../src/core/confluencia';
+import { confluir, demasiadoCerca, pistasCruzadas, type PistaExistente } from '../src/core/confluencia';
 import { Polilinea } from '../src/core/polilinea';
 import { abrir, redPequena } from './apoyo';
 
@@ -114,6 +114,22 @@ describe('Confluencias', () => {
     expect(pistasCruzadas({ trazado: horizontal, compartido: null }, lista, 50, 100)).toBe(2);
     // Si el encuentro con la primera acaba en confluencia, la zona de la unión
     // no cuenta (aquí también cae dentro el cruce con la segunda, a 100 m).
-    expect(pistasCruzadas({ trazado: horizontal, compartido: { inicio: 500, fin: 520, pista: 0 } }, lista, 50, 100)).toBe(0);
+    expect(pistasCruzadas({ trazado: horizontal, compartido: { inicio: 500, fin: 520, pista: 0, inicioPista: 500 } }, lista, 50, 100)).toBe(0);
+  });
+
+  it('acercarse a menos de la distancia mínima cuenta como encuentro y se une', () => {
+    // Paralela a la existente (x = 0) a 30 m, sin llegar a cruzarla.
+    const paralela = new Polilinea(Array.from({ length: 21 }, (_, i) => ({ x: -200 + Math.min(i * 17, 170), y: i * 50 })));
+    expect(confluir(paralela, { id: 9, x: -30, y: 1000, cota: 1000 }, [existente], P).compartido).toBeNull();
+    const c = confluir(paralela, { id: 9, x: -30, y: 1000, cota: 1000 }, [existente], { ...P, distanciaMinima: 50 });
+    expect(c.compartido?.pista).toBe(0);
+  });
+
+  it('detecta una pista casi pegada que no se ha unido', () => {
+    const paralela = new Polilinea(Array.from({ length: 21 }, (_, i) => ({ x: 30, y: i * 50 })));
+    const lista = [{ ...existente, compartido: null }];
+    expect(demasiadoCerca({ trazado: paralela, compartido: null }, lista, 50, 50, 100)).toBe(true);
+    expect(demasiadoCerca({ trazado: paralela, compartido: null }, lista, 20, 50, 100)).toBe(false);
+    expect(demasiadoCerca({ trazado: paralela, compartido: null }, lista, 0, 50, 100)).toBe(false);
   });
 });
