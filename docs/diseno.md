@@ -65,7 +65,9 @@ Para evitar una maraña de trazos:
 
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
 - No se propone una pista cuyo trazado previsto corte un remonte, ni que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
-- Tope de pistas por punto: como mucho 4 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña. Las tres primeras salidas no tienen condiciones; la cuarta solo si su dirección de salida (la de sus primeros 200 m) está separada al menos un ángulo mínimo (provisional 25°) de las que ya salen de ese punto. Las dos laterales de un mismo remonte no cuentan entre sí.
+- Salidas de un punto por ángulo, sin tope de número: cada pista nueva tiene que salir con una dirección (la de sus primeros 200 m) separada al menos un ángulo mínimo (provisional 45°) de cada pista que ya sale de ese punto, y siempre cuesta abajo según el terreno (o, como mucho, en horizontal: se toleran 10 m de subida). En una ladera plana caben así hasta 5 salidas, de una horizontal a la otra. Las dos laterales de un mismo remonte no cuentan entre sí. Llegando a un punto, como mucho 4 pistas.
+- Los cruces se comprueban con la pista real de cada color (con su sinuosidad y su confluencia), no con el trazado de sinuosidad mínima: en el selector se apagan los colores cuya pista cortaría un remonte, entraría en la plaza, iría casi pegada a otra o cruzaría demasiadas. Un proyecto se propone si al menos un color da una pista limpia, y el trazo discontinuo muestra la pista real del color limpio que menos serpentea.
+- Un remonte nuevo no puede cruzar pistas (máximo provisional 0, calibrable). Así no aparecen cruces al construir remontes después de abrir pistas; a cambio, el orden de construcción importa (se puede deshacer).
 - Distancia mínima entre pistas: si el trazado previsto se acerca a otra pista a menos de una distancia (provisional 50 m), cuenta como encuentro y se une a ella (confluencia). Si no puede unirse (por ejemplo, porque el tramo compartido sería demasiado corto), no se propone. Así no quedan pistas paralelas casi pegadas.
 - La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
@@ -210,7 +212,7 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
 - Bandas de pendiente de cada color (mínimo y máximo, que se arrastran entre sí para no cruzarse).
 - Margen de la plaza (0 a 100 m).
-- Distancia mínima entre pistas (0 a 150 m) y ángulo mínimo de salida de la cuarta pista (0 a 60°).
+- Distancia mínima entre pistas (0 a 150 m), ángulo mínimo entre salidas (0 a 90°) y pistas que puede cruzar un remonte (0 a 5).
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -231,7 +233,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
 - Las pistas no cruzan la plaza del pie de pistas.
 - Una pista que pasa cerca de otra (menos de 50 m) se une a ella; si no puede, no se propone.
-- Hasta 4 pistas saliendo de un punto; la cuarta, solo con una dirección de salida separada de las demás.
+- Salidas de un punto por ángulo (45° entre ellas, siempre cuesta abajo), sin tope de número.
+- Los remontes nuevos no cruzan pistas, y los colores que darían una pista con cruces no se pueden elegir.
 - Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.

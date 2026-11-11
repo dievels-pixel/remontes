@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
+import { Polilinea } from '../src/core/polilinea';
 import { proyectosDesde } from '../src/core/proyectos';
 import { Red } from '../src/core/red';
 import { Juego } from '../src/juego';
@@ -22,13 +23,14 @@ describe('La plaza como obstáculo para las pistas', () => {
 
   it('el margen cuenta: justo fuera del círculo pero dentro del margen, tampoco', () => {
     const red = conObstaculo({ x: 0, y: 1500, radio: 100 });
-    red.construirRemonte(0, 3);
-    const lado = red.ladoLibre(3, 0)!;
-    const d = Math.min(...red.trazadoPrevisto(3, 0, lado).trazado.puntos.map((q) => Math.hypot(q.x, q.y - 1500)));
-    red.reglas.pista.margenObstaculo = Math.max(0, d - 100 + 10); // el trazado queda dentro del margen
-    expect(red.trazadoLimpio(3, 0, lado)).toBe(false);
-    red.reglas.pista.margenObstaculo = Math.max(0, d - 100 - 10); // y ahora fuera
-    expect(red.trazadoLimpio(3, 0, lado)).toBe(true);
+    const linea = new Polilinea([
+      { x: 130, y: 0 },
+      { x: 130, y: 3000 },
+    ]); // pasa a 130 m del centro: 30 m fuera del círculo
+    red.reglas.pista.margenObstaculo = 40;
+    expect(red.pisaObstaculo(linea)).toBe(true);
+    red.reglas.pista.margenObstaculo = 20;
+    expect(red.pisaObstaculo(linea)).toBe(false);
   });
 
   it('las llegadas a una base en el borde de la plaza no se ven afectadas', () => {

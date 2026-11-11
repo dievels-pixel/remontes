@@ -80,11 +80,14 @@ export const CONFIG = {
     // Para no enmarañar: no se propone una pista cuyo trazado previsto corte
     // un remonte o cruce (sin unirse) más pistas que este máximo.
     maxCrucesPistas: 1,
-    // Tope de pistas por punto, donde peor se lee la maraña.
-    // Saliendo de una cima o intermedio. La última (la cuarta) solo si sale con
-    // una dirección separada de las demás al menos anguloMinimoSalida.
-    maxPistasSalida: 4,
-    anguloMinimoSalida: 25, // grados. PROVISIONAL
+    // Pistas que un remonte nuevo puede cruzar como mucho. PROVISIONAL.
+    maxPistasCruzadasPorRemonte: 0,
+    // Tope de pistas llegando a un punto, donde peor se lee la maraña.
+    // Salidas de una cima o intermedio: sin tope de número, pero cada una
+    // separada de las demás al menos este ángulo y siempre cuesta abajo (o en
+    // horizontal). En una ladera plana caben 5 con 45°. PROVISIONAL.
+    anguloMinimoSalida: 45, // grados
+    toleranciaHorizontal: 10, // m que puede subir la salida y contar como horizontal
     longitudDireccionSalida: 200, // m con los que se mide la dirección de salida
     maxPistasLlegada: 4, // llegando a un punto (base o intermedio)
     // Acuerdo curvo al unirse a otra pista o separarse de ella, para que

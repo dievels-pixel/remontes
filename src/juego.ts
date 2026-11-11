@@ -35,6 +35,10 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'ya-existe': 'Ya está construido.',
   'cruza-remonte': 'Los remontes no pueden cruzarse.',
+  'cruza-pistas':
+    CONFIG.pista.maxPistasCruzadasPorRemonte === 0
+      ? 'Un remonte no puede cruzar pistas.'
+      : `Un remonte no puede cruzar más de ${CONFIG.pista.maxPistasCruzadasPorRemonte} pista${CONFIG.pista.maxPistasCruzadasPorRemonte === 1 ? '' : 's'}.`,
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
   'destino-lleno': `A este punto ya llegan todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
 };
@@ -67,6 +71,8 @@ export class Juego {
       maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
       // La plaza del pie de pistas es un obstáculo para las pistas.
       obstaculos: [PLAZA],
+      // Para exigir que las pistas salgan cuesta abajo según el terreno.
+      cotaTerreno: (p) => this.alturas.cotaEn(p),
     });
     this.sim = new Simulacion(
       this.red,
@@ -151,7 +157,9 @@ export class Juego {
     }
     this.infoPista = null;
     if (mejor) {
-      this.selector = { proyecto: mejor, punto: p, colores: this.red.colores(mejor.desde, mejor.hasta, mejor.lado) };
+      // Colores apagados: los que no caben por pendiente y los que darían una
+      // pista que enmaraña (corta remontes, cruza demasiadas pistas...).
+      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresLimpios(mejor.desde, mejor.hasta, mejor.lado) };
       return;
     }
     if (this.modoAjustes) {
@@ -178,7 +186,8 @@ export class Juego {
     if (!s) return;
     const { desde, hasta, lado } = s.proyecto;
     const motivo = this.red.puedeAbrirPista(desde, hasta, color, lado);
-    if (motivo !== 'ok') {
+    const limpio = this.red.coloresLimpios(desde, hasta, lado).find((c) => c.color === color)?.factible;
+    if (motivo !== 'ok' || !limpio) {
       this.avisar('Esa pista ya no se puede abrir.');
       return;
     }
@@ -280,7 +289,7 @@ export class Juego {
   /** Indicación para el jugador según el estado de la red. */
   ayuda(): string {
     if (this.red.remontes.length === 0) return 'Arrastra desde un punto de inicio hasta un punto más alto para construir un remonte.';
-    if (this.selector) return 'Elige el color de la pista. Los colores apagados no caben con esa pendiente.';
+    if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o cruzarían otras líneas.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';
     return `Esquiadores: ${this.sim.poblacion} · Bajadas: ${this.sim.bajadasCompletadas}`;
