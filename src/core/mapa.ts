@@ -8,6 +8,8 @@ interface DefinicionNodo {
   tipo: TipoNodo;
   x: number;
   y: number;
+  /** Índice de la otra estación del mismo pico, si la hay. */
+  gemelo?: number;
 }
 
 /** Centro de la plaza del pie de pistas y punto único de entrada. */
@@ -21,9 +23,12 @@ const DEFINICION: DefinicionNodo[] = [
   // Intermedios.
   { tipo: 'intermedio', x: 620, y: 1950 },
   { tipo: 'intermedio', x: 1700, y: 1800 },
-  // Cimas.
-  { tipo: 'cima', x: 980, y: 820 },
-  { tipo: 'cima', x: 1850, y: 560 },
+  // Cimas. Cada pico tiene dos estaciones gemelas, porque a cada nodo solo
+  // llega un remonte y así un pico admite dos.
+  { tipo: 'cima', x: 980, y: 820, gemelo: 7 },
+  { tipo: 'cima', x: 1850, y: 560, gemelo: 8 },
+  { tipo: 'cima', x: 1180, y: 840, gemelo: 5 },
+  { tipo: 'cima', x: 1650, y: 580, gemelo: 6 },
 ];
 
 export function crearNodos(alturas: MapaAlturas): Nodo[] {

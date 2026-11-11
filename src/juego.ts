@@ -21,6 +21,7 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'ya-existe': 'Ya está construido.',
+  gemelos: 'Son dos estaciones del mismo pico.',
   'origen-ocupado': 'De este punto ya sale un remonte.',
   'destino-ocupado': 'A este punto ya llega un remonte.',
   'pista-desde-base': 'Desde un punto de inicio solo salen remontes.',
@@ -91,8 +92,31 @@ export class Juego {
   moverArrastre(p: Punto, radioMundo: number): void {
     if (!this.arrastre) return;
     this.arrastre.puntero = p;
-    const n = this.nodoEn(p, radioMundo);
-    this.arrastre.objetivo = n === null || n === this.arrastre.origen ? null : { nodo: n, ...this.evaluar(this.arrastre.origen, n) };
+    const origen = this.arrastre.origen;
+    let n = this.nodoEn(p, radioMundo);
+    if (n === null || n === origen) {
+      this.arrastre.objetivo = null;
+      return;
+    }
+    let ev = this.evaluar(origen, n);
+    // Las estaciones gemelas están muy juntas: si la que hay bajo el dedo no
+    // vale y su gemela sí, se toma la gemela.
+    const g = this.red.nodo(n).gemelo;
+    if (ev.motivo !== 'ok' && g !== undefined && g !== origen) {
+      const evg = this.evaluar(origen, g);
+      if (evg.motivo === 'ok') {
+        n = g;
+        ev = evg;
+      }
+    }
+    this.arrastre.objetivo = { nodo: n, ...ev };
+  }
+
+  /** Multiplicador de tiempo: 1×, 2× o 4×. */
+  velocidad: 1 | 2 | 4 = 1;
+
+  cambiarVelocidad(): void {
+    this.velocidad = this.velocidad === 1 ? 2 : this.velocidad === 2 ? 4 : 1;
   }
 
   soltarArrastre(): void {

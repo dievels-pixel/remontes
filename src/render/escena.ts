@@ -83,7 +83,9 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   for (const n of red.nodos) {
     let marca: 'valido' | 'invalido' | null = null;
     if (arr && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id).motivo === 'ok' ? 'valido' : 'invalido';
-    dibujarNodo(ctx, n, P(n), red.activo(n.id), marca);
+    // En las estaciones gemelas la cota va por el lado exterior de la pareja.
+    const izquierda = n.gemelo !== undefined && red.nodo(n.gemelo).x > n.x;
+    dibujarNodo(ctx, n, P(n), red.activo(n.id), marca, izquierda);
   }
 
   // Esquiadores: en cola alrededor del nodo, andando por la plaza y bajando.
@@ -122,6 +124,43 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   }
 
   dibujarTextos(ctx, juego, ancho);
+  dibujarBotonVelocidad(ctx, juego, ancho, alto);
+}
+
+/** Botón de velocidad en la esquina inferior derecha, con tamaño cómodo para el dedo. */
+export function rectBotonVelocidad(ancho: number, alto: number): { x: number; y: number; ancho: number; alto: number } {
+  const w = 64;
+  const h = 44;
+  return { x: ancho - w - 12, y: alto - h - 16, ancho: w, alto: h };
+}
+
+function dibujarBotonVelocidad(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
+  const b = rectBotonVelocidad(ancho, alto);
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.9)';
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
+  ctx.fill();
+  ctx.stroke();
+  // Tantos triángulos como el multiplicador (1, 2 o 3 para 4×) y el número.
+  const flechas = juego.velocidad === 4 ? 3 : juego.velocidad;
+  const cy = b.y + b.alto / 2;
+  ctx.fillStyle = COLOR.tinta;
+  let x = b.x + 12;
+  for (let i = 0; i < flechas; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x, cy - 7);
+    ctx.lineTo(x + 9, cy);
+    ctx.lineTo(x, cy + 7);
+    ctx.closePath();
+    ctx.fill();
+    x += 8;
+  }
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${juego.velocidad}×`, b.x + b.ancho - 9, cy + 1);
 }
 
 function dibujarPista(ctx: CanvasRenderingContext2D, p: Pista, P: (p: Punto) => Punto, color: string, grosor: number): void {
@@ -181,7 +220,7 @@ function dibujarArrastre(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Pun
   ctx.setLineDash([]);
 }
 
-function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null): void {
+function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null, cotaIzquierda: boolean): void {
   ctx.save();
   ctx.globalAlpha = activo || marca === 'valido' ? 1 : marca === 'invalido' ? 0.2 : 0.4;
   if (marca === 'valido') {
@@ -209,9 +248,9 @@ function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: b
   ctx.stroke();
   ctx.fillStyle = COLOR.tinta;
   ctx.font = '10px system-ui, sans-serif';
-  ctx.textAlign = 'left';
+  ctx.textAlign = cotaIzquierda ? 'right' : 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(String(n.cota), c.x + r + 4, c.y - r - 2);
+  ctx.fillText(String(n.cota), cotaIzquierda ? c.x - r - 4 : c.x + r + 4, c.y - r - 2);
   ctx.restore();
 }
 

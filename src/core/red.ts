@@ -13,6 +13,8 @@ export interface Nodo {
   x: number;
   y: number;
   cota: number;
+  /** Otra estación del mismo pico: entre gemelos no hay remontes ni pistas. */
+  gemelo?: number;
 }
 
 export interface Remonte {
@@ -41,6 +43,7 @@ export interface ReglasRed {
 export type Motivo =
   | 'ok'
   | 'mismo-nodo'
+  | 'gemelos'
   | 'origen-inactivo'
   | 'destino-no-mas-alto'
   | 'destino-base'
@@ -59,6 +62,7 @@ export class Red {
   constructor(nodos: Nodo[], readonly reglas: ReglasRed) {
     nodos.forEach((n, i) => {
       if (n.id !== i) throw new Error('Los id de nodo deben coincidir con su índice');
+      if (n.gemelo !== undefined && nodos[n.gemelo]?.gemelo !== i) throw new Error('Gemelos no recíprocos');
     });
     this.nodos = nodos;
   }
@@ -85,6 +89,7 @@ export class Red {
 
   puedeConstruirRemonte(desde: number, hasta: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
+    if (this.nodos[desde].gemelo === hasta) return 'gemelos';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
@@ -97,6 +102,7 @@ export class Red {
 
   puedeAbrirPista(desde: number, hasta: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
+    if (this.nodos[desde].gemelo === hasta) return 'gemelos';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
