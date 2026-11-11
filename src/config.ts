@@ -46,17 +46,21 @@ export const CONFIG = {
       roja: [0.25, 0.4],
       negra: [0.4, 0.6],
     },
-    sinuosidadMaxima: 1.4, // s = L / D; calibrado con el panel de ajustes
+    sinuosidadMaxima: 1.55, // s = L / D; calibrado con el panel de ajustes
     // Abombamiento lateral / distancia: separa de su remonte las dos laterales
     // (lente); el resto apenas se separa de la recta. Calibrado con el panel.
-    abombamientoLateral: 0.07,
-    abombamientoNormal: 0.04,
+    abombamientoLateral: 0.1,
+    abombamientoNormal: 0.06,
     // m por oscilación de la serpentina. Más corta da zigzags más cerrados y
     // menos anchos para la misma longitud: las pistas se salen menos de su eje.
-    longitudOnda: 470, // calibrado con el panel de ajustes
+    longitudOnda: 720, // calibrado con el panel de ajustes
     // 0 a 1: variación de amplitud y longitud de onda de la serpentina, para
     // que no parezca una sinusoide perfecta. 0 = regular.
-    irregularidad: 1, // calibrado con el panel de ajustes
+    irregularidad: 0.95, // calibrado con el panel de ajustes
+    // Amplitud mínima de la serpentina (m), aunque el color no pida alargar la
+    // pista: da un poco de temblor a las más directas. 0 = curva lisa.
+    // PROVISIONAL: por ajustar con el panel.
+    temblor: 20,
     // Pendiente que se busca al elegir color: 'central' (centro de la banda) o
     // 'cercana' (la de la banda más próxima a la recta: menos sinuosidad).
     // Elegida con el panel de ajustes: 'cercana'.
@@ -66,6 +70,9 @@ export const CONFIG = {
     margenConfluencia: 120, // m
     tramoCompartidoMinimo: 100, // m
     separacionNodo: 45, // m que la pista se separa del nodo en cada extremo
+    // En un punto desdoblado, longitud del primer y el último tramo de la pista
+    // que se desplaza (solo al dibujar) hasta su estación.
+    tramoEstacion: 120, // m
     maxPorPareja: 2, // forma de lente: una a cada lado
     // Proyectos propuestos por dirección (desde la cima, hacia la base).
     proyectosPorDireccion: 2,

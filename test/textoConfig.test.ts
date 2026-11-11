@@ -9,6 +9,7 @@ describe('Texto para copiar los ajustes', () => {
     expect(t).toContain('    sinuosidadMaxima: 0.3,\n');
     expect(t).toContain(`    longitudOnda: ${CONFIG.pista.longitudOnda},\n`);
     expect(t).toContain("    pendienteObjetivo: 'cercana' as PendienteObjetivo,\n");
+    expect(t).toContain(`    temblor: ${CONFIG.pista.temblor},\n`);
     expect(t.endsWith('  },')).toBe(true);
   });
 });

@@ -23,6 +23,11 @@ export interface FormaPista {
   irregularidad?: number;
   /** Semilla de la irregularidad (estable por pareja). */
   semilla?: number;
+  /**
+   * Amplitud mínima de la serpentina (m): se aplica siempre, aunque el color no
+   * necesite alargar la pista, para que las más directas no queden lisas.
+   */
+  temblor?: number;
 }
 
 /** Variación lenta y estable por semilla: fases y frecuencias de la irregularidad. */
@@ -36,7 +41,8 @@ function parametrosIrregulares(semilla: number, ondas: number) {
 const MUESTRAS_POR_ONDA = 28;
 
 /** Curva con la forma dada y amplitud de serpentina `a` (m). */
-export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitud: number): Polilinea {
+export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitudPedida: number): Polilinea {
+  const amplitud = Math.max(amplitudPedida, forma.temblor ?? 0);
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const d = Math.hypot(dx, dy);
@@ -59,7 +65,7 @@ export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitud: num
   return new Polilinea(puntos);
 }
 
-/** Sinuosidad mínima de una forma: la de la curva sin serpentina. */
+/** Sinuosidad mínima de una forma: la de la curva con la serpentina mínima (el temblor). */
 export function sinuosidadMinima(a: Punto, b: Punto, forma: FormaPista): number {
   return trazarPista(a, b, forma, 0).longitud / Math.hypot(b.x - a.x, b.y - a.y);
 }
@@ -71,8 +77,8 @@ export function sinuosidadMinima(a: Punto, b: Punto, forma: FormaPista): number 
 export function pistaConSinuosidad(a: Punto, b: Punto, forma: FormaPista, s: number, tolerancia = 0.002): Polilinea | null {
   const d = Math.hypot(b.x - a.x, b.y - a.y);
   const objetivo = s * d;
-  let lo = 0;
-  let hi = d; // amplitud máxima razonable
+  let lo = forma.temblor ?? 0; // la bisección busca a partir del temblor
+  let hi = Math.max(d, lo); // amplitud máxima razonable
   if (trazarPista(a, b, forma, lo).longitud > objetivo * (1 + tolerancia)) return null;
   if (trazarPista(a, b, forma, hi).longitud < objetivo) return null;
   let mejor = trazarPista(a, b, forma, lo);

@@ -21,6 +21,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Las pistas sí pueden cruzar remontes y otras pistas.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de ese mismo cuadrado forman una sola línea. Basta una pista desde la llegada de arriba para que funcionen los dos tramos. No se aplica a los desdobles (un triángulo o un círculo nuevo del intermedio): esos tramos empiezan o acaban allí.
 - Las pistas salen del emplazamiento, no de una estación: quien llega por cualquiera de los triángulos de un pico puede bajar por cualquier pista de ese pico, y un remonte entra en servicio con cualquier pista que salga de su emplazamiento de llegada.
+- Aun así, en un punto desdoblado cada pista se dibuja saliendo (y llegando) por una estación, para que no salgan todas por la central. Las dos laterales de un remonte salen de la estación donde llega ese remonte y llegan a la estación de donde sale; el resto usan la estación del lado hacia el que van (o del que vienen), proyectando su dirección sobre la fila de estaciones. Es solo dibujo: el primer y el último tramo de la pista (unos 120 m) se desplazan suavemente desde el centro del punto hasta su estación, y los esquiadores se dibujan sobre esa misma curva. Las laterales se desplazan a lo largo de toda la pista, igual que su remonte (que se dibuja de estación a estación), para que la lente lo siga envolviendo. El grafo, los colores y las confluencias no cambian, y si el punto se desdobla después, la pista pasa a la estación que le toque.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
@@ -83,10 +84,11 @@ p = ΔH / L = ΔH / (s · D)
 Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real de la pista y s = L / D la sinuosidad (s = 1 es la recta).
 
 - Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (calibrado con el panel de ajustes: s_max = 1,4).
+- Efecto del temblor en los colores posibles del mapa actual: hasta 30 m no desaparece ninguno; con 40 a 50 m se pierde la única verde (entre los dos intermedios); con 80 m se pierden además dos negras y una roja.
 - Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores, casi siempre contiguos. Con el mapa actual y la pendiente objetivo «cercana» salen azules, rojas y negras, y solo una verde (entre los dos intermedios, casi llanos entre sí).
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente. Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
-- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,07 en las dos laterales de un remonte y 0,04 en el resto) y el segundo una serpentina de n ondas (una cada 470 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 1), para que no parezca una sinusoide perfecta. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
+- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,1 en las dos laterales de un remonte y 0,06 en el resto) y el segundo una serpentina de n ondas (una cada 720 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 0,95), para que no parezca una sinusoide perfecta. La amplitud nunca baja de un mínimo, el temblor (provisional 20 m), para que las pistas más directas (s ≈ 1) no queden como una curva lisa; la sinuosidad mínima de una pareja ya lo incluye y la bisección busca a partir de él. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
 - El lado de la primera pista de una pareja es el que menos remontes corta (a igualdad, por semilla); la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
 - La velocidad de los esquiadores depende de la pendiente efectiva, así que una pista negra se ve más rápida que una verde.
@@ -200,7 +202,8 @@ No forma parte del diseño del juego. Con `?ajustes` en la dirección (por ejemp
 Parámetros nuevos que el panel expone (en `src/config.ts`):
 
 - Irregularidad (0 a 1): la amplitud y la longitud de onda de la serpentina varían a lo largo de la pista (hasta ±40 % y ±50 %), de forma estable por pareja, para que no parezca una sinusoide perfecta. Con 0 la forma es la regular.
-- Pendiente objetivo del color: "central" (centro de la banda) o "cercana" (la de la banda más próxima a la de la recta, que es la que menos sinuosidad necesita). Por defecto "central" hasta que se decida.
+- Pendiente objetivo del color: "central" (centro de la banda) o "cercana" (la de la banda más próxima a la de la recta, que es la que menos sinuosidad necesita). Decidido: "cercana".
+- Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -216,7 +219,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
 - Cada estación admite un remonte por sentido y los emplazamientos se desdoblan en estaciones pegadas, hasta 3.
-- Forma de las pistas calibrada con el panel: s_max 1,4, abombamientos 0,07 (lateral) y 0,04, onda 470 m, irregularidad 1 y pendiente objetivo «cercana».
+- Forma de las pistas calibrada con el panel: s_max 1,55, abombamientos 0,1 (lateral) y 0,06, onda 720 m, irregularidad 0,95 y pendiente objetivo «cercana». Temblor provisional 20 m.
+- En un punto desdoblado, las pistas salen y llegan por las estaciones laterales (ver «Estaciones y desdoble»).
 - Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
