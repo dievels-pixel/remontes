@@ -66,6 +66,7 @@ Para evitar una maraña de trazos:
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
 - No se propone una pista cuyo trazado previsto corte un remonte, ni que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
 - Tope de pistas por punto: como mucho 3 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña.
+- La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
 
@@ -206,6 +207,8 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Irregularidad (0 a 1): la amplitud y la longitud de onda de la serpentina varían a lo largo de la pista (hasta ±40 % y ±50 %), de forma estable por pareja, para que no parezca una sinusoide perfecta. Con 0 la forma es la regular.
 - Pendiente objetivo del color: "central" (centro de la banda) o "cercana" (la de la banda más próxima a la de la recta, que es la que menos sinuosidad necesita). Decidido: "cercana".
 - Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
+- Bandas de pendiente de cada color (mínimo y máximo, que se arrastran entre sí para no cruzarse).
+- Margen de la plaza (0 a 100 m).
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -224,6 +227,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Forma de las pistas calibrada con el panel: s_max 1,55, abombamientos 0,1 (lateral) y 0,06, onda 720 m, irregularidad 0,95 y pendiente objetivo «cercana». Temblor provisional 20 m.
 - En un punto desdoblado, las pistas salen y llegan por las estaciones laterales (ver «Estaciones y desdoble»).
 - Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
+- Las pistas no cruzan la plaza del pie de pistas.
+- Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.

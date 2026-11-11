@@ -86,6 +86,9 @@ export const CONFIG = {
     // Acuerdo curvo al unirse a otra pista o separarse de ella, para que
     // emboque tangente y no en perpendicular.
     radioAcuerdo: 150, // m
+    // Margen alrededor de la plaza del pie de pistas: ningún proyecto de pista
+    // puede entrar en el círculo de la plaza más este margen. PROVISIONAL.
+    margenObstaculo: 30, // m
   },
 
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí

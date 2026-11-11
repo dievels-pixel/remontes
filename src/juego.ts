@@ -65,6 +65,8 @@ export class Juego {
       // Copia modificable (bandas incluidas): el panel de ajustes la cambia en memoria.
       pista: { ...pista, bandas: copiarBandas(pista.bandas) },
       maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
+      // La plaza del pie de pistas es un obstáculo para las pistas.
+      obstaculos: [PLAZA],
     });
     this.sim = new Simulacion(
       this.red,
