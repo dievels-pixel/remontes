@@ -62,7 +62,9 @@ Al crear un remonte de X (punto bajo) a T (punto alto) se proponen:
 
 Para evitar una maraña de trazos:
 
-- Se limitan a los 2 o 3 candidatos más cercanos por dirección.
+- Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
+- No se propone una pista cuyo trazado previsto corte un remonte, ni que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
+- Tope de pistas por punto: como mucho 3 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
 
@@ -80,12 +82,12 @@ p = ΔH / L = ΔH / (s · D)
 
 Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real de la pista y s = L / D la sinuosidad (s = 1 es la recta).
 
-- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (orientativo: s_max entre 1,6 y 2, por ajustar; provisional 2).
-- Consecuencia: como s_max / s_min ≈ 2, una pareja abarca a lo sumo dos colores contiguos. Para que haya verdes y negras, el mapa necesita parejas con pendientes en recta muy distintas (por debajo de 0,2 para verdes y por encima de 0,5 para negras con las bandas provisionales).
-- En las dos pistas laterales de T a X, s_min es algo mayor que 1 (por ejemplo 1,1) para que no se solapen con la línea del remonte.
-- Cada color es una banda de pendiente. Al elegir color se toma la pendiente central de la banda, se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
-- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,14 en las dos laterales de un remonte, que dan s ≈ 1,05, y b pequeño en el resto) y el segundo una serpentina de n ondas (una cada 150 m de distancia: ondas cortas dan zigzags cerrados y estrechos para la misma longitud) y amplitud a. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
-- El lado de la primera pista de una pareja sale de una semilla fija por pareja; la segunda va al lado contrario.
+- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (calibrado con el panel de ajustes: s_max = 1,4).
+- Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores, casi siempre contiguos. Con el mapa actual y la pendiente objetivo «cercana» salen azules, rojas y negras, y solo una verde (entre los dos intermedios, casi llanos entre sí).
+- En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
+- Cada color es una banda de pendiente. Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
+- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,07 en las dos laterales de un remonte y 0,04 en el resto) y el segundo una serpentina de n ondas (una cada 470 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 1), para que no parezca una sinusoide perfecta. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
+- El lado de la primera pista de una pareja es el que menos remontes corta (a igualdad, por semilla); la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
 - La velocidad de los esquiadores depende de la pendiente efectiva, así que una pista negra se ve más rápida que una verde.
 
@@ -108,7 +110,7 @@ Deshacer: un botón deshace la última construcción (remonte o pista), y pulsá
 
 El jugador solo activa proyectos de pista y elige color; no gestiona los cruces.
 
-Confluencias (adelantado a petición del usuario, antes de la etapa 7): si el trazado de una pista nueva se encuentra con una pista existente, se une a ella y comparten el tramo, como en las estaciones de verdad. Si no van al mismo destino, la nueva sigue a la existente hasta el punto más cercano a su destino (siempre por encima de la cota de ese destino) y ahí sale un ramal. Si el tramo compartido fuera muy corto (por debajo de un mínimo), no se unen y se cruzan sin más. No se buscan encuentros en el tramo inicial, porque las pistas que salen del mismo nodo empiezan juntas. En el grafo no cambia nada: la pista sigue yendo de su origen a su destino, y solo cambia su geometría. Los proyectos a trazos ya muestran la confluencia que tendrán.
+Confluencias (adelantado a petición del usuario, antes de la etapa 7): si el trazado de una pista nueva se encuentra con una pista existente, se une a ella y comparten el tramo, como en las estaciones de verdad. Si no van al mismo destino, la nueva sigue a la existente hasta el punto más cercano a su destino (siempre por encima de la cota de ese destino) y ahí sale un ramal. La unión y la salida del ramal no son en ángulo: un acuerdo curvo (Bézier, de unos 150 m) hace que la pista nueva emboque tangente a la existente y que el ramal salga tangente a ella. Si el tramo compartido fuera muy corto (por debajo de un mínimo), no se unen y se cruzan sin más. No se buscan encuentros en el tramo inicial, porque las pistas que salen del mismo nodo empiezan juntas. En el grafo no cambia nada: la pista sigue yendo de su origen a su destino, y solo cambia su geometría. Los proyectos a trazos ya muestran la confluencia que tendrán.
 
 - Consecuencia: la longitud real de una pista unida a otra no es la que pedía su color, así que su pendiente media (y su velocidad) se recalcula con el trazado final y puede salirse algo de la banda del color elegido. El color se mantiene como etiqueta.
 - La primera pista de una pareja va por el lado en que su curva corta menos remontes, para que no los cruce sin necesidad.
@@ -214,6 +216,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
 - Cada estación admite un remonte por sentido y los emplazamientos se desdoblan en estaciones pegadas, hasta 3.
+- Forma de las pistas calibrada con el panel: s_max 1,4, abombamientos 0,07 (lateral) y 0,04, onda 470 m, irregularidad 1 y pendiente objetivo «cercana».
+- Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
@@ -230,8 +234,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
 - [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
-- [ ] Pendiente objetivo al elegir color: central de la banda o la más cercana a la recta. Se calibra con el panel de ajustes.
-- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L): verde 0,05–0,15, azul 0,15–0,25, roja 0,25–0,40, negra 0,40–0,60. Con el mapa actual solo salen azules y rojas (las rectas entre nodos tienen pendientes de 0,28 a 0,45): hay que decidir si se cambian las bandas o el mapa.
+- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L): verde 0,05–0,15, azul 0,15–0,25, roja 0,25–0,40, negra 0,40–0,60. Con el mapa actual y la calibración de pistas salen azules, rojas y negras, pero solo una verde posible (entre los dos intermedios): para los niveles de esquiador hará falta decidir si se cambian las bandas o el mapa.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.

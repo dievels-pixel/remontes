@@ -79,4 +79,22 @@ describe('Juego: arrastre y velocidad', () => {
     j.tocar(punto, 5);
     expect(j.infoPista?.pista).toBe(p.id);
   });
+
+  it('ningún proyecto propuesto corta un remonte, aunque se vaya llenando la estación', () => {
+    const j = new Juego();
+    const bases = j.red.nodos.filter((n) => n.tipo === 'base');
+    const altos = j.red.nodos.filter((n) => n.tipo !== 'base');
+    // Unos cuantos remontes desde las bases y luego abrir proyectos uno a uno.
+    for (const b of bases) for (const a of altos) if (j.red.puedeConstruirRemonte(b.id, a.id) === 'ok') j.red.construirRemonte(b.id, a.id);
+    for (let i = 0; i < 12; i++) {
+      j.foco = j.red.remontes.length ? { tipo: 'remonte', id: i % j.red.remontes.length } : null;
+      const ps = j.proyectosVisibles();
+      for (const p of ps) expect(j.red.crucesConRemontes(j.trazadoProyecto(p).trazado)).toBe(0);
+      if (ps.length === 0) continue;
+      const p = ps[0];
+      const c = j.red.colores(p.desde, p.hasta, p.lado).find((x) => x.factible)!;
+      j.red.abrirPista(p.desde, p.hasta, c.color, p.lado);
+    }
+    expect(j.red.pistas.length).toBeGreaterThan(0);
+  });
 });

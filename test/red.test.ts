@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { trazarPista } from '../src/core/curva';
 import { Red } from '../src/core/red';
-import { abrir, REGLAS, redPequena } from './apoyo';
+import { abrir, conValoresClasicos, REGLAS, redPequena } from './apoyo';
 
 describe('Red: activación y reglas de construcción', () => {
   it('al empezar solo están activas las bases', () => {
@@ -192,6 +192,7 @@ describe('Red: activación y reglas de construcción', () => {
 
   it('la pista sale con la pendiente central de la banda del color elegido', () => {
     const red = redPequena();
+    conValoresClasicos(red);
     red.construirRemonte(0, 3);
     const p = red.abrirPista(3, 0, 'azul');
     expect(p.pendiente).toBeCloseTo(0.2, 2);
@@ -246,6 +247,7 @@ describe('Red: activación y reglas de construcción', () => {
 
   it('recalcular aplica los parámetros nuevos a las pistas abiertas, en su orden', () => {
     const red = redPequena();
+    conValoresClasicos(red);
     red.construirRemonte(0, 3);
     const p = red.abrirPista(3, 0, 'azul');
     const antes = p.trazado.puntos.length;
@@ -260,6 +262,7 @@ describe('Red: activación y reglas de construcción', () => {
 
   it('una pista cuyo color deja de caber se marca, no se borra, y se recupera', () => {
     const red = redPequena();
+    conValoresClasicos(red);
     red.construirRemonte(0, 3);
     const p = red.abrirPista(3, 0, 'azul'); // pide s ≈ 1,49
     red.reglas.pista.sinuosidadMaxima = 1.2;
@@ -287,5 +290,28 @@ describe('Red: activación y reglas de construcción', () => {
     // Deshacer sigue funcionando después de recalcular.
     red.deshacer();
     expect(red.pistas).toHaveLength(2);
+  });
+
+  it('como mucho maxPistasSalida pistas saliendo de un punto', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2);
+    abrir(red, 2, 1);
+    abrir(red, 3, 0);
+    abrir(red, 3, 0);
+    abrir(red, 3, 1);
+    expect(red.reglas.pista.maxPistasSalida).toBe(3);
+    expect(red.puedeAbrirPista(3, 2)).toBe('origen-saturado');
+  });
+
+  it('como mucho maxPistasLlegada pistas llegando a un punto', () => {
+    const red = redPequena();
+    red.reglas.pista.maxPistasLlegada = 2;
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2);
+    abrir(red, 2, 1);
+    abrir(red, 3, 0);
+    abrir(red, 3, 0);
+    expect(red.puedeAbrirPista(2, 0)).toBe('destino-saturado');
   });
 });

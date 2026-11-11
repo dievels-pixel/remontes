@@ -46,21 +46,21 @@ export const CONFIG = {
       roja: [0.25, 0.4],
       negra: [0.4, 0.6],
     },
-    sinuosidadMaxima: 2.0, // s = L / D; el diseño la sitúa entre 1,6 y 2
-    // Abombamiento lateral / distancia. 0,14 da s ≈ 1,05 en las laterales de
-    // un remonte (lente); el resto apenas se separa de la recta.
-    abombamientoLateral: 0.14,
-    abombamientoNormal: 0.05,
+    sinuosidadMaxima: 1.4, // s = L / D; calibrado con el panel de ajustes
+    // Abombamiento lateral / distancia: separa de su remonte las dos laterales
+    // (lente); el resto apenas se separa de la recta. Calibrado con el panel.
+    abombamientoLateral: 0.07,
+    abombamientoNormal: 0.04,
     // m por oscilación de la serpentina. Más corta da zigzags más cerrados y
     // menos anchos para la misma longitud: las pistas se salen menos de su eje.
-    longitudOnda: 150,
+    longitudOnda: 470, // calibrado con el panel de ajustes
     // 0 a 1: variación de amplitud y longitud de onda de la serpentina, para
     // que no parezca una sinusoide perfecta. 0 = regular.
-    irregularidad: 0,
+    irregularidad: 1, // calibrado con el panel de ajustes
     // Pendiente que se busca al elegir color: 'central' (centro de la banda) o
     // 'cercana' (la de la banda más próxima a la recta: menos sinuosidad).
-    // PROVISIONAL: 'central' hasta que se decida.
-    pendienteObjetivo: 'central' as PendienteObjetivo,
+    // Elegida con el panel de ajustes: 'cercana'.
+    pendienteObjetivo: 'cercana' as PendienteObjetivo,
     // Confluencias: tramo inicial en que no se buscan cruces (las pistas que
     // salen del mismo nodo empiezan juntas) y tramo compartido mínimo.
     margenConfluencia: 120, // m
@@ -69,6 +69,15 @@ export const CONFIG = {
     maxPorPareja: 2, // forma de lente: una a cada lado
     // Proyectos propuestos por dirección (desde la cima, hacia la base).
     proyectosPorDireccion: 2,
+    // Para no enmarañar: no se propone una pista cuyo trazado previsto corte
+    // un remonte o cruce (sin unirse) más pistas que este máximo.
+    maxCrucesPistas: 1,
+    // Tope de pistas por punto, donde peor se lee la maraña.
+    maxPistasSalida: 3, // saliendo de una cima o intermedio
+    maxPistasLlegada: 4, // llegando a un punto (base o intermedio)
+    // Acuerdo curvo al unirse a otra pista o separarse de ella, para que
+    // emboque tangente y no en perpendicular.
+    radioAcuerdo: 150, // m
   },
 
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí

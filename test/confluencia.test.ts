@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { confluir, type PistaExistente } from '../src/core/confluencia';
+import { confluir, pistasCruzadas, type PistaExistente } from '../src/core/confluencia';
 import { Polilinea } from '../src/core/polilinea';
 import { abrir, redPequena } from './apoyo';
 
@@ -16,7 +16,7 @@ const propio = new Polilinea([
   { x: -500, y: 200 },
   { x: 500, y: 800 },
 ]);
-const P = { margenInicio: 50, tramoMinimo: 100, abombamientoRamal: 0.05 };
+const P = { margenInicio: 50, tramoMinimo: 100, radioAcuerdo: 100 };
 
 describe('Confluencias', () => {
   it('sin encuentro, el trazado no cambia', () => {
@@ -32,8 +32,11 @@ describe('Confluencias', () => {
     const fin = c.trazado.puntos[c.trazado.puntos.length - 1];
     expect(fin).toEqual({ x: 0, y: 1000 });
     expect(c.compartido?.pista).toBe(0);
-    expect(c.compartido!.fin - c.compartido!.inicio).toBeCloseTo(500, 6);
-    expect(c.trazado.puntoEn(c.compartido!.inicio + 100)).toEqual({ x: 0, y: 600 });
+    // Entra en la existente un radio de acuerdo más abajo del encuentro (0,500).
+    expect(c.compartido!.fin - c.compartido!.inicio).toBeCloseTo(400, 6);
+    const q = c.trazado.puntoEn(c.compartido!.inicio + 100);
+    expect(q.x).toBeCloseTo(0, 6);
+    expect(q.y).toBeCloseTo(700, 6);
   });
 
   it('con otro destino, comparte un tramo y sale un ramal hasta el suyo', () => {
@@ -77,5 +80,40 @@ describe('Confluencias', () => {
       expect(fin.y).toBeCloseTo(red.nodo(p.hasta).y, 6);
       expect(p.pendiente).toBeCloseTo((2400 - 1500) / p.trazado.longitud, 10);
     }
+  });
+
+  it('entra tangente a la existente, no en perpendicular', () => {
+    // La nueva corta la existente casi en perpendicular: (−500,450)→(500,550).
+    const perpendicular = new Polilinea([
+      { x: -500, y: 450 },
+      { x: 500, y: 550 },
+    ]);
+    const c = confluir(perpendicular, { id: 9, x: 0, y: 1000, cota: 1000 }, [existente], P);
+    const i = c.compartido!.inicio;
+    const a = c.trazado.puntoEn(i - 8);
+    const b = c.trazado.puntoEn(i);
+    const angulo = Math.abs(Math.atan2(b.x - a.x, b.y - a.y)); // 0 = misma dirección que la existente (eje y)
+    expect(angulo).toBeLessThan((15 * Math.PI) / 180);
+  });
+
+  it('el ramal sale tangente a la existente', () => {
+    const c = confluir(propio, { id: 8, x: 300, y: 1100, cota: 900 }, [existente], P);
+    const f = c.compartido!.fin;
+    const a = c.trazado.puntoEn(f);
+    const b = c.trazado.puntoEn(f + 8);
+    expect(Math.abs(Math.atan2(b.x - a.x, b.y - a.y))).toBeLessThan((15 * Math.PI) / 180);
+  });
+
+  it('cuenta las pistas cruzadas sin unirse, una vez cada una', () => {
+    const otra = { ...existente, id: 1, trazado: new Polilinea(Array.from({ length: 21 }, (_, i) => ({ x: 100, y: i * 50 }))) };
+    const horizontal = new Polilinea(Array.from({ length: 41 }, (_, i) => ({ x: -500 + i * 25, y: 500 })));
+    const lista = [
+      { ...existente, compartido: null },
+      { ...otra, compartido: null },
+    ];
+    expect(pistasCruzadas({ trazado: horizontal, compartido: null }, lista, 50, 100)).toBe(2);
+    // Si el encuentro con la primera acaba en confluencia, la zona de la unión
+    // no cuenta (aquí también cae dentro el cruce con la segunda, a 100 m).
+    expect(pistasCruzadas({ trazado: horizontal, compartido: { inicio: 500, fin: 520, pista: 0 } }, lista, 50, 100)).toBe(0);
   });
 });
