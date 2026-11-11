@@ -144,6 +144,13 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   dibujarTextos(ctx, juego, ancho);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
   dibujarBotonDeshacer(ctx, juego, alto);
+
+  // Versión, pequeña y discreta, centrada abajo entre los dos botones.
+  ctx.fillStyle = 'rgba(38, 42, 49, 0.55)';
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(__VERSION__, ancho / 2, alto - 8);
 }
 
 type Rect = { x: number; y: number; ancho: number; alto: number };
