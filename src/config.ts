@@ -77,19 +77,19 @@ export const CONFIG = {
     maxPorPareja: 2, // forma de lente: una a cada lado
     // Proyectos propuestos por dirección (desde la cima, hacia la base).
     proyectosPorDireccion: 2,
-    // Para no enmarañar: no se propone una pista cuyo trazado previsto corte
-    // un remonte o cruce (sin unirse) más pistas que este máximo.
+    // Para no enmarañar: no se propone una pista cuyo trazado cruce (sin
+    // unirse) más pistas que este máximo. Remontes y pistas sí pueden cruzarse:
+    // es un cruce solo visual, como un puente.
     maxCrucesPistas: 1,
-    // Pistas que un remonte nuevo puede cruzar como mucho. PROVISIONAL.
-    maxPistasCruzadasPorRemonte: 0,
-    // Tope de pistas llegando a un punto, donde peor se lee la maraña.
     // Salidas de una cima o intermedio: sin tope de número, pero cada una
     // separada de las demás al menos este ángulo y siempre cuesta abajo (o en
     // horizontal). En una ladera plana caben 5 con 45°. PROVISIONAL.
     anguloMinimoSalida: 45, // grados
     toleranciaHorizontal: 10, // m que puede subir la salida y contar como horizontal
     longitudDireccionSalida: 200, // m con los que se mide la dirección de salida
-    maxPistasLlegada: 4, // llegando a un punto (base o intermedio)
+    // Tope de pistas llegando a un punto (base o intermedio), donde peor se lee
+    // la maraña.
+    maxPistasLlegada: 4,
     // Acuerdo curvo al unirse a otra pista o separarse de ella, para que
     // emboque tangente y no en perpendicular.
     radioAcuerdo: 150, // m

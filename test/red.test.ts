@@ -344,16 +344,20 @@ describe('Red: activación y reglas de construcción', () => {
     for (const grados of [10, 30, 60, 100, 160]) expect(red.salidaSeparada(3, 0, recta((grados * Math.PI) / 180))).toBe(false);
   });
 
-  it('un remonte nuevo no puede cruzar más pistas que el máximo', () => {
+  it('remontes y pistas pueden cruzarse: es un cruce solo visual', () => {
     const red = redPequena();
     red.reglas.pista.distanciaMinimaPistas = 0;
     red.construirRemonte(0, 3);
     const p = abrir(red, 3, 0);
-    const a = p.trazado.puntoEn(p.trazado.longitud * 0.5);
-    // Una recta que atraviesa la pista por la mitad la cruza una vez.
-    expect(red.pistasCruzadasPorRecta({ x: a.x - 500, y: a.y + 10 }, { x: a.x + 500, y: a.y - 10 })).toBe(1);
-    red.reglas.pista.maxPistasCruzadasPorRemonte = 0;
-    expect(red.puedeConstruirRemonte(1, 2)).toBe(red.pistasCruzadasPorRecta(red.nodo(1), red.nodo(2)) > 0 ? 'cruza-pistas' : 'ok');
+    // Un remonte nuevo puede pasar por encima de una pista abierta.
+    expect(p.trazado.longitud).toBeGreaterThan(0);
+    expect(red.puedeConstruirRemonte(1, 2)).toBe('ok');
+    red.reglas.pista.anguloMinimoSalida = 0; // esta prueba es de cruces, no de salidas
+    // Y una pista que corta un remonte sigue siendo un trazado limpio: esta
+    // pasa a la izquierda del remonte 0→3 y vuelve a la derecha para llegar a 1.
+    const cruzando = new Polilinea([red.nodo(3), { x: -300, y: 1500 }, red.nodo(1)]);
+    expect(red.crucesConRemontes(cruzando)).toBeGreaterThan(0);
+    expect(red.trazadoLimpioDe(3, 1, { trazado: cruzando, compartido: null })).toBe(true);
   });
 
   it('como mucho maxPistasLlegada pistas llegando a un punto', () => {

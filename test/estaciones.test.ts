@@ -6,8 +6,7 @@ import { abrir, REGLAS, redPequena } from './apoyo';
 function red5(): Red {
   const nodos = redPequena().nodos.map((n) => ({ ...n }));
   nodos.push({ id: 4, tipo: 'base', x: 1200, y: 3000, cota: 1480 });
-  // Estas pruebas tratan de estaciones, no de cruces: los remontes pueden cruzar pistas.
-  return new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista, maxPistasCruzadasPorRemonte: 99 } });
+  return new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista } });
 }
 
 describe('Estación de salida y llegada de cada pista', () => {
