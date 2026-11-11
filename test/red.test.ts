@@ -249,9 +249,10 @@ describe('Red: activación y reglas de construcción', () => {
     const red = redPequena();
     conValoresClasicos(red);
     red.construirRemonte(0, 3);
+    red.reglas.pista.longitudOnda = 300;
     const p = red.abrirPista(3, 0, 'azul');
     const antes = p.trazado.puntos.length;
-    red.reglas.pista.longitudOnda = 600;
+    red.reglas.pista.longitudOnda = 900;
     red.recalcularPistas();
     expect(p.trazado.puntos.length).toBeLessThan(antes); // menos ondas, menos muestras
     expect(p.color).toBe('azul');

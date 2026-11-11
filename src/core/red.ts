@@ -88,6 +88,8 @@ export interface ReglasPista {
   maxPistasLlegada: number;
   /** 0 a 1: variación de amplitud y longitud de onda de la serpentina. */
   irregularidad: number;
+  /** Amplitud mínima de la serpentina, en metros. */
+  temblor: number;
   pendienteObjetivo: PendienteObjetivo;
 }
 
@@ -244,6 +246,7 @@ export class Red {
       abombamiento: lateral ? rp.abombamientoLateral : rp.abombamientoNormal,
       ondas: Math.max(1, Math.round(d / rp.longitudOnda)),
       irregularidad: rp.irregularidad,
+      temblor: rp.temblor,
       semilla: hashPareja(desde, hasta) + (lado > 0 ? 1 : 0),
     };
   }

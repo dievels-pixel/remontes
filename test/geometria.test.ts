@@ -103,6 +103,43 @@ describe('Irregularidad de la serpentina', () => {
   });
 });
 
+describe('Temblor de la serpentina', () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 0, y: 2000 };
+  const base: FormaPista = { lado: 1, abombamiento: 0.06, ondas: 3, irregularidad: 0.95, semilla: 9 };
+
+  it('con temblor 0 la forma es idéntica a la de sin temblor', () => {
+    for (const amp of [0, 40, 120]) {
+      expect(trazarPista(a, b, { ...base, temblor: 0 }, amp).puntos).toEqual(trazarPista(a, b, base, amp).puntos);
+    }
+    expect(pistaConSinuosidad(a, b, { ...base, temblor: 0 }, 1.3)!.puntos).toEqual(pistaConSinuosidad(a, b, base, 1.3)!.puntos);
+  });
+
+  it('con temblor, la pista más directa ya no es lisa y la sinuosidad mínima sube', () => {
+    const lisa = trazarPista(a, b, base, 0);
+    const temblona = trazarPista(a, b, { ...base, temblor: 30 }, 0);
+    expect(temblona.puntos).not.toEqual(lisa.puntos);
+    expect(sinuosidadMinima(a, b, { ...base, temblor: 30 })).toBeGreaterThan(sinuosidadMinima(a, b, base));
+  });
+
+  it('con temblor nunca cruza al otro lado de su eje', () => {
+    for (const temblor of [10, 40, 80]) {
+      const f = { ...base, temblor };
+      for (const p of [trazarPista(a, b, f, 0), pistaConSinuosidad(a, b, f, 1.4)!]) for (const q of p.puntos) expect(q.x).toBeLessThanOrEqual(1e-9);
+    }
+  });
+
+  it('la bisección parte del temblor y sigue alcanzando la sinuosidad pedida', () => {
+    const f = { ...base, temblor: 40 };
+    for (const s of [sinuosidadMinima(a, b, f) + 0.01, 1.3, 1.55]) {
+      const p = pistaConSinuosidad(a, b, f, s)!;
+      expect(p.longitud / 2000).toBeCloseTo(s, 2);
+    }
+    // Por debajo de la sinuosidad que ya da el temblor, no hay curva posible.
+    expect(pistaConSinuosidad(a, b, f, sinuosidadMinima(a, b, f) - 0.02)).toBeNull();
+  });
+});
+
 describe('Colores por pendiente', () => {
   const bandas = CONFIG.pista.bandas;
 

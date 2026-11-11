@@ -8,7 +8,7 @@ import type { PendienteObjetivo } from '../core/colores';
 import type { Juego } from '../juego';
 import { textoConfigPista } from './textoConfig';
 
-type ClaveNumerica = 'longitudOnda' | 'sinuosidadMaxima' | 'abombamientoLateral' | 'abombamientoNormal' | 'irregularidad';
+type ClaveNumerica = 'longitudOnda' | 'sinuosidadMaxima' | 'abombamientoLateral' | 'abombamientoNormal' | 'irregularidad' | 'temblor';
 
 const DESLIZADORES: { clave: ClaveNumerica; nombre: string; min: number; max: number; paso: number; decimales: number; unidad?: string }[] = [
   { clave: 'longitudOnda', nombre: 'Onda', min: 150, max: 1200, paso: 10, decimales: 0, unidad: 'm' },
@@ -16,6 +16,7 @@ const DESLIZADORES: { clave: ClaveNumerica; nombre: string; min: number; max: nu
   { clave: 'abombamientoLateral', nombre: 'Abomb. lateral', min: 0, max: 0.3, paso: 0.01, decimales: 2 },
   { clave: 'abombamientoNormal', nombre: 'Abomb. normal', min: 0, max: 0.2, paso: 0.01, decimales: 2 },
   { clave: 'irregularidad', nombre: 'Irregularidad', min: 0, max: 1, paso: 0.05, decimales: 2 },
+  { clave: 'temblor', nombre: 'Temblor', min: 0, max: 80, paso: 1, decimales: 0, unidad: 'm' },
 ];
 
 // Franja compacta arriba, a todo lo ancho: en vertical, la parte alta del
