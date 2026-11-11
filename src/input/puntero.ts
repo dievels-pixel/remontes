@@ -11,6 +11,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
     return camara.aMundo({ x: e.clientX - r.left, y: e.clientY - r.top });
   };
   const radio = () => CONFIG.entrada.radioToque / camara.escala;
+  const sep = () => CONFIG.estaciones.separacionPx / camara.escala;
 
   lienzo.addEventListener('pointerdown', (e) => {
     if (activo !== null) return; // un solo dedo a la vez
@@ -23,7 +24,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       e.preventDefault();
       return;
     }
-    if (juego.empezarArrastre(enMundo(e), radio())) {
+    if (juego.empezarArrastre(enMundo(e), radio(), sep())) {
       activo = e.pointerId;
       lienzo.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -31,11 +32,11 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
   });
   lienzo.addEventListener('pointermove', (e) => {
     if (e.pointerId !== activo) return;
-    juego.moverArrastre(enMundo(e), radio());
+    juego.moverArrastre(enMundo(e), radio(), sep());
   });
   lienzo.addEventListener('pointerup', (e) => {
     if (e.pointerId !== activo) return;
-    juego.moverArrastre(enMundo(e), radio());
+    juego.moverArrastre(enMundo(e), radio(), sep());
     juego.soltarArrastre();
     activo = null;
   });

@@ -26,14 +26,65 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.puedeConstruirRemonte(3, 2)).toBe('destino-no-mas-alto');
   });
 
-  it('de cada nodo sale como mucho un remonte y a cada nodo llega como mucho uno', () => {
+  it('cada emplazamiento empieza con una estación según su tipo', () => {
+    const red = redPequena();
+    expect(red.estaciones.map((e) => e.tipo)).toEqual(['salida', 'salida', 'paso', 'llegada']);
+  });
+
+  it('una base se desdobla en nuevas salidas, una por remonte', () => {
     const red = redPequena();
     red.construirRemonte(0, 2);
-    expect(red.puedeConstruirRemonte(0, 3)).toBe('origen-ocupado');
-    expect(red.puedeConstruirRemonte(1, 2)).toBe('destino-ocupado');
-    expect(red.puedeConstruirRemonte(1, 3)).toBe('ok');
-    red.construirRemonte(2, 3); // el intermedio: uno llega y otro sale
-    expect(red.puedeConstruirRemonte(1, 3)).toBe('destino-ocupado');
+    red.construirRemonte(0, 3);
+    const est = red.estacionesDe(0);
+    expect(est.map((e) => e.tipo)).toEqual(['salida', 'salida']);
+    expect(Math.hypot(est[1].ox, est[1].oy)).toBeCloseTo(1, 10);
+  });
+
+  it('a una cima llegan hasta tres remontes, cada uno a su triángulo', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2);
+    red.construirRemonte(2, 3);
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 3);
+    const est = red.estacionesDe(3);
+    expect(est.map((e) => e.tipo)).toEqual(['llegada', 'llegada', 'llegada']);
+    const posiciones = new Set(est.map((e) => `${e.ox.toFixed(3)},${e.oy.toFixed(3)}`));
+    expect(posiciones.size).toBe(3);
+    expect(new Set(red.remontes.filter((r) => r.hasta === 3).map((r) => r.estacionHasta)).size).toBe(3);
+  });
+
+  it('el triángulo nuevo se pega por el lado del que llega la línea', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3); // llega desde abajo a la izquierda
+    red.construirRemonte(1, 3); // llega desde abajo a la derecha
+    expect(red.estacionesDe(3)[1].ox).toBeGreaterThan(0);
+    const otra = redPequena();
+    otra.construirRemonte(1, 3);
+    otra.construirRemonte(0, 3);
+    expect(otra.estacionesDe(3)[1].ox).toBeLessThan(0);
+  });
+
+  it('un intermedio es de paso y se desdobla solo como salida o llegada', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2); // llega al cuadrado
+    red.construirRemonte(2, 3); // sale del cuadrado
+    red.construirRemonte(1, 2); // segunda llegada: triángulo nuevo
+    expect(red.estacionesDe(2).map((e) => e.tipo)).toEqual(['paso', 'llegada']);
+  });
+
+  it('cuando el emplazamiento llega al máximo de estaciones se rechaza', () => {
+    const red = new Red(redPequena().nodos.map((n) => ({ ...n })), { ...REGLAS, maxEstacionesPorNodo: 1 });
+    red.construirRemonte(0, 2);
+    expect(red.puedeConstruirRemonte(0, 3)).toBe('origen-lleno');
+    expect(red.puedeConstruirRemonte(1, 2)).toBe('destino-lleno');
+  });
+
+  it('planear no modifica la red', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    expect(red.planearEstacion(1, 'llegada', 3)).not.toBeNull();
+    red.puedeConstruirRemonte(1, 3);
+    expect(red.estaciones.length).toBe(4);
   });
 
   it('el remonte nace inactivo y entra en servicio con cualquier pista desde su cima', () => {
@@ -83,14 +134,30 @@ describe('Red: activación y reglas de construcción', () => {
     expect(p.trazado.longitud).toBeGreaterThan(recta);
   });
 
-  it('entre estaciones gemelas no hay remontes ni pistas', () => {
-    const nodos = redPequena().nodos.map((n) => ({ ...n }));
-    nodos.push({ id: 4, tipo: 'cima', x: 350, y: 0, cota: 2460, gemelo: 3 });
-    nodos[3].gemelo = 4;
-    const red = new Red(nodos, REGLAS);
+  it('un remonte que pasa por un intermedio funciona entero con una pista arriba', () => {
+    const red = redPequena();
+    const abajo = red.construirRemonte(0, 2); // llega al cuadrado
+    const arriba = red.construirRemonte(2, 3); // sale del cuadrado: misma línea
+    red.abrirPista(3, 1);
+    expect(red.enServicio(arriba)).toBe(true);
+    expect(red.enServicio(abajo)).toBe(true);
+  });
+
+  it('un tramo que solo llega a un desdoble del intermedio no se activa por el de arriba', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2); // cuadrado: llegada
+    red.construirRemonte(2, 3); // cuadrado: salida
+    const otro = red.construirRemonte(1, 2); // triángulo de desdoble
+    red.abrirPista(3, 0);
+    expect(red.estaciones[otro.estacionHasta].tipo).toBe('llegada');
+    expect(red.enServicio(otro)).toBe(false);
+  });
+
+  it('un remonte que llega a una cima que ya tiene pistas funciona desde el principio', () => {
+    const red = redPequena();
     red.construirRemonte(0, 3);
-    red.construirRemonte(1, 4);
-    expect(red.puedeConstruirRemonte(3, 4)).toBe('gemelos');
-    expect(red.puedeAbrirPista(4, 3)).toBe('gemelos');
+    red.abrirPista(3, 0);
+    const nuevo = red.construirRemonte(1, 3);
+    expect(red.enServicio(nuevo)).toBe(true);
   });
 });

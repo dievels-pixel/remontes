@@ -2,7 +2,7 @@
 // convertidas con la cámara.
 import { CONFIG } from '../config';
 import { PLAZA } from '../core/mapa';
-import type { Nodo, Pista } from '../core/red';
+import type { Estacion, Pista, TipoEstacion } from '../core/red';
 import { interpolar, type Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from './camara';
@@ -25,6 +25,13 @@ const RADIO_PUNTO = 2.2;
 export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number): void {
   const { red, sim } = juego;
   const P = (p: Punto) => camara.aPantalla(p);
+  // Posición en pantalla de una estación: su nodo más el desplazamiento en la
+  // fila, en píxeles, para que queden pegadas en cualquier pantalla.
+  const PE = (e: Pick<Estacion, 'nodo' | 'ox' | 'oy'>) => {
+    const c = P(red.nodo(e.nodo));
+    const sep = CONFIG.estaciones.separacionPx;
+    return { x: c.x + e.ox * sep, y: c.y + e.oy * sep };
+  };
 
   ctx.fillStyle = COLOR_FONDO;
   ctx.fillRect(0, 0, ancho, alto);
@@ -56,9 +63,11 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // Remontes con sus bolitas.
   for (const r of red.remontes) {
     const enServicio = red.enServicio(r);
-    dibujarRemonte(ctx, P(red.nodo(r.desde)), P(red.nodo(r.hasta)), enServicio ? COLOR.tinta : COLOR.remonteParado);
+    const a = PE(red.estaciones[r.estacionDesde]);
+    const b2 = PE(red.estaciones[r.estacionHasta]);
+    dibujarRemonte(ctx, a, b2, enServicio ? COLOR.tinta : COLOR.remonteParado);
     for (const b of sim.bolitas[r.id] ?? []) {
-      const q = P(interpolar(red.nodo(r.desde), red.nodo(r.hasta), b.recorrido / r.longitud));
+      const q = interpolar(a, b2, b.recorrido / r.longitud);
       ctx.fillStyle = COLOR.hueco;
       ctx.strokeStyle = COLOR.tinta;
       ctx.lineWidth = 1.5;
@@ -77,45 +86,48 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
 
   // Vista previa del arrastre.
   const arr = juego.arrastre;
-  if (arr) dibujarArrastre(ctx, juego, P);
+  if (arr) dibujarArrastre(ctx, juego, P, PE);
 
-  // Nodos.
+  // Emplazamientos: sus estaciones en fila y la cota a la derecha de la fila.
   for (const n of red.nodos) {
-    // El desdoble oculto solo se ve como vista previa cuando el arrastre va a él.
-    const previa = arr?.objetivo?.nodo === n.id && arr.objetivo.motivo === 'ok';
-    if (!red.visible(n.id) && !previa) continue;
     let marca: 'valido' | 'invalido' | null = null;
-    if (arr && n.id !== arr.origen) {
-      const ok = (id: number) => juego.evaluar(arr.origen, id).motivo === 'ok';
-      const desdobleOk = n.gemelo !== undefined && !red.visible(n.gemelo) && ok(n.gemelo);
-      marca = ok(n.id) || desdobleOk ? 'valido' : 'invalido';
-    }
-    // Con el pico desdoblado, la cota va por el lado exterior de la pareja.
-    const g = n.gemelo;
-    const gemeloVisto = g !== undefined && (red.visible(g) || (arr?.objetivo?.nodo === g && arr.objetivo.motivo === 'ok'));
-    const izquierda = gemeloVisto && red.nodo(g!).x > n.x;
-    dibujarNodo(ctx, n, P(n), red.activo(n.id), marca, izquierda);
+    if (arr && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id).motivo === 'ok' ? 'valido' : 'invalido';
+    const activo = red.activo(n.id);
+    const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
+    for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
+    const derecha = posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
+    ctx.save();
+    ctx.globalAlpha = opacidad(activo, marca);
+    ctx.fillStyle = COLOR.tinta;
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(n.cota), derecha.c.x + RADIO_NODO + 4, derecha.c.y - RADIO_NODO - 2);
+    ctx.restore();
   }
 
   // Esquiadores: en cola alrededor del nodo, andando por la plaza y bajando.
   ctx.fillStyle = COLOR.esquiador;
-  const porNodo = new Map<number, number>();
-  const puntoEnRacimo = (nodo: number) => {
-    const i = porNodo.get(nodo) ?? 0;
-    porNodo.set(nodo, i + 1);
+  // Cada cola se agrupa alrededor de la estación de salida de su remonte.
+  const porEstacion = new Map<number, number>();
+  const puntoEnRacimo = (estacion: number) => {
+    const i = porEstacion.get(estacion) ?? 0;
+    porEstacion.set(estacion, i + 1);
     // Espiral compacta alrededor del símbolo.
     const anillo = Math.floor(i / 12);
     const ang = (i % 12) * ((Math.PI * 2) / 12) + anillo * 0.26;
     const rad = RADIO_NODO + 6 + anillo * 5;
-    const c = P(red.nodo(nodo));
+    const c = PE(red.estaciones[estacion]);
     return { x: c.x + Math.cos(ang) * rad, y: c.y + Math.sin(ang) * rad };
   };
   for (const e of sim.esquiadores.values()) {
     let q: Punto | null = null;
     switch (e.estado) {
       case 'cola':
+        q = puntoEnRacimo(red.remontes[e.remonte].estacionDesde);
+        break;
       case 'espera':
-        q = puntoEnRacimo(e.nodo);
+        q = puntoEnRacimo(e.nodo); // la estación principal tiene el id del nodo
         break;
       case 'andando':
         q = P(interpolar(e.origen, red.nodo(e.hacia), Math.min(e.recorrido / e.largo, 1)));
@@ -199,14 +211,26 @@ function dibujarRemonte(ctx: CanvasRenderingContext2D, a: Punto, b: Punto, color
   ctx.lineCap = 'round';
 }
 
-function dibujarArrastre(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Punto) => Punto): void {
+function dibujarArrastre(
+  ctx: CanvasRenderingContext2D,
+  juego: Juego,
+  P: (p: Punto) => Punto,
+  PE: (e: Pick<Estacion, 'nodo' | 'ox' | 'oy'>) => Punto,
+): void {
   const arr = juego.arrastre!;
-  const a = P(juego.red.nodo(arr.origen));
+  const red = juego.red;
   const obj = arr.objetivo;
   if (obj && obj.motivo === 'ok') {
-    const b = P(juego.red.nodo(obj.nodo));
-    if (obj.tipo === 'remonte') dibujarRemonte(ctx, a, b, COLOR.tinta);
-    else {
+    if (obj.tipo === 'remonte') {
+      // Estaciones que usaría el remonte; las nuevas se ven ya en su sitio.
+      const ed = red.planearEstacion(arr.origen, 'salida', obj.nodo)!;
+      const eh = red.planearEstacion(obj.nodo, 'llegada', arr.origen)!;
+      const pos = (p: typeof ed) => ('id' in p ? red.estaciones[p.id] : p.nueva);
+      dibujarRemonte(ctx, PE(pos(ed)), PE(pos(eh)), COLOR.tinta);
+      for (const p of [ed, eh]) if ('nueva' in p) dibujarEstacion(ctx, p.nueva.tipo, PE(p.nueva), true, 'valido');
+    } else {
+      const a = P(red.nodo(arr.origen));
+      const b = P(red.nodo(obj.nodo));
       ctx.strokeStyle = COLOR.pista;
       ctx.lineWidth = 3;
       ctx.setLineDash([7, 6]);
@@ -218,7 +242,8 @@ function dibujarArrastre(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Pun
     }
     return;
   }
-  const b = obj ? P(juego.red.nodo(obj.nodo)) : P(arr.puntero);
+  const a = P(red.nodo(arr.origen));
+  const b = obj ? P(red.nodo(obj.nodo)) : P(arr.puntero);
   ctx.strokeStyle = obj ? COLOR.invalido : 'rgba(38, 42, 49, 0.55)';
   ctx.lineWidth = 2;
   ctx.setLineDash([4, 5]);
@@ -229,9 +254,14 @@ function dibujarArrastre(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Pun
   ctx.setLineDash([]);
 }
 
-function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null, cotaIzquierda: boolean): void {
+function opacidad(activo: boolean, marca: 'valido' | 'invalido' | null): number {
+  return activo || marca === 'valido' ? 1 : marca === 'invalido' ? 0.2 : 0.4;
+}
+
+/** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
+function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null): void {
   ctx.save();
-  ctx.globalAlpha = activo || marca === 'valido' ? 1 : marca === 'invalido' ? 0.2 : 0.4;
+  ctx.globalAlpha = opacidad(activo, marca);
   if (marca === 'valido') {
     ctx.strokeStyle = COLOR.valido;
     ctx.lineWidth = 2.5;
@@ -244,8 +274,8 @@ function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: b
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   const r = RADIO_NODO;
-  if (n.tipo === 'base') ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-  else if (n.tipo === 'cima') {
+  if (tipo === 'salida') ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  else if (tipo === 'llegada') {
     ctx.moveTo(c.x, c.y - r * 1.15);
     ctx.lineTo(c.x + r * 1.05, c.y + r * 0.7);
     ctx.lineTo(c.x - r * 1.05, c.y + r * 0.7);
@@ -255,11 +285,6 @@ function dibujarNodo(ctx: CanvasRenderingContext2D, n: Nodo, c: Punto, activo: b
   }
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.textAlign = cotaIzquierda ? 'right' : 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(n.cota), cotaIzquierda ? c.x - r - 4 : c.x + r + 4, c.y - r - 2);
   ctx.restore();
 }
 

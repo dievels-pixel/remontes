@@ -4,7 +4,7 @@ import { CONFIG } from './config';
 import { generarMapaAlturas, type MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import { crearNodos, PLAZA } from './core/mapa';
-import { Red, type Motivo } from './core/red';
+import { Red, type Estacion, type Motivo } from './core/red';
 import { Simulacion } from './core/simulacion';
 import { distancia, type Punto } from './core/vector';
 
@@ -21,9 +21,8 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'ya-existe': 'Ya está construido.',
-  gemelos: 'Son dos estaciones del mismo pico.',
-  'origen-ocupado': 'De este punto ya sale un remonte.',
-  'destino-ocupado': 'A este punto ya llega un remonte.',
+  'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
+  'destino-lleno': `A este punto ya llegan todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
   'pista-desde-base': 'Desde un punto de inicio solo salen remontes.',
   'destino-no-viable': 'Ese punto aún no tiene salida: los esquiadores quedarían atrapados.',
 };
@@ -42,6 +41,7 @@ export class Juego {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
       maxPistasPorPareja: pista.maxPorPareja,
       curva: pista,
+      maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
     });
     this.sim = new Simulacion(
       this.red,
@@ -68,49 +68,41 @@ export class Juego {
     return { tipo: 'pista', motivo: this.red.puedeAbrirPista(origen, destino) };
   }
 
-  /** Nodo más cercano a un punto del mundo dentro del radio dado. */
-  nodoEn(p: Punto, radioMundo: number): number | null {
+  /**
+   * Posición en el mundo de una estación. `sepMundo` es la separación entre
+   * estaciones pasada a metros con la escala actual de la cámara.
+   */
+  posicionEstacion(e: Pick<Estacion, 'nodo' | 'ox' | 'oy'>, sepMundo: number): Punto {
+    const n = this.red.nodo(e.nodo);
+    return { x: n.x + e.ox * sepMundo, y: n.y + e.oy * sepMundo };
+  }
+
+  /** Nodo con alguna estación más cerca del punto que el radio dado. */
+  nodoEn(p: Punto, radioMundo: number, sepMundo = 0): number | null {
     let mejor: number | null = null;
     let dMin = radioMundo;
-    for (const n of this.red.nodos) {
-      if (!this.red.visible(n.id)) continue;
-      const d = distancia(p, n);
+    for (const e of this.red.estaciones) {
+      const d = distancia(p, this.posicionEstacion(e, sepMundo));
       if (d <= dMin) {
         dMin = d;
-        mejor = n.id;
+        mejor = e.nodo;
       }
     }
     return mejor;
   }
 
-  empezarArrastre(p: Punto, radioMundo: number): boolean {
-    const n = this.nodoEn(p, radioMundo);
+  empezarArrastre(p: Punto, radioMundo: number, sepMundo = 0): boolean {
+    const n = this.nodoEn(p, radioMundo, sepMundo);
     if (n === null || !this.red.activo(n)) return false;
     this.arrastre = { origen: n, puntero: p, objetivo: null };
     return true;
   }
 
-  moverArrastre(p: Punto, radioMundo: number): void {
+  moverArrastre(p: Punto, radioMundo: number, sepMundo = 0): void {
     if (!this.arrastre) return;
     this.arrastre.puntero = p;
-    const origen = this.arrastre.origen;
-    let n = this.nodoEn(p, radioMundo);
-    if (n === null || n === origen) {
-      this.arrastre.objetivo = null;
-      return;
-    }
-    let ev = this.evaluar(origen, n);
-    // Si la estación bajo el dedo no vale y su gemela sí (por ejemplo, porque
-    // ya le llega un remonte), se usa la gemela: así se desdobla el pico.
-    const g = this.red.nodo(n).gemelo;
-    if (ev.motivo !== 'ok' && g !== undefined && g !== origen) {
-      const evg = this.evaluar(origen, g);
-      if (evg.motivo === 'ok') {
-        n = g;
-        ev = evg;
-      }
-    }
-    this.arrastre.objetivo = { nodo: n, ...ev };
+    const n = this.nodoEn(p, radioMundo, sepMundo);
+    this.arrastre.objetivo = n === null || n === this.arrastre.origen ? null : { nodo: n, ...this.evaluar(this.arrastre.origen, n) };
   }
 
   /** Multiplicador de tiempo: 1×, 2× o 4×. */

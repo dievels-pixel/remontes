@@ -13,16 +13,37 @@ export interface Nodo {
   x: number;
   y: number;
   cota: number;
-  /** Otra estación del mismo pico: entre gemelos no hay remontes ni pistas. */
-  gemelo?: number;
-  /** Estación de desdoble de un pico: oculta hasta que la alcanza un remonte. */
-  desdoble?: boolean;
 }
+
+/**
+ * Estación: punto concreto de un emplazamiento (nodo) donde empieza o acaba
+ * un remonte. 'salida' admite un remonte que sale (círculo), 'llegada' uno
+ * que llega (triángulo) y 'paso' uno de cada (cuadrado).
+ *
+ * Las estaciones de un emplazamiento van en fila, pegadas: (ox, oy) es el
+ * desplazamiento respecto al nodo en "huecos" (vector unitario × posición en
+ * la fila). El dibujo lo multiplica por una separación en píxeles, para que
+ * queden pegadas en cualquier pantalla.
+ */
+export type TipoEstacion = 'salida' | 'llegada' | 'paso';
+
+export interface Estacion {
+  id: number;
+  nodo: number;
+  tipo: TipoEstacion;
+  ox: number;
+  oy: number;
+}
+
+/** Estación existente (id) o nueva por crear. */
+export type EstacionPlaneada = { id: number } | { nueva: Omit<Estacion, 'id'> };
 
 export interface Remonte {
   id: number;
   desde: number;
   hasta: number;
+  estacionDesde: number;
+  estacionHasta: number;
   longitud: number;
 }
 
@@ -40,19 +61,19 @@ export interface ReglasRed {
   desnivelMinimoRemonte: number;
   maxPistasPorPareja: number;
   curva: ParametrosCurva;
+  maxEstacionesPorNodo: number;
 }
 
 export type Motivo =
   | 'ok'
   | 'mismo-nodo'
-  | 'gemelos'
   | 'origen-inactivo'
   | 'destino-no-mas-alto'
   | 'destino-base'
   | 'destino-no-mas-bajo'
   | 'ya-existe'
-  | 'origen-ocupado'
-  | 'destino-ocupado'
+  | 'origen-lleno'
+  | 'destino-lleno'
   | 'pista-desde-base'
   | 'destino-no-viable';
 
@@ -60,13 +81,60 @@ export class Red {
   readonly nodos: readonly Nodo[];
   readonly remontes: Remonte[] = [];
   readonly pistas: Pista[] = [];
+  readonly estaciones: Estacion[] = [];
 
   constructor(nodos: Nodo[], readonly reglas: ReglasRed) {
     nodos.forEach((n, i) => {
       if (n.id !== i) throw new Error('Los id de nodo deben coincidir con su índice');
-      if (n.gemelo !== undefined && nodos[n.gemelo]?.gemelo !== i) throw new Error('Gemelos no recíprocos');
     });
     this.nodos = nodos;
+    // Estación principal de cada emplazamiento, según su tipo.
+    const principal: Record<TipoNodo, TipoEstacion> = { base: 'salida', cima: 'llegada', intermedio: 'paso' };
+    for (const n of nodos) this.estaciones.push({ id: this.estaciones.length, nodo: n.id, tipo: principal[n.tipo], ox: 0, oy: 0 });
+  }
+
+  estacionesDe(nodo: number): Estacion[] {
+    return this.estaciones.filter((e) => e.nodo === nodo);
+  }
+
+  /**
+   * Estación donde empezaría (sentido 'salida') o acabaría ('llegada') un
+   * remonte en `nodo` hacia o desde `otro`: una existente con hueco o, si no
+   * la hay, una nueva pegada a las demás. null si el emplazamiento está lleno.
+   */
+  planearEstacion(nodo: number, sentido: 'salida' | 'llegada', otro: number): EstacionPlaneada | null {
+    const propias = this.estacionesDe(nodo);
+    const libre = propias.find((e) => {
+      if (e.tipo !== 'paso' && e.tipo !== sentido) return false;
+      return sentido === 'salida'
+        ? !this.remontes.some((r) => r.estacionDesde === e.id)
+        : !this.remontes.some((r) => r.estacionHasta === e.id);
+    });
+    if (libre) return { id: libre.id };
+    if (propias.length >= this.reglas.maxEstacionesPorNodo) return null;
+    // Desdoble: la fila de estaciones va en perpendicular al primer remonte
+    // del emplazamiento, y la nueva se pega por el lado del que viene la línea.
+    const n = this.nodos[nodo];
+    const unitario = (o: Nodo) => {
+      const d = distancia(n, o) || 1;
+      return { x: (o.x - n.x) / d, y: (o.y - n.y) / d };
+    };
+    const primero = this.remontes.find((r) => r.desde === nodo || r.hasta === nodo);
+    const ref = unitario(this.nodos[primero ? (primero.desde === nodo ? primero.hasta : primero.desde) : otro]);
+    const eje = { x: -ref.y, y: ref.x };
+    const nueva = unitario(this.nodos[otro]);
+    const lado = nueva.x * eje.x + nueva.y * eje.y >= 0 ? 1 : -1;
+    // Posición en la fila de cada estación existente, proyectada sobre el eje.
+    const posiciones = propias.map((e) => Math.round(e.ox * eje.x + e.oy * eje.y));
+    const k = lado > 0 ? Math.max(...posiciones) + 1 : Math.min(...posiciones) - 1;
+    return { nueva: { nodo, tipo: sentido, ox: eje.x * k, oy: eje.y * k } };
+  }
+
+  private materializar(p: EstacionPlaneada): number {
+    if ('id' in p) return p.id;
+    const e: Estacion = { id: this.estaciones.length, ...p.nueva };
+    this.estaciones.push(e);
+    return e.id;
   }
 
   nodo(id: number): Nodo {
@@ -78,14 +146,16 @@ export class Red {
     return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id);
   }
 
-  /** Se muestra y se puede tocar: todo nodo salvo un desdoble aún sin remonte. */
-  visible(id: number): boolean {
-    return !this.nodos[id].desdoble || this.activo(id);
-  }
-
-  /** Un remonte funciona si hay al menos una pista activa desde su cima. */
+  /**
+   * Un remonte funciona si hay al menos una pista activa desde su llegada. Si
+   * llega a un punto de paso y sigue desde ahí, los dos tramos son la misma
+   * línea: el de abajo funciona en cuanto funciona el de arriba.
+   */
   enServicio(r: Remonte): boolean {
-    return this.pistas.some((p) => p.desde === r.hasta);
+    if (this.pistas.some((p) => p.desde === r.hasta)) return true;
+    if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
+    const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
+    return sigue !== undefined && this.enServicio(sigue);
   }
 
   /** Viable como destino de pista: base o con alguna salida operativa. */
@@ -96,20 +166,19 @@ export class Red {
 
   puedeConstruirRemonte(desde: number, hasta: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
-    if (this.nodos[desde].gemelo === hasta) return 'gemelos';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
-    // Cada nodo admite como mucho un remonte que salga y uno que llegue.
-    if (this.remontes.some((r) => r.desde === desde)) return 'origen-ocupado';
-    if (this.remontes.some((r) => r.hasta === hasta)) return 'destino-ocupado';
+    // Cada estación admite un remonte por sentido; el emplazamiento se desdobla
+    // hasta el máximo de estaciones.
+    if (!this.planearEstacion(desde, 'salida', hasta)) return 'origen-lleno';
+    if (!this.planearEstacion(hasta, 'llegada', desde)) return 'destino-lleno';
     return 'ok';
   }
 
   puedeAbrirPista(desde: number, hasta: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
-    if (this.nodos[desde].gemelo === hasta) return 'gemelos';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
@@ -121,10 +190,14 @@ export class Red {
   construirRemonte(desde: number, hasta: number): Remonte {
     const motivo = this.puedeConstruirRemonte(desde, hasta);
     if (motivo !== 'ok') throw new Error(`No se puede construir el remonte: ${motivo}`);
+    const estacionDesde = this.materializar(this.planearEstacion(desde, 'salida', hasta)!);
+    const estacionHasta = this.materializar(this.planearEstacion(hasta, 'llegada', desde)!);
     const r: Remonte = {
       id: this.remontes.length,
       desde,
       hasta,
+      estacionDesde,
+      estacionHasta,
       longitud: distancia(this.nodos[desde], this.nodos[hasta]),
     };
     this.remontes.push(r);
