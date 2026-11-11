@@ -293,16 +293,35 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.pistas).toHaveLength(2);
   });
 
-  it('como mucho maxPistasSalida pistas saliendo de un punto', () => {
+  it('hasta maxPistasSalida − 1 pistas saliendo sin condiciones; la última, solo si sale en otra dirección', () => {
     const red = redPequena();
+    red.reglas.pista.maxPistasSalida = 4;
+    red.reglas.pista.distanciaMinimaPistas = 0;
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
     abrir(red, 2, 1);
     abrir(red, 3, 0);
     abrir(red, 3, 0);
     abrir(red, 3, 1);
-    expect(red.reglas.pista.maxPistasSalida).toBe(3);
-    expect(red.puedeAbrirPista(3, 2)).toBe('origen-saturado');
+    // Cuarta: con ángulo mínimo 0 cabe; con 179° no.
+    red.reglas.pista.anguloMinimoSalida = 0;
+    expect(red.puedeAbrirPista(3, 2)).toBe('ok');
+    red.reglas.pista.anguloMinimoSalida = 179;
+    expect(red.puedeAbrirPista(3, 2)).toBe('salida-poco-separada');
+    red.reglas.pista.anguloMinimoSalida = 0;
+    abrir(red, 3, 2);
+    expect(red.puedeAbrirPista(3, 1)).toBe('origen-saturado'); // quinta: nunca
+  });
+
+  it('las dos laterales de un mismo remonte no cuentan entre sí para el ángulo de salida', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    const a = abrir(red, 3, 0);
+    red.reglas.pista.anguloMinimoSalida = 179;
+    expect(red.salidaSeparada(3, 0, -a.lado as 1 | -1)).toBe(true); // su pareja de lente
+    red.construirRemonte(1, 2);
+    abrir(red, 2, 1);
+    expect(red.salidaSeparada(3, 2, red.ladoLibre(3, 2)!)).toBe(false); // otra pista cualquiera sí cuenta
   });
 
   it('como mucho maxPistasLlegada pistas llegando a un punto', () => {

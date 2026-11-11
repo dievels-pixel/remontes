@@ -2,10 +2,10 @@
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
 import { evaluarColores, type Bandas, type ColorPista, type Factibilidad, type PendienteObjetivo } from './colores';
-import { confluir, pistasCruzadas, type Confluencia } from './confluencia';
+import { confluir, demasiadoCerca, pistasCruzadas, type Confluencia } from './confluencia';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
-import { distancia, distanciaAPolilinea, segmentosSeCruzan } from './vector';
+import { distancia, distanciaAPolilinea, segmentosSeCruzan, type Punto } from './vector';
 
 export type TipoNodo = 'base' | 'intermedio' | 'cima';
 
@@ -92,6 +92,12 @@ export interface ReglasPista {
   temblor: number;
   /** Margen (m) alrededor de los obstáculos que tampoco pueden pisar las pistas. */
   margenObstaculo: number;
+  /** Acercarse a otra pista a menos de esto (m) cuenta como encuentro. */
+  distanciaMinimaPistas: number;
+  /** Ángulo mínimo (grados) entre la salida de una pista y las demás de su punto. */
+  anguloMinimoSalida: number;
+  /** Longitud inicial (m) con la que se mide la dirección de salida. */
+  longitudDireccionSalida: number;
   pendienteObjetivo: PendienteObjetivo;
 }
 
@@ -124,6 +130,7 @@ export type Motivo =
   | 'sin-color'
   | 'color-imposible'
   | 'origen-saturado'
+  | 'salida-poco-separada'
   | 'destino-saturado';
 
 /** Construcción registrada en el historial. */
@@ -366,7 +373,8 @@ export class Red {
     const libres = this.ladosLibres(desde, hasta);
     if (libres.length === 0 || (lado !== undefined && !libres.includes(lado))) return 'ya-existe';
     // Topes de pistas por punto, para que no se enmarañe alrededor de los nodos.
-    if (this.pistas.filter((p) => p.desde === desde).length >= this.reglas.pista.maxPistasSalida) return 'origen-saturado';
+    const salientes = this.pistas.filter((p) => p.desde === desde);
+    if (salientes.length >= this.reglas.pista.maxPistasSalida) return 'origen-saturado';
     if (this.pistas.filter((p) => p.hasta === hasta).length >= this.reglas.pista.maxPistasLlegada) return 'destino-saturado';
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
@@ -375,7 +383,35 @@ export class Red {
     if (!colores.some((c) => c.factible)) return 'sin-color';
     if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
     if (!this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
+    // La última plaza de salida solo para una pista que salga en otra dirección.
+    if (salientes.length === this.reglas.pista.maxPistasSalida - 1 && !this.salidaSeparada(desde, hasta, lado ?? libres[0], salientes)) {
+      return 'salida-poco-separada';
+    }
     return 'ok';
+  }
+
+  /** Dirección de salida de un trazado: la de sus primeros metros. */
+  private direccionSalida(l: Polilinea): Punto {
+    const a = l.puntos[0];
+    const b = l.puntoEn(Math.min(this.reglas.pista.longitudDireccionSalida, l.longitud / 2));
+    const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { x: (b.x - a.x) / d, y: (b.y - a.y) / d };
+  }
+
+  /**
+   * ¿Sale la pista prevista con una dirección separada al menos el ángulo
+   * mínimo de las que ya salen de su punto? Las dos laterales de un mismo
+   * remonte no cuentan entre sí.
+   */
+  salidaSeparada(desde: number, hasta: number, lado: 1 | -1, salientes = this.pistas.filter((p) => p.desde === desde)): boolean {
+    const nueva = this.direccionSalida(this.trazadoPrevisto(desde, hasta, lado).trazado);
+    const minimo = (this.reglas.pista.anguloMinimoSalida * Math.PI) / 180;
+    const lateral = this.esLateral(desde, hasta);
+    return salientes.every((q) => {
+      if (lateral && q.lateral && q.hasta === hasta) return true; // su pareja de lente
+      const d = this.direccionSalida(q.trazado);
+      return Math.acos(Math.min(1, Math.max(-1, nueva.x * d.x + nueva.y * d.y))) >= minimo;
+    });
   }
 
   /**
@@ -453,6 +489,7 @@ export class Red {
       margenInicio: rp.margenConfluencia,
       tramoMinimo: rp.tramoCompartidoMinimo,
       radioAcuerdo: rp.radioAcuerdo,
+      distanciaMinima: rp.distanciaMinimaPistas,
     });
   }
 
@@ -500,6 +537,9 @@ export class Red {
       cotaHasta: this.nodos[p.hasta].cota,
       compartido: p.compartido,
     }));
+    // Si se acerca a otra a menos de la distancia mínima y no ha podido unirse,
+    // iría casi pegada a ella: no se propone.
+    if (demasiadoCerca(conf, existentes, rp.distanciaMinimaPistas, rp.margenConfluencia, rp.radioAcuerdo)) return false;
     return pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) <= rp.maxCrucesPistas;
   }
 

@@ -21,7 +21,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Las pistas sí pueden cruzar remontes y otras pistas.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de ese mismo cuadrado forman una sola línea. Basta una pista desde la llegada de arriba para que funcionen los dos tramos. No se aplica a los desdobles (un triángulo o un círculo nuevo del intermedio): esos tramos empiezan o acaban allí.
 - Las pistas salen del emplazamiento, no de una estación: quien llega por cualquiera de los triángulos de un pico puede bajar por cualquier pista de ese pico, y un remonte entra en servicio con cualquier pista que salga de su emplazamiento de llegada.
-- Aun así, en un punto desdoblado cada pista se dibuja saliendo (y llegando) por una estación, para que no salgan todas por la central. Las dos laterales de un remonte salen de la estación donde llega ese remonte y llegan a la estación de donde sale; el resto usan la estación del lado hacia el que van (o del que vienen), proyectando su dirección sobre la fila de estaciones. Es solo dibujo: el primer y el último tramo de la pista (unos 120 m) se desplazan suavemente desde el centro del punto hasta su estación, y los esquiadores se dibujan sobre esa misma curva. Las laterales se desplazan a lo largo de toda la pista, igual que su remonte (que se dibuja de estación a estación), para que la lente lo siga envolviendo. El grafo, los colores y las confluencias no cambian, y si el punto se desdobla después, la pista pasa a la estación que le toque.
+- Aun así, en un punto desdoblado cada pista se dibuja saliendo (y llegando) por una estación, para que no salgan todas por la central. Las dos laterales de un remonte salen de la estación donde llega ese remonte y llegan a la estación de donde sale; el resto usan la estación del lado hacia el que van (o del que vienen), proyectando su dirección sobre la fila de estaciones. Es solo dibujo: el primer y el último tramo de la pista (unos 120 m) se desplazan suavemente desde el centro del punto hasta su estación, y los esquiadores se dibujan sobre esa misma curva. Las laterales se desplazan a lo largo de toda la pista, igual que su remonte (que se dibuja de estación a estación), para que la lente lo siga envolviendo. El grafo, los colores y las confluencias no cambian, y si el punto se desdobla después, la pista pasa a la estación que le toque. En el tramo compartido de una confluencia, la pista que se une usa el desplazamiento de la pista a la que se une, y en los acuerdos de entrada y salida pasa suavemente del suyo al de la otra: así sus esquiadores van sobre la línea que se ve y la línea no salta.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
@@ -65,7 +65,8 @@ Para evitar una maraña de trazos:
 
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
 - No se propone una pista cuyo trazado previsto corte un remonte, ni que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
-- Tope de pistas por punto: como mucho 3 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña.
+- Tope de pistas por punto: como mucho 4 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña. Las tres primeras salidas no tienen condiciones; la cuarta solo si su dirección de salida (la de sus primeros 200 m) está separada al menos un ángulo mínimo (provisional 25°) de las que ya salen de ese punto. Las dos laterales de un mismo remonte no cuentan entre sí.
+- Distancia mínima entre pistas: si el trazado previsto se acerca a otra pista a menos de una distancia (provisional 50 m), cuenta como encuentro y se une a ella (confluencia). Si no puede unirse (por ejemplo, porque el tramo compartido sería demasiado corto), no se propone. Así no quedan pistas paralelas casi pegadas.
 - La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
@@ -209,6 +210,7 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
 - Bandas de pendiente de cada color (mínimo y máximo, que se arrastran entre sí para no cruzarse).
 - Margen de la plaza (0 a 100 m).
+- Distancia mínima entre pistas (0 a 150 m) y ángulo mínimo de salida de la cuarta pista (0 a 60°).
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -228,6 +230,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - En un punto desdoblado, las pistas salen y llegan por las estaciones laterales (ver «Estaciones y desdoble»).
 - Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
 - Las pistas no cruzan la plaza del pie de pistas.
+- Una pista que pasa cerca de otra (menos de 50 m) se une a ella; si no puede, no se propone.
+- Hasta 4 pistas saliendo de un punto; la cuarta, solo con una dirección de salida separada de las demás.
 - Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
