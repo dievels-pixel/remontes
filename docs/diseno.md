@@ -7,10 +7,6 @@ Actualizado: 2026-11-11
 Juego minimalista de gestión en tiempo real: el jugador construye remontes entre puntos fijos de una montaña y decide qué pistas abrir para que los esquiadores no se acumulen en las colas.
 
 - Referencia: Mini Metro, por la conexión de puntos con líneas, la música generativa y la sensación relajante.
-- Cada estación admite un remonte por sentido y los emplazamientos se desdoblan en estaciones pegadas, hasta 3.
-- Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
-- Los esquiadores pueden cambiar andando entre bases contiguas.
-- Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), pensada para pantalla táctil y para probarse desde el navegador del móvil. Si más adelante compensa, se porta a un motor para publicar en Android.
 - Alcance del prototipo: un mapa fijo hecho a mano, sin economía ni niveles de esquiador al principio.
 - Prioridad: encontrar primero algo que funcione y ajustar el resto probando.
