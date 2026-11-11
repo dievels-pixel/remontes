@@ -146,9 +146,16 @@ export class Red {
     return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id);
   }
 
-  /** Un remonte funciona si hay al menos una pista activa desde su cima. */
+  /**
+   * Un remonte funciona si hay al menos una pista activa desde su llegada. Si
+   * llega a un punto de paso y sigue desde ahí, los dos tramos son la misma
+   * línea: el de abajo funciona en cuanto funciona el de arriba.
+   */
   enServicio(r: Remonte): boolean {
-    return this.pistas.some((p) => p.desde === r.hasta);
+    if (this.pistas.some((p) => p.desde === r.hasta)) return true;
+    if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
+    const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
+    return sigue !== undefined && this.enServicio(sigue);
   }
 
   /** Viable como destino de pista: base o con alguna salida operativa. */

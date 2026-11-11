@@ -133,4 +133,31 @@ describe('Red: activación y reglas de construcción', () => {
     const recta = Math.hypot(200, 1000);
     expect(p.trazado.longitud).toBeGreaterThan(recta);
   });
+
+  it('un remonte que pasa por un intermedio funciona entero con una pista arriba', () => {
+    const red = redPequena();
+    const abajo = red.construirRemonte(0, 2); // llega al cuadrado
+    const arriba = red.construirRemonte(2, 3); // sale del cuadrado: misma línea
+    red.abrirPista(3, 1);
+    expect(red.enServicio(arriba)).toBe(true);
+    expect(red.enServicio(abajo)).toBe(true);
+  });
+
+  it('un tramo que solo llega a un desdoble del intermedio no se activa por el de arriba', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2); // cuadrado: llegada
+    red.construirRemonte(2, 3); // cuadrado: salida
+    const otro = red.construirRemonte(1, 2); // triángulo de desdoble
+    red.abrirPista(3, 0);
+    expect(red.estaciones[otro.estacionHasta].tipo).toBe('llegada');
+    expect(red.enServicio(otro)).toBe(false);
+  });
+
+  it('un remonte que llega a una cima que ya tiene pistas funciona desde el principio', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.abrirPista(3, 0);
+    const nuevo = red.construirRemonte(1, 3);
+    expect(red.enServicio(nuevo)).toBe(true);
+  });
 });
