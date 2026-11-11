@@ -45,11 +45,17 @@ export const CONFIG = {
       negra: [0.4, 0.6],
     },
     sinuosidadMaxima: 2.0, // s = L / D; el diseño la sitúa entre 1,6 y 2
-    // Abombamiento lateral / distancia. 0,2 da s ≈ 1,1 en las laterales de un
-    // remonte (lente); el resto apenas se separa de la recta.
-    abombamientoLateral: 0.2,
-    abombamientoNormal: 0.06,
-    longitudOnda: 650, // m por oscilación de la serpentina
+    // Abombamiento lateral / distancia. 0,14 da s ≈ 1,05 en las laterales de
+    // un remonte (lente); el resto apenas se separa de la recta.
+    abombamientoLateral: 0.14,
+    abombamientoNormal: 0.05,
+    // m por oscilación de la serpentina. Más corta da zigzags más cerrados y
+    // menos anchos para la misma longitud: las pistas se salen menos de su eje.
+    longitudOnda: 150,
+    // Confluencias: tramo inicial en que no se buscan cruces (las pistas que
+    // salen del mismo nodo empiezan juntas) y tramo compartido mínimo.
+    margenConfluencia: 120, // m
+    tramoCompartidoMinimo: 100, // m
     separacionNodo: 45, // m que la pista se separa del nodo en cada extremo
     maxPorPareja: 2, // forma de lente: una a cada lado
     // Proyectos propuestos por dirección (desde la cima, hacia la base).

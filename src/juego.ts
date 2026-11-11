@@ -4,9 +4,8 @@ import { CONFIG } from './config';
 import { generarMapaAlturas, type MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import type { ColorPista, Factibilidad } from './core/colores';
-import { trazarPista } from './core/curva';
+import type { Confluencia } from './core/confluencia';
 import { crearNodos, PLAZA } from './core/mapa';
-import type { Polilinea } from './core/polilinea';
 import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
 import { Red, type Estacion, type Motivo } from './core/red';
 import { Simulacion } from './core/simulacion';
@@ -92,6 +91,16 @@ export class Juego {
    * que salen de la llegada de cada remonte aún parado, como recordatorio.
    */
   proyectosVisibles(): Proyecto[] {
+    // Se recalculan solo si cambia la red o el foco: el dibujo los pide en
+    // cada fotograma y las confluencias son caras.
+    const clave = `${this.red.version}|${JSON.stringify(this.foco)}`;
+    if (this.cacheProyectos?.clave !== clave) this.cacheProyectos = { clave, lista: this.calcularProyectos(), trazados: new Map() };
+    return this.cacheProyectos.lista;
+  }
+
+  private cacheProyectos: { clave: string; lista: Proyecto[]; trazados: Map<string, Confluencia> } | null = null;
+
+  private calcularProyectos(): Proyecto[] {
     const max = CONFIG.pista.proyectosPorDireccion;
     const lista: Proyecto[] = [];
     const f = this.foco;
@@ -107,9 +116,17 @@ export class Juego {
     });
   }
 
-  /** Trazado a trazos de un proyecto: la curva con su sinuosidad mínima. */
-  trazadoProyecto(p: Proyecto): Polilinea {
-    return trazarPista(this.red.nodo(p.desde), this.red.nodo(p.hasta), this.red.forma(p.desde, p.hasta, p.lado), 0);
+  /** Trazado a trazos de un proyecto: su sinuosidad mínima y su confluencia. */
+  trazadoProyecto(p: Proyecto): Confluencia {
+    this.proyectosVisibles(); // asegura que la caché corresponde a la red actual
+    const cache = this.cacheProyectos!.trazados;
+    const k = claveProyecto(p);
+    let t = cache.get(k);
+    if (!t) {
+      t = this.red.trazadoPrevisto(p.desde, p.hasta, p.lado);
+      cache.set(k, t);
+    }
+    return t;
   }
 
   /** Toque fuera de los nodos: abre el selector si cae sobre un proyecto. */
@@ -117,7 +134,7 @@ export class Juego {
     let mejor: Proyecto | null = null;
     let dMin = toleranciaMundo;
     for (const pr of this.proyectosVisibles()) {
-      const d = distanciaAPolilinea(p, this.trazadoProyecto(pr).puntos);
+      const d = distanciaAPolilinea(p, this.trazadoProyecto(pr).trazado.puntos);
       if (d < dMin) {
         dMin = d;
         mejor = pr;

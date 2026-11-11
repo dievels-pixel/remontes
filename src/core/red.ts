@@ -2,7 +2,8 @@
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
 import { evaluarColores, type Bandas, type ColorPista, type Factibilidad } from './colores';
-import { pistaConSinuosidad, sinuosidadMinima, type FormaPista } from './curva';
+import { confluir, type Confluencia } from './confluencia';
+import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
 import { distancia, segmentosSeCruzan } from './vector';
 
@@ -55,6 +56,8 @@ export interface Pista {
   lado: 1 | -1;
   color: ColorPista;
   trazado: Polilinea;
+  /** Tramo del trazado que comparte con otra pista (confluencia), si lo hay. */
+  compartido: Confluencia['compartido'];
   /** Pendiente media efectiva: ΔH / L. */
   pendiente: number;
 }
@@ -68,6 +71,8 @@ export interface ReglasPista {
   abombamientoNormal: number;
   /** Longitud de cada oscilación de la serpentina, en metros. */
   longitudOnda: number;
+  margenConfluencia: number;
+  tramoCompartidoMinimo: number;
 }
 
 export interface ReglasRed {
@@ -102,6 +107,8 @@ export class Red {
   readonly remontes: Remonte[] = [];
   readonly pistas: Pista[] = [];
   readonly estaciones: Estacion[] = [];
+  /** Cambia con cada construcción o deshacer: sirve para cachés de la interfaz. */
+  version = 0;
   /** Construcciones en orden, para deshacer la última. */
   private readonly historial: Hecho[] = [];
 
@@ -218,14 +225,31 @@ export class Red {
   }
 
   /**
-   * Lado libre para una pista nueva entre la pareja: la primera elige por
-   * semilla y la segunda va al contrario (lente). null si no queda.
+   * Lado libre para una pista nueva entre la pareja. La primera va por el lado
+   * en que su curva corta menos remontes (a igualdad, por semilla) y la
+   * segunda por el contrario (lente). null si no queda.
    */
   ladoLibre(desde: number, hasta: number): 1 | -1 | null {
     const existentes = this.pistasEntre(desde, hasta);
     if (existentes.length >= this.reglas.maxPistasPorPareja) return null;
     if (existentes.length > 0) return -existentes[0].lado as 1 | -1;
-    return hashPareja(desde, hasta) & 1 ? 1 : -1;
+    const porSemilla: 1 | -1 = hashPareja(desde, hasta) & 1 ? 1 : -1;
+    const cruces = (lado: 1 | -1) =>
+      this.crucesConRemontes(trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), 0));
+    const a = cruces(porSemilla);
+    if (a === 0) return porSemilla;
+    return cruces(-porSemilla as 1 | -1) < a ? (-porSemilla as 1 | -1) : porSemilla;
+  }
+
+  /** Número de veces que una polilínea corta la línea de algún remonte. */
+  crucesConRemontes(l: Polilinea): number {
+    let n = 0;
+    for (const r of this.remontes) {
+      const a = this.nodos[r.desde];
+      const b = this.nodos[r.hasta];
+      for (let i = 1; i < l.puntos.length; i++) if (segmentosSeCruzan(l.puntos[i - 1], l.puntos[i], a, b)) n++;
+    }
+    return n;
   }
 
   /** Lados disponibles: los dos si la pareja no tiene pistas, si no el contrario. */
@@ -304,6 +328,7 @@ export class Red {
       longitud: distancia(this.nodos[desde], this.nodos[hasta]),
     };
     this.remontes.push(r);
+    this.version++;
     this.historial.push({ tipo: 'remonte', remonte: r, estacionesNuevas: this.estaciones.length - antes });
     return r;
   }
@@ -315,7 +340,7 @@ export class Red {
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
     const s = this.colores(desde, hasta, l).find((c) => c.color === color)!.s;
-    const trazado = pistaConSinuosidad(a, b, this.forma(desde, hasta, l), s)!;
+    const { trazado, compartido } = this.confluir(hasta, pistaConSinuosidad(a, b, this.forma(desde, hasta, l), s)!);
     const p: Pista = {
       id: this.pistas.length,
       desde,
@@ -323,11 +348,35 @@ export class Red {
       lado: l,
       color,
       trazado,
+      compartido,
       pendiente: (a.cota - b.cota) / trazado.longitud,
     };
     this.pistas.push(p);
+    this.version++;
     this.historial.push({ tipo: 'pista', pista: p });
     return p;
+  }
+
+  /** Une el trazado propio a la primera pista existente que toque. */
+  private confluir(hasta: number, propio: Polilinea): Confluencia {
+    const rp = this.reglas.pista;
+    const existentes = this.pistas.map((p) => ({
+      id: p.id,
+      hasta: p.hasta,
+      trazado: p.trazado,
+      cotaDesde: this.nodos[p.desde].cota,
+      cotaHasta: this.nodos[p.hasta].cota,
+    }));
+    return confluir(propio, this.nodos[hasta], existentes, {
+      margenInicio: rp.margenConfluencia,
+      tramoMinimo: rp.tramoCompartidoMinimo,
+      abombamientoRamal: rp.abombamientoNormal,
+    });
+  }
+
+  /** Trazado de un proyecto (sinuosidad mínima), con su posible confluencia. */
+  trazadoPrevisto(desde: number, hasta: number, lado: 1 | -1): Confluencia {
+    return this.confluir(hasta, trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), 0));
   }
 
   get puedeDeshacer(): boolean {
@@ -342,6 +391,7 @@ export class Red {
   deshacer(): Hecho | null {
     const h = this.historial.pop();
     if (!h) return null;
+    this.version++;
     if (h.tipo === 'remonte') {
       this.remontes.pop();
       this.estaciones.splice(this.estaciones.length - h.estacionesNuevas, h.estacionesNuevas);

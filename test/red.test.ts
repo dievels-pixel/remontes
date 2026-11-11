@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { trazarPista } from '../src/core/curva';
 import { Red } from '../src/core/red';
 import { abrir, REGLAS, redPequena } from './apoyo';
 
@@ -223,5 +224,23 @@ describe('Red: activación y reglas de construcción', () => {
     red.construirRemonte(0, 3);
     expect(red.viable(0)).toBe(true);
     expect(red.puedeAbrirPista(3, 0)).toBe('ok');
+  });
+
+  it('la primera pista de una pareja va por el lado que corta menos remontes', () => {
+    const red = redPequena();
+    red.construirRemonte(1, 3);
+    red.construirRemonte(0, 2);
+    const lado = red.ladoLibre(3, 0)!;
+    const cruces = (l: 1 | -1) => red.crucesConRemontes(trazarPista(red.nodo(3), red.nodo(0), red.forma(3, 0, l), 0));
+    expect(cruces(lado)).toBeLessThanOrEqual(cruces(-lado as 1 | -1));
+  });
+
+  it('la versión cambia con cada construcción y al deshacer', () => {
+    const red = redPequena();
+    const v0 = red.version;
+    red.construirRemonte(0, 3);
+    abrir(red, 3, 0);
+    red.deshacer();
+    expect(red.version).toBe(v0 + 3);
   });
 });
