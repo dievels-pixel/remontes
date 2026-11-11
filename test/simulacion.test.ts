@@ -120,4 +120,22 @@ describe('Simulación', () => {
       }),
     );
   });
+
+  it('desde cualquier llegada de una cima desdoblada se baja por cualquier pista de la cima', () => {
+    const red = redPequena();
+    const a = red.construirRemonte(0, 3);
+    const b = red.construirRemonte(1, 3);
+    expect(a.estacionHasta).not.toBe(b.estacionHasta);
+    const pista = red.abrirPista(3, 0); // una sola pista: sirve a las dos llegadas
+    expect(red.enServicio(a) && red.enServicio(b)).toBe(true);
+    const sim = new Simulacion(red, P, ENTRADA, crearAzar(4));
+    const subidos = new Set<number>();
+    correr(sim, 60, () => {
+      sim.bolitas[b.id].forEach((bo) => bo.pasajeros.forEach((id) => subidos.add(id)));
+      sim.esquiadores.forEach((e) => {
+        if (e.estado === 'pista' && subidos.has(e.id)) expect(e.pista).toBe(pista.id);
+      });
+    });
+    expect([...subidos].some((id) => sim.esquiadores.get(id)?.estado === 'pista') || sim.bajadasCompletadas > 0).toBe(true);
+  });
 });

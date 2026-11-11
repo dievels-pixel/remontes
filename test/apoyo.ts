@@ -5,6 +5,7 @@ export const REGLAS: ReglasRed = {
   desnivelMinimoRemonte: CONFIG.remonte.desnivelMinimo,
   maxPistasPorPareja: CONFIG.pista.maxPorPareja,
   curva: CONFIG.pista,
+  maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
 };
 
 /** Red de prueba: 0 y 1 bases, 2 intermedio, 3 cima. */

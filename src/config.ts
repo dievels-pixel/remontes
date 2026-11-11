@@ -28,6 +28,13 @@ export const CONFIG = {
     desnivelMinimo: 30, // m; evita remontes casi horizontales
   },
 
+  // Estaciones: cada emplazamiento se desdobla en estaciones pegadas, una por
+  // remonte y sentido. PROVISIONAL.
+  estaciones: {
+    maxPorEmplazamiento: 3,
+    separacionPx: 22, // px de pantalla entre centros (símbolo de 19 px + hueco)
+  },
+
   // Pistas. En la etapa 1 la curva usa una amplitud fija; el cálculo de la
   // sinuosidad por bisección es de la etapa 2.
   pista: {
