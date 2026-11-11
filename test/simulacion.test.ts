@@ -47,7 +47,7 @@ describe('Simulación', () => {
     const red = redPequena();
     red.construirRemonte(0, 2);
     red.abrirPista(2, 1); // baja a la base sin remonte: tendrá que cruzar la plaza
-    red.construirRemonte(0, 3);
+    red.construirRemonte(2, 3);
     red.abrirPista(3, 2);
     red.abrirPista(3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(3));
@@ -77,11 +77,47 @@ describe('Simulación', () => {
   it('la velocidad en pista crece con la pendiente', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    red.construirRemonte(0, 2);
+    red.construirRemonte(1, 2);
     const empinada = red.abrirPista(3, 0);
     const suave = red.abrirPista(2, 1);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(1));
     expect(empinada.pendiente).toBeGreaterThan(suave.pendiente);
     expect(sim.velocidadEnPista(empinada)).toBeGreaterThan(sim.velocidadEnPista(suave));
+  });
+
+  it('reconoce como contiguas las bases cercanas', () => {
+    const sim = new Simulacion(redPequena(), P, ENTRADA, crearAzar(1));
+    expect(sim.basesContiguas(0)).toEqual([1]);
+    expect(new Simulacion(redPequena(), { ...P, distanciaBasesContiguas: 100 }, ENTRADA, crearAzar(1)).basesContiguas(0)).toEqual([]);
+  });
+
+  it('al acabar una bajada algunos esquiadores cambian a la base contigua', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2);
+    red.abrirPista(3, 0);
+    red.abrirPista(2, 1);
+    const sim = new Simulacion(red, P, ENTRADA, crearAzar(2));
+    let cambios = 0;
+    correr(sim, 120, () =>
+      sim.esquiadores.forEach((e) => {
+        if (e.estado === 'andando' && (e.origen.x !== ENTRADA.x || e.origen.y !== ENTRADA.y)) cambios++;
+      }),
+    );
+    expect(cambios).toBeGreaterThan(0);
+  });
+
+  it('sin bases contiguas nadie cambia de base si la suya tiene remonte', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2);
+    red.abrirPista(3, 0);
+    red.abrirPista(2, 1);
+    const sim = new Simulacion(red, { ...P, distanciaBasesContiguas: 100 }, ENTRADA, crearAzar(2));
+    correr(sim, 120, () =>
+      sim.esquiadores.forEach((e) => {
+        if (e.estado === 'andando') expect(e.origen).toEqual(ENTRADA);
+      }),
+    );
   });
 });

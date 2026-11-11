@@ -21,6 +21,8 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'ya-existe': 'Ya está construido.',
+  'origen-ocupado': 'De este punto ya sale un remonte.',
+  'destino-ocupado': 'A este punto ya llega un remonte.',
   'pista-desde-base': 'Desde un punto de inicio solo salen remontes.',
   'destino-no-viable': 'Ese punto aún no tiene salida: los esquiadores quedarían atrapados.',
 };
