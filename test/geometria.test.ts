@@ -77,6 +77,32 @@ describe('Trazado de pista', () => {
   });
 });
 
+describe('Irregularidad de la serpentina', () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 0, y: 2000 };
+  const base: FormaPista = { lado: 1, abombamiento: 0.1, ondas: 8 };
+
+  it('con irregularidad 0 la forma es la de siempre', () => {
+    const sin = trazarPista(a, b, base, 60);
+    const cero = trazarPista(a, b, { ...base, irregularidad: 0, semilla: 1234 }, 60);
+    expect(cero.puntos).toEqual(sin.puntos);
+  });
+
+  it('con irregularidad la forma cambia, es estable por semilla y sigue sin cruzar al otro lado', () => {
+    const f = { ...base, irregularidad: 1, semilla: 77 };
+    const p1 = trazarPista(a, b, f, 60);
+    expect(p1.puntos).not.toEqual(trazarPista(a, b, base, 60).puntos);
+    expect(trazarPista(a, b, f, 60).puntos).toEqual(p1.puntos);
+    expect(trazarPista(a, b, { ...f, semilla: 78 }, 60).puntos).not.toEqual(p1.puntos);
+    for (const q of p1.puntos) expect(q.x).toBeLessThanOrEqual(1e-9);
+  });
+
+  it('la bisección sigue alcanzando la sinuosidad pedida', () => {
+    const p = pistaConSinuosidad(a, b, { ...base, irregularidad: 1, semilla: 5 }, 1.5)!;
+    expect(p.longitud / 2000).toBeCloseTo(1.5, 2);
+  });
+});
+
 describe('Colores por pendiente', () => {
   const bandas = CONFIG.pista.bandas;
 
@@ -108,5 +134,31 @@ describe('Cruce de segmentos', () => {
     expect(segmentosSeCruzan(p(0, 0), p(1, 1), p(5, 0), p(6, 1))).toBe(false);
     expect(segmentosSeCruzan(p(0, 0), p(10, 0), p(0, 1), p(10, 1))).toBe(false);
     expect(segmentosSeCruzan(p(0, 0), p(10, 0), p(10, 0), p(10, 10))).toBe(false);
+  });
+});
+
+describe('Pendiente objetivo «cercana»', () => {
+  const bandas = CONFIG.pista.bandas;
+
+  it('toma la pendiente de la banda más próxima a la recta, que pide menos sinuosidad', () => {
+    // p en recta 0,3 con sMin 1,05: la azul [0,15–0,25] toma 0,25 (s = 1,2).
+    const r = evaluarColores(600, 2000, 1.05, 2, bandas, 'cercana');
+    const azul = r.find((c) => c.color === 'azul')!;
+    expect(azul.p).toBeCloseTo(0.25, 10);
+    expect(azul.s).toBeCloseTo(1.2, 10);
+    const central = evaluarColores(600, 2000, 1.05, 2, bandas, 'central').find((c) => c.color === 'azul')!;
+    expect(azul.s).toBeLessThan(central.s);
+  });
+
+  it('una banda que contiene la pendiente posible sale con la sinuosidad mínima', () => {
+    // pRecta / sMin = 0,3 / 1,05 ≈ 0,286, dentro de la roja.
+    const roja = evaluarColores(600, 2000, 1.05, 2, bandas, 'cercana').find((c) => c.color === 'roja')!;
+    expect(roja.factible).toBe(true);
+    expect(roja.s).toBeCloseTo(1.05, 10);
+  });
+
+  it('abre más colores que «central» en la misma pareja', () => {
+    const n = (m: 'central' | 'cercana') => evaluarColores(600, 2000, 1.05, 2, bandas, m).filter((c) => c.factible).length;
+    expect(n('cercana')).toBeGreaterThan(n('central'));
   });
 });

@@ -243,4 +243,49 @@ describe('Red: activación y reglas de construcción', () => {
     red.deshacer();
     expect(red.version).toBe(v0 + 3);
   });
+
+  it('recalcular aplica los parámetros nuevos a las pistas abiertas, en su orden', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    const p = red.abrirPista(3, 0, 'azul');
+    const antes = p.trazado.puntos.length;
+    red.reglas.pista.longitudOnda = 600;
+    red.recalcularPistas();
+    expect(p.trazado.puntos.length).toBeLessThan(antes); // menos ondas, menos muestras
+    expect(p.color).toBe('azul');
+    expect(p.fueraDeRango).toBe(false);
+    expect(p.pendiente).toBeCloseTo(0.2, 2);
+    expect(p.s).toBeCloseTo(p.trazado.longitud / Math.hypot(400, 3000), 10);
+  });
+
+  it('una pista cuyo color deja de caber se marca, no se borra, y se recupera', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    const p = red.abrirPista(3, 0, 'azul'); // pide s ≈ 1,49
+    red.reglas.pista.sinuosidadMaxima = 1.2;
+    red.recalcularPistas();
+    expect(red.pistas).toHaveLength(1);
+    expect(p.fueraDeRango).toBe(true);
+    expect(p.s).toBeLessThanOrEqual(1.2 + 0.01);
+    red.reglas.pista.sinuosidadMaxima = 2;
+    red.recalcularPistas();
+    expect(p.fueraDeRango).toBe(false);
+  });
+
+  it('recalcular rehace las confluencias solo con las pistas anteriores', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2);
+    abrir(red, 2, 1);
+    abrir(red, 3, 0);
+    abrir(red, 3, 0);
+    for (const v of [150, 400, 900]) {
+      red.reglas.pista.longitudOnda = v;
+      red.recalcularPistas();
+      for (const p of red.pistas) if (p.compartido) expect(p.compartido.pista).toBeLessThan(p.id);
+    }
+    // Deshacer sigue funcionando después de recalcular.
+    red.deshacer();
+    expect(red.pistas).toHaveLength(2);
+  });
 });

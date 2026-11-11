@@ -1,7 +1,7 @@
 // Red de la estación como grafo dirigido: nodos fijos, remontes (suben) y
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
-import { evaluarColores, type Bandas, type ColorPista, type Factibilidad } from './colores';
+import { evaluarColores, type Bandas, type ColorPista, type Factibilidad, type PendienteObjetivo } from './colores';
 import { confluir, type Confluencia } from './confluencia';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
@@ -58,6 +58,15 @@ export interface Pista {
   trazado: Polilinea;
   /** Tramo del trazado que comparte con otra pista (confluencia), si lo hay. */
   compartido: Confluencia['compartido'];
+  /** Si al abrirla era una de las laterales de vuelta a la base de su remonte. */
+  lateral: boolean;
+  /** Sinuosidad real del trazado final: L / D. */
+  s: number;
+  /**
+   * Tras recalcular con otros parámetros, su color ya no cabe en esa pareja.
+   * Se mantiene (no se borra) y se traza con la sinuosidad posible más cercana.
+   */
+  fueraDeRango: boolean;
   /** Pendiente media efectiva: ΔH / L. */
   pendiente: number;
 }
@@ -73,6 +82,9 @@ export interface ReglasPista {
   longitudOnda: number;
   margenConfluencia: number;
   tramoCompartidoMinimo: number;
+  /** 0 a 1: variación de amplitud y longitud de onda de la serpentina. */
+  irregularidad: number;
+  pendienteObjetivo: PendienteObjetivo;
 }
 
 export interface ReglasRed {
@@ -213,14 +225,20 @@ export class Red {
   }
 
   /** Forma de la pista desde→hasta por el lado dado (estable por pareja). */
-  forma(desde: number, hasta: number, lado: 1 | -1): FormaPista {
-    const lateral = this.remontes.some((r) => r.desde === hasta && r.hasta === desde);
+  /** ¿Sería una de las laterales de vuelta a la base de un remonte? */
+  esLateral(desde: number, hasta: number): boolean {
+    return this.remontes.some((r) => r.desde === hasta && r.hasta === desde);
+  }
+
+  forma(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta)): FormaPista {
     const rp = this.reglas.pista;
     const d = distancia(this.nodos[desde], this.nodos[hasta]);
     return {
       lado,
       abombamiento: lateral ? rp.abombamientoLateral : rp.abombamientoNormal,
       ondas: Math.max(1, Math.round(d / rp.longitudOnda)),
+      irregularidad: rp.irregularidad,
+      semilla: hashPareja(desde, hasta) + (lado > 0 ? 1 : 0),
     };
   }
 
@@ -261,11 +279,12 @@ export class Red {
   }
 
   /** Factibilidad de cada color para la pareja y el lado. */
-  colores(desde: number, hasta: number, lado: 1 | -1): Factibilidad[] {
+  colores(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta)): Factibilidad[] {
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
-    const sMin = sinuosidadMinima(a, b, this.forma(desde, hasta, lado));
-    return evaluarColores(a.cota - b.cota, distancia(a, b), sMin, this.reglas.pista.sinuosidadMaxima, this.reglas.pista.bandas);
+    const rp = this.reglas.pista;
+    const sMin = sinuosidadMinima(a, b, this.forma(desde, hasta, lado, lateral));
+    return evaluarColores(a.cota - b.cota, distancia(a, b), sMin, rp.sinuosidadMaxima, rp.bandas, rp.pendienteObjetivo);
   }
 
   puedeConstruirRemonte(desde: number, hasta: number): Motivo {
@@ -339,8 +358,9 @@ export class Red {
     const l = lado ?? this.ladoLibre(desde, hasta)!;
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
-    const s = this.colores(desde, hasta, l).find((c) => c.color === color)!.s;
-    const { trazado, compartido } = this.confluir(hasta, pistaConSinuosidad(a, b, this.forma(desde, hasta, l), s)!);
+    const lateral = this.esLateral(desde, hasta);
+    const s = this.colores(desde, hasta, l, lateral).find((c) => c.color === color)!.s;
+    const { trazado, compartido } = this.confluir(hasta, pistaConSinuosidad(a, b, this.forma(desde, hasta, l, lateral), s)!);
     const p: Pista = {
       id: this.pistas.length,
       desde,
@@ -349,6 +369,9 @@ export class Red {
       color,
       trazado,
       compartido,
+      lateral,
+      s: trazado.longitud / distancia(a, b),
+      fueraDeRango: false,
       pendiente: (a.cota - b.cota) / trazado.longitud,
     };
     this.pistas.push(p);
@@ -358,9 +381,9 @@ export class Red {
   }
 
   /** Une el trazado propio a la primera pista existente que toque. */
-  private confluir(hasta: number, propio: Polilinea): Confluencia {
+  private confluir(hasta: number, propio: Polilinea, previas: Pista[] = this.pistas): Confluencia {
     const rp = this.reglas.pista;
-    const existentes = this.pistas.map((p) => ({
+    const existentes = previas.map((p) => ({
       id: p.id,
       hasta: p.hasta,
       trazado: p.trazado,
@@ -372,6 +395,32 @@ export class Red {
       tramoMinimo: rp.tramoCompartidoMinimo,
       abombamientoRamal: rp.abombamientoNormal,
     });
+  }
+
+  /**
+   * Recalcula, en su orden de apertura, todas las pistas abiertas con los
+   * parámetros actuales (forma, sinuosidad y confluencias con las anteriores).
+   * Si su color ya no cabe, la marca como fuera de rango y la traza con la
+   * sinuosidad posible más cercana, sin borrarla.
+   */
+  recalcularPistas(): void {
+    const rp = this.reglas.pista;
+    for (const p of this.pistas) {
+      const a = this.nodos[p.desde];
+      const b = this.nodos[p.hasta];
+      const forma = this.forma(p.desde, p.hasta, p.lado, p.lateral);
+      const f = this.colores(p.desde, p.hasta, p.lado, p.lateral).find((c) => c.color === p.color)!;
+      const sMin = sinuosidadMinima(a, b, forma);
+      const sObjetivo = f.factible ? f.s : Math.min(Math.max(f.s, sMin), rp.sinuosidadMaxima);
+      const propio = pistaConSinuosidad(a, b, forma, Math.max(sObjetivo, sMin)) ?? trazarPista(a, b, forma, 0);
+      const { trazado, compartido } = this.confluir(p.hasta, propio, this.pistas.slice(0, p.id));
+      p.trazado = trazado;
+      p.compartido = compartido;
+      p.fueraDeRango = !f.factible;
+      p.s = trazado.longitud / distancia(a, b);
+      p.pendiente = (a.cota - b.cota) / trazado.longitud;
+    }
+    this.version++;
   }
 
   /** Trazado de un proyecto (sinuosidad mínima), con su posible confluencia. */

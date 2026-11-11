@@ -62,4 +62,21 @@ describe('Juego: arrastre y velocidad', () => {
     j.tocar({ x: 5, y: 5 }, 5);
     expect(j.foco).toBeNull();
   });
+
+  it('en modo ajustes, tocar una pista abierta muestra sus datos; fuera de él, no', () => {
+    const j = new Juego();
+    const base = j.red.nodos.find((n) => n.tipo === 'base')!;
+    const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
+    j.red.construirRemonte(base.id, cima.id);
+    const lado = j.red.ladoLibre(cima.id, base.id)!;
+    const color = j.red.colores(cima.id, base.id, lado).find((c) => c.factible)!.color;
+    const p = j.red.abrirPista(cima.id, base.id, color, lado);
+    j.foco = null;
+    const punto = p.trazado.puntoEn(p.trazado.longitud * 0.5);
+    j.tocar(punto, 5);
+    expect(j.infoPista).toBeNull();
+    j.modoAjustes = true;
+    j.tocar(punto, 5);
+    expect(j.infoPista?.pista).toBe(p.id);
+  });
 });

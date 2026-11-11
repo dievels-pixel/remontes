@@ -185,6 +185,23 @@ Notas técnicas:
 - Entrada con pointer events para que valga igual con dedo y ratón.
 - Programación con Claude Code, con este documento como contexto fijo en el repositorio. Este archivo es la fuente de verdad del diseño.
 
+## Herramienta temporal de calibración
+
+No forma parte del diseño del juego. Con `?ajustes` en la dirección (por ejemplo `https://dievels-pixel.github.io/remontes/?ajustes`) aparece un panel plegable para ajustar a ojo la forma de las pistas:
+
+- Deslizadores para la longitud de onda, la sinuosidad máxima, los abombamientos lateral y normal y la irregularidad, y un selector para la pendiente objetivo del color.
+- Al mover un control se recalculan en el momento todas las pistas abiertas (en su orden de apertura, con sus confluencias) y los trazos de los proyectos. Si el color de una pista deja de caber, se dibuja a trazos cortos en vez de borrarse.
+- Al tocar una pista abierta se ven su color, su sinuosidad s y su pendiente media.
+- "Copiar valores" copia el bloque `pista` de `src/config.ts` con los valores actuales. Los parámetros siguen viviendo en `src/config.ts`: el panel solo los cambia en memoria.
+- Con el panel abierto, el mapa se encaja debajo de él para no taparlo.
+
+Parámetros nuevos que el panel expone (en `src/config.ts`):
+
+- Irregularidad (0 a 1): la amplitud y la longitud de onda de la serpentina varían a lo largo de la pista (hasta ±40 % y ±50 %), de forma estable por pareja, para que no parezca una sinusoide perfecta. Con 0 la forma es la regular.
+- Pendiente objetivo del color: "central" (centro de la banda) o "cercana" (la de la banda más próxima a la de la recta, que es la que menos sinuosidad necesita). Por defecto "central" hasta que se decida.
+
+Cuando los valores queden fijados se puede retirar el panel.
+
 ## Decisiones tomadas
 
 - Los nodos existen todos desde el principio y se activan al ser alcanzados por un remonte.
@@ -213,6 +230,7 @@ Notas técnicas:
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
 - [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
+- [ ] Pendiente objetivo al elegir color: central de la banda o la más cercana a la recta. Se calibra con el panel de ajustes.
 - [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L): verde 0,05–0,15, azul 0,15–0,25, roja 0,25–0,40, negra 0,40–0,60. Con el mapa actual solo salen azules y rojas (las rectas entre nodos tienen pendientes de 0,28 a 0,45): hay que decidir si se cambian las bandas o el mapa.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.

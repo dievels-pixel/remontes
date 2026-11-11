@@ -1,3 +1,5 @@
+import type { PendienteObjetivo } from './core/colores';
+
 // Parámetros de balance y de ajuste. Único sitio donde se tocan.
 // Los marcados PROVISIONAL corresponden a decisiones abiertas de docs/diseno.md
 // o a valores que solo se pueden fijar jugando.
@@ -52,6 +54,13 @@ export const CONFIG = {
     // m por oscilación de la serpentina. Más corta da zigzags más cerrados y
     // menos anchos para la misma longitud: las pistas se salen menos de su eje.
     longitudOnda: 150,
+    // 0 a 1: variación de amplitud y longitud de onda de la serpentina, para
+    // que no parezca una sinusoide perfecta. 0 = regular.
+    irregularidad: 0,
+    // Pendiente que se busca al elegir color: 'central' (centro de la banda) o
+    // 'cercana' (la de la banda más próxima a la recta: menos sinuosidad).
+    // PROVISIONAL: 'central' hasta que se decida.
+    pendienteObjetivo: 'central' as PendienteObjetivo,
     // Confluencias: tramo inicial en que no se buscan cruces (las pistas que
     // salen del mismo nodo empiezan juntas) y tramo compartido mínimo.
     margenConfluencia: 120, // m

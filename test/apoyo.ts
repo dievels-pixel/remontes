@@ -19,7 +19,8 @@ export function redPequena(): Red {
     { id: 2, tipo: 'intermedio', x: 200, y: 1500, cota: 1900 },
     { id: 3, tipo: 'cima', x: 400, y: 0, cota: 2400 },
   ];
-  return new Red(nodos, REGLAS);
+  // Copia propia de los parámetros de pista: hay pruebas que los cambian.
+  return new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista } });
 }
 
 /** Abre una pista con el primer color posible. */
