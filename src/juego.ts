@@ -49,6 +49,12 @@ export class Juego {
   mensaje: { texto: string; hasta: number } | null = null;
   /** Multiplicador de tiempo: 1×, 2× o 4×. */
   velocidad: 1 | 2 | 4 = 1;
+  /**
+   * Modo de calibración (?ajustes en la dirección). Herramienta temporal: al
+   * tocar una pista abierta muestra su color, sinuosidad y pendiente.
+   */
+  modoAjustes = false;
+  infoPista: { pista: number; punto: Punto } | null = null;
 
   constructor() {
     const { mundo, alturas, remonte, pista, esquiador } = CONFIG;
@@ -56,7 +62,8 @@ export class Juego {
     this.red = new Red(crearNodos(this.alturas), {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
       maxPistasPorPareja: pista.maxPorPareja,
-      pista,
+      // Copia modificable: el panel de ajustes la cambia en memoria.
+      pista: { ...pista },
       maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
     });
     this.sim = new Simulacion(
@@ -140,11 +147,27 @@ export class Juego {
         mejor = pr;
       }
     }
+    this.infoPista = null;
     if (mejor) {
       this.selector = { proyecto: mejor, punto: p, colores: this.red.colores(mejor.desde, mejor.hasta, mejor.lado) };
-    } else {
-      this.foco = null;
+      return;
     }
+    if (this.modoAjustes) {
+      let cerca: number | null = null;
+      let d = toleranciaMundo;
+      for (const pi of this.red.pistas) {
+        const di = distanciaAPolilinea(p, pi.trazado.puntos);
+        if (di < d) {
+          d = di;
+          cerca = pi.id;
+        }
+      }
+      if (cerca !== null) {
+        this.infoPista = { pista: cerca, punto: p };
+        return;
+      }
+    }
+    this.foco = null;
   }
 
   elegirColor(color: ColorPista): void {
@@ -158,6 +181,12 @@ export class Juego {
       return;
     }
     this.red.abrirPista(desde, hasta, color, lado);
+  }
+
+  /** Tras cambiar parámetros de pista (panel de ajustes): rehace todo. */
+  recalcularPistas(): void {
+    this.selector = null;
+    this.red.recalcularPistas();
   }
 
   cerrarSelector(): void {
@@ -240,6 +269,7 @@ export class Juego {
   deshacer(): void {
     this.arrastre = null;
     this.selector = null;
+    this.infoPista = null;
     const h = this.red.deshacer();
     if (h) this.sim.alDeshacer(h);
     if (this.foco?.tipo === 'remonte' && !this.red.remontes[this.foco.id]) this.foco = null;

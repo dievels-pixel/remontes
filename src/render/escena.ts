@@ -68,7 +68,13 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // El tramo compartido de una confluencia lo dibuja la pista a la que se une.
-  for (const p of red.pistas) dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido);
+  // Una pista cuyo color ya no cabe con los parámetros del panel de ajustes
+  // se ve a trazos cortos.
+  for (const p of red.pistas) {
+    if (p.fueraDeRango) ctx.setLineDash([3, 4]);
+    dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido);
+    ctx.setLineDash([]);
+  }
 
   // Proyectos de pista a trazos; el que tiene el selector abierto, más grueso.
   const elegido = juego.selector?.proyecto;
@@ -161,6 +167,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   }
 
   if (juego.selector) dibujarSelector(ctx, juego, P(juego.selector.punto), ancho, alto);
+  if (juego.infoPista && red.pistas[juego.infoPista.pista]) dibujarInfoPista(ctx, juego, P(juego.infoPista.punto), ancho);
   dibujarTextos(ctx, juego, ancho);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
   dibujarBotonDeshacer(ctx, juego, alto);
@@ -448,5 +455,36 @@ function dibujarSelector(ctx: CanvasRenderingContext2D, juego: Juego, punto: Pun
       ctx.stroke();
     }
   }
+  ctx.restore();
+}
+
+const NOMBRE_COLOR: Record<ColorPista, string> = { verde: 'Verde', azul: 'Azul', roja: 'Roja', negra: 'Negra' };
+
+/** Etiqueta con los datos de una pista (solo en el modo de ajustes). */
+function dibujarInfoPista(ctx: CanvasRenderingContext2D, juego: Juego, punto: Punto, ancho: number): void {
+  const p = juego.red.pistas[juego.infoPista!.pista];
+  const coma = (x: number, d: number) => x.toFixed(d).replace('.', ',');
+  const lineas = [
+    `${NOMBRE_COLOR[p.color]}${p.fueraDeRango ? ' (fuera de rango)' : ''}`,
+    `s = ${coma(p.s, 2)} · pendiente ${coma(p.pendiente * 100, 1)} %`,
+  ];
+  if (p.compartido) lineas.push(`comparte ${Math.round(p.compartido.fin - p.compartido.inicio)} m`);
+  ctx.save();
+  ctx.font = '13px system-ui, sans-serif';
+  const w = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + 20;
+  const h = lineas.length * 18 + 12;
+  const x = Math.min(Math.max(punto.x - w / 2, 8), ancho - w - 8);
+  const y = Math.max(punto.y - h - 16, 70);
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.96)';
+  ctx.strokeStyle = COLOR_PISTA[p.color];
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = COLOR.tinta;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lineas.forEach((l, i) => ctx.fillText(l, x + 10, y + 8 + i * 18));
   ctx.restore();
 }

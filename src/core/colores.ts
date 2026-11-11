@@ -12,9 +12,19 @@ export function pendienteCentral(bandas: Bandas, color: ColorPista): number {
   return (a + b) / 2;
 }
 
+/**
+ * Qué pendiente de la banda se busca al elegir un color:
+ * - 'central': la del centro de la banda;
+ * - 'cercana': la de la banda más cercana a la de la recta, es decir, la que
+ *   menos sinuosidad necesita.
+ */
+export type PendienteObjetivo = 'central' | 'cercana';
+
 export interface Factibilidad {
   color: ColorPista;
-  /** Sinuosidad necesaria para la pendiente central de la banda. */
+  /** Pendiente buscada dentro de la banda. */
+  p: number;
+  /** Sinuosidad necesaria para esa pendiente. */
   s: number;
   factible: boolean;
 }
@@ -24,10 +34,21 @@ export interface Factibilidad {
  * sinuosidad acotada a [sMin, sMax]. Si la recta ya es más suave que el
  * mínimo del verde, la pareja se descarta (no hay color posible).
  */
-export function evaluarColores(desnivel: number, distancia: number, sMin: number, sMax: number, bandas: Bandas): Factibilidad[] {
-  const demasiadoPlana = desnivel / distancia < bandas.verde[0];
+export function evaluarColores(
+  desnivel: number,
+  distancia: number,
+  sMin: number,
+  sMax: number,
+  bandas: Bandas,
+  modo: PendienteObjetivo = 'central',
+): Factibilidad[] {
+  const pRecta = desnivel / distancia;
+  const demasiadoPlana = pRecta < bandas.verde[0];
   return COLORES.map((color) => {
-    const s = desnivel / pendienteCentral(bandas, color) / distancia;
-    return { color, s, factible: !demasiadoPlana && s >= sMin && s <= sMax };
+    const [lo, hi] = bandas[color];
+    // Con s ≥ sMin la pendiente no puede pasar de pRecta / sMin.
+    const p = modo === 'central' ? pendienteCentral(bandas, color) : Math.max(lo, Math.min(hi, pRecta / sMin));
+    const s = pRecta / p;
+    return { color, p, s, factible: !demasiadoPlana && s >= sMin * (1 - 1e-9) && s <= sMax };
   });
 }

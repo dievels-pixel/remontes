@@ -16,6 +16,21 @@ export interface FormaPista {
   abombamiento: number;
   /** Número de ondas de la serpentina. */
   ondas: number;
+  /**
+   * 0 a 1: cuánto varían la amplitud y la longitud de onda a lo largo de la
+   * pista, para que no parezca una sinusoide perfecta. 0 = serpentina regular.
+   */
+  irregularidad?: number;
+  /** Semilla de la irregularidad (estable por pareja). */
+  semilla?: number;
+}
+
+/** Variación lenta y estable por semilla: fases y frecuencias de la irregularidad. */
+function parametrosIrregulares(semilla: number, ondas: number) {
+  const f = (k: number) => (((semilla * 2654435761 + k * 40503) >>> 0) % 10000) / 10000;
+  // Frecuencia baja de la modulación: unas pocas veces a lo largo de la pista.
+  const m = Math.max(1, Math.round(ondas / 4));
+  return { m, fase1: f(1) * 2 * Math.PI, fase2: f(2) * 2 * Math.PI, m2: 1 + Math.floor(f(3) * 3) };
 }
 
 const MUESTRAS_POR_ONDA = 28;
@@ -28,11 +43,17 @@ export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitud: num
   const nx = -dy / d;
   const ny = dx / d;
   const muestras = Math.max(48, forma.ondas * MUESTRAS_POR_ONDA);
+  const irr = forma.irregularidad ?? 0;
+  const ir = parametrosIrregulares(forma.semilla ?? 0, forma.ondas);
+  // La fase avanza a ritmo variable (la longitud de onda cambia hasta ±50 %
+  // con irregularidad 1) sin dejar de crecer, y la amplitud varía hasta ±40 %.
+  const beta = (0.5 * forma.ondas) / ir.m;
   const puntos: Punto[] = [];
   for (let i = 0; i <= muestras; i++) {
     const t = i / muestras;
-    const desp =
-      forma.lado * Math.sin(Math.PI * t) * (forma.abombamiento * d + amplitud * (1 - Math.cos(2 * Math.PI * forma.ondas * t)));
+    const fase = 2 * Math.PI * forma.ondas * t + irr * beta * Math.sin(2 * Math.PI * ir.m * t + ir.fase1);
+    const amp = amplitud * (1 + 0.4 * irr * Math.sin(2 * Math.PI * ir.m2 * t + ir.fase2));
+    const desp = forma.lado * Math.sin(Math.PI * t) * (forma.abombamiento * d + amp * (1 - Math.cos(fase)));
     puntos.push({ x: a.x + dx * t + nx * desp, y: a.y + dy * t + ny * desp });
   }
   return new Polilinea(puntos);
