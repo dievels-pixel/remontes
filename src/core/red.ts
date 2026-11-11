@@ -97,8 +97,6 @@ export interface ReglasPista {
   anguloMinimoSalida: number;
   /** Desnivel (m) que se tolera hacia arriba para considerar horizontal una salida. */
   toleranciaHorizontal: number;
-  /** Pistas que un remonte nuevo puede cruzar como mucho. */
-  maxPistasCruzadasPorRemonte: number;
   /** Longitud inicial (m) con la que se mide la dirección de salida. */
   longitudDireccionSalida: number;
   pendienteObjetivo: PendienteObjetivo;
@@ -134,7 +132,6 @@ export type Motivo =
   | 'demasiado-plana'
   | 'sin-color'
   | 'color-imposible'
-  | 'cruza-pistas'
   | 'destino-saturado';
 
 /** Construcción registrada en el historial. */
@@ -361,7 +358,6 @@ export class Red {
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
     if (this.cruzaRemonte(desde, hasta)) return 'cruza-remonte';
-    if (this.pistasCruzadasPorRecta(this.nodos[desde], this.nodos[hasta]) > this.reglas.pista.maxPistasCruzadasPorRemonte) return 'cruza-pistas';
     // Cada estación admite un remonte por sentido; el emplazamiento se desdobla
     // hasta el máximo de estaciones.
     if (!this.planearEstacion(desde, 'salida', hasta)) return 'origen-lleno';
@@ -436,23 +432,6 @@ export class Red {
       if (r.desde === desde || r.desde === hasta || r.hasta === desde || r.hasta === hasta) return false;
       return segmentosSeCruzan(a, b, this.nodos[r.desde], this.nodos[r.hasta]);
     });
-  }
-
-  /** Pistas distintas cuya parte visible corta la recta a→b (un remonte). */
-  pistasCruzadasPorRecta(a: Punto, b: Punto): number {
-    let n = 0;
-    for (const p of this.pistas) {
-      const t = p.trazado;
-      for (let i = 1; i < t.puntos.length; i++) {
-        const sm = (t.acumulada[i - 1] + t.acumulada[i]) / 2;
-        if (p.compartido && sm > p.compartido.inicio && sm < p.compartido.fin) continue; // lo dibuja la otra
-        if (segmentosSeCruzan(t.puntos[i - 1], t.puntos[i], a, b)) {
-          n++;
-          break;
-        }
-      }
-    }
-    return n;
   }
 
   construirRemonte(desde: number, hasta: number): Remonte {
@@ -556,12 +535,12 @@ export class Red {
   }
 
   /**
-   * ¿Enmaraña este trazado? Limpio si no corta ningún remonte, no entra en la
-   * plaza, no va casi pegado a otra pista sin unirse, no cruza sin unirse más
-   * pistas que el máximo y sale cuesta abajo separado de las demás salidas.
+   * ¿Enmaraña este trazado? Limpio si no entra en la plaza, no va casi pegado
+   * a otra pista sin unirse, no cruza sin unirse más pistas que el máximo y
+   * sale cuesta abajo separado de las demás salidas. Cortar remontes sí se
+   * permite: es un cruce solo visual, como un puente.
    */
   trazadoLimpioDe(desde: number, hasta: number, conf: Confluencia): boolean {
-    if (this.crucesConRemontes(conf.trazado) > 0) return false;
     const rp = this.reglas.pista;
     // Ni el tramo propio ni el compartido ni el ramal pueden entrar en la plaza.
     if (this.pisaObstaculo(conf.trazado)) return false;

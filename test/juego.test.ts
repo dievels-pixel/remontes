@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
+import { pistasCruzadas } from '../src/core/confluencia';
 import { desplazamientoPista } from '../src/core/desplazamiento';
 import { Juego } from '../src/juego';
 
@@ -83,7 +84,7 @@ describe('Juego: arrastre y velocidad', () => {
     expect(j.infoPista?.pista).toBe(p.id);
   });
 
-  it('ningún proyecto propuesto corta un remonte, aunque se vaya llenando la estación', () => {
+  it('ningún proyecto propuesto cruza, sin unirse, más pistas que el máximo, aunque se vaya llenando la estación', () => {
     const j = new Juego();
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     const altos = j.red.nodos.filter((n) => n.tipo !== 'base');
@@ -92,7 +93,16 @@ describe('Juego: arrastre y velocidad', () => {
     for (let i = 0; i < 12; i++) {
       j.foco = j.red.remontes.length ? { tipo: 'remonte', id: i % j.red.remontes.length } : null;
       const ps = j.proyectosVisibles();
-      for (const p of ps) expect(j.red.crucesConRemontes(j.trazadoProyecto(p).trazado)).toBe(0);
+      const existentes = j.red.pistas.map((q) => ({
+        id: q.id,
+        hasta: q.hasta,
+        trazado: q.trazado,
+        cotaDesde: j.red.nodo(q.desde).cota,
+        cotaHasta: j.red.nodo(q.hasta).cota,
+        compartido: q.compartido,
+      }));
+      const rp = j.red.reglas.pista;
+      for (const p of ps) expect(pistasCruzadas(j.trazadoProyecto(p), existentes, rp.margenConfluencia, rp.radioAcuerdo)).toBeLessThanOrEqual(rp.maxCrucesPistas);
       if (ps.length === 0) continue;
       const p = ps[0];
       const c = j.red.colores(p.desde, p.hasta, p.lado).find((x) => x.factible)!;
@@ -101,7 +111,7 @@ describe('Juego: arrastre y velocidad', () => {
     expect(j.red.pistas.length).toBeGreaterThan(0);
   });
 
-  it('estaciones al azar: sin pistas sueltas, sin pistas nuevas que corten remontes y remontes que respetan las pistas', () => {
+  it('estaciones al azar: ninguna pista unida queda suelta', () => {
     const P = { separacionPx: CONFIG.estaciones.separacionPx, tramoEstacion: CONFIG.pista.tramoEstacion, radioAcuerdo: CONFIG.pista.radioAcuerdo };
     const ESC = 0.168;
     let uniones = 0;
@@ -114,11 +124,7 @@ describe('Juego: arrastre y velocidad', () => {
         if (az() < 0.4) {
           const a = Math.floor(az() * n);
           const b = Math.floor(az() * n);
-          if (red.puedeConstruirRemonte(a, b) === 'ok') {
-            red.construirRemonte(a, b);
-            // El remonte nuevo no cruza más pistas de las permitidas.
-            expect(red.pistasCruzadasPorRecta(red.nodo(a), red.nodo(b))).toBeLessThanOrEqual(red.reglas.pista.maxPistasCruzadasPorRemonte);
-          }
+          if (red.puedeConstruirRemonte(a, b) === 'ok') red.construirRemonte(a, b);
           continue;
         }
         j.foco = { tipo: 'nodo', id: Math.floor(az() * n) };
@@ -127,8 +133,7 @@ describe('Juego: arrastre y velocidad', () => {
         const pr = ps[Math.floor(az() * ps.length)];
         const cs = red.coloresLimpios(pr.desde, pr.hasta, pr.lado).filter((c) => c.factible);
         expect(cs.length).toBeGreaterThan(0);
-        const pi = red.abrirPista(pr.desde, pr.hasta, cs[Math.floor(az() * cs.length)].color, pr.lado);
-        expect(red.crucesConRemontes(pi.trazado)).toBe(0);
+        red.abrirPista(pr.desde, pr.hasta, cs[Math.floor(az() * cs.length)].color, pr.lado);
       }
       // Ninguna pista unida queda suelta: su línea dibujada empalma con la de la otra.
       for (const pi of red.pistas) {
