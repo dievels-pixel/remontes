@@ -7,6 +7,8 @@ Actualizado: 2026-11-11
 Juego minimalista de gestión en tiempo real: el jugador construye remontes entre puntos fijos de una montaña y decide qué pistas abrir para que los esquiadores no se acumulen en las colas.
 
 - Referencia: Mini Metro, por la conexión de puntos con líneas, la música generativa y la sensación relajante.
+- Como mucho un remonte sale de cada nodo y uno llega a cada nodo.
+- Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), pensada para pantalla táctil y para probarse desde el navegador del móvil. Si más adelante compensa, se porta a un motor para publicar en Android.
 - Alcance del prototipo: un mapa fijo hecho a mano, sin economía ni niveles de esquiador al principio.
@@ -18,6 +20,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 
 - Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados.
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
+- Un remonte por nodo en cada sentido: de cada nodo sale como mucho un remonte y a cada nodo llega como mucho uno. Una base tiene un solo remonte, una cima recibe uno solo y por un intermedio pasa uno solo (llega uno y sale otro). La capacidad de ese remonte, y no el número de remontes, es lo que el jugador mejora.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
@@ -29,6 +32,7 @@ El juego empieza en el pie de pistas: una plaza con varios puntos de inicio (bas
 
 - Inicio: los puntos de inicio rodean la plaza. Al tocar uno se iluminan los nodos que se pueden alcanzar desde él (en el boceto, las flechas rojas); no se dibujan todas a la vez. Se arrastra hasta uno de ellos y empieza la dinámica. Para el prototipo, 2 o 3 inicios.
 - Entrada de esquiadores: llegan por la carretera, entran en la plaza y van al inicio que tenga remonte. Un único punto de entrada.
+- Cambio de base: al terminar una bajada en una base, el esquiador puede ir andando a una base contigua si su cola compensa el paseo (la distancia de contigüidad y la penalización por andar son parámetros). Quien acaba de cambiar de base no vuelve a cambiar, para que no vaya y venga.
 - Afluencia: una sola curva de esquiadores por minuto que crece con el tiempo y fija la dificultad. Es un parámetro en un único sitio para calibrarla.
 - Edificios: casas y hoteles alrededor de la plaza representan visualmente la afluencia. Cuando la curva cruza un umbral aparece uno nuevo en un hueco predefinido, con una pequeña animación. Su aporte empieza unos 15 segundos después, como margen de reacción (igual que una estación nueva en Mini Metro).
 - Cuando se llenan los huecos, los edificios mejoran (casa, hotel, gran hotel) en lugar de añadir más, de modo que la afluencia sigue creciendo en un espacio limitado.
@@ -184,6 +188,8 @@ Notas técnicas:
 - En fases posteriores puede haber varias carreteras de acceso.
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
+- Como mucho un remonte sale de cada nodo y uno llega a cada nodo.
+- Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), para iterar rápido y probar desde el móvil. Portar a un motor solo si más adelante compensa.
 

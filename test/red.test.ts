@@ -25,6 +25,16 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.puedeConstruirRemonte(3, 2)).toBe('destino-no-mas-alto');
   });
 
+  it('de cada nodo sale como mucho un remonte y a cada nodo llega como mucho uno', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2);
+    expect(red.puedeConstruirRemonte(0, 3)).toBe('origen-ocupado');
+    expect(red.puedeConstruirRemonte(1, 2)).toBe('destino-ocupado');
+    expect(red.puedeConstruirRemonte(1, 3)).toBe('ok');
+    red.construirRemonte(2, 3); // el intermedio: uno llega y otro sale
+    expect(red.puedeConstruirRemonte(1, 3)).toBe('destino-ocupado');
+  });
+
   it('el remonte nace inactivo y entra en servicio con cualquier pista desde su cima', () => {
     const red = redPequena();
     const r = red.construirRemonte(0, 2);
@@ -45,7 +55,7 @@ describe('Red: activación y reglas de construcción', () => {
   it('solo se abren pistas hacia nodos viables (sin puntos ciegos)', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    red.construirRemonte(0, 2);
+    red.construirRemonte(1, 2);
     // El intermedio está activo pero su único remonte saliente no existe: no es viable.
     expect(red.viable(2)).toBe(false);
     expect(red.puedeAbrirPista(3, 2)).toBe('destino-no-viable');

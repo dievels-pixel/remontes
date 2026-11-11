@@ -44,6 +44,10 @@ export const CONFIG = {
     llegadasPorMinuto: 40,
     poblacionMaxima: 90,
     velocidadAndando: 60, // m/s de juego en la plaza
+    // Al llegar a una base se puede ir andando a una base contigua si su cola
+    // compensa. PROVISIONAL.
+    distanciaBasesContiguas: 400, // m entre bases para considerarlas contiguas
+    penalizacionAndar: 3, // equivale a esa cantidad de personas más en la cola
     // v = base + factor · pendiente
     velocidadBasePista: 70,
     factorPendiente: 380,

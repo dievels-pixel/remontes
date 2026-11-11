@@ -46,6 +46,8 @@ export type Motivo =
   | 'destino-base'
   | 'destino-no-mas-bajo'
   | 'ya-existe'
+  | 'origen-ocupado'
+  | 'destino-ocupado'
   | 'pista-desde-base'
   | 'destino-no-viable';
 
@@ -87,6 +89,9 @@ export class Red {
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
+    // Cada nodo admite como mucho un remonte que salga y uno que llegue.
+    if (this.remontes.some((r) => r.desde === desde)) return 'origen-ocupado';
+    if (this.remontes.some((r) => r.hasta === hasta)) return 'destino-ocupado';
     return 'ok';
   }
 

@@ -12,6 +12,8 @@ export interface ParametrosSimulacion {
   llegadasPorMinuto: number;
   poblacionMaxima: number;
   velocidadAndando: number;
+  distanciaBasesContiguas: number;
+  penalizacionAndar: number;
   velocidadBasePista: number;
   factorPendiente: number;
 }
@@ -110,13 +112,29 @@ export class Simulacion {
     return n;
   }
 
-  /** Decide qué hace un esquiador que acaba de llegar a un nodo. */
-  private decidir(id: number, nodo: number): void {
+  /** Bases distintas de `base` a una distancia no mayor que la de contigüidad. */
+  basesContiguas(base: number): number[] {
+    const b = this.red.nodo(base);
+    return this.red.nodos
+      .filter((n) => n.tipo === 'base' && n.id !== base && distancia(n, b) <= this.p.distanciaBasesContiguas)
+      .map((n) => n.id);
+  }
+
+  /**
+   * Decide qué hace un esquiador que acaba de llegar a un nodo. Quien llega a
+   * una base andando no vuelve a cambiar de base, para que no vaya y venga.
+   */
+  private decidir(id: number, nodo: number, puedeAndar = true): void {
     const { remontes, pistas } = this.red.salidas(nodo);
-    type Opcion = { remonte: Remonte } | { pista: Pista };
+    type Opcion = { remonte: Remonte } | { pista: Pista } | { andar: number };
     const opciones: Opcion[] = [...remontes.map((remonte) => ({ remonte })), ...pistas.map((pista) => ({ pista }))];
+    const enBase = this.red.nodo(nodo).tipo === 'base';
+    if (enBase && puedeAndar) {
+      const enServicio = new Set(this.basesEnServicio());
+      for (const b of this.basesContiguas(nodo)) if (enServicio.has(b)) opciones.push({ andar: b });
+    }
     if (opciones.length === 0) {
-      if (this.red.nodo(nodo).tipo === 'base') {
+      if (enBase) {
         const bases = this.basesEnServicio();
         if (bases.length > 0) {
           this.caminarABase(id, this.red.nodo(nodo), bases);
@@ -128,12 +146,18 @@ export class Simulacion {
       return;
     }
     // Reparto por cola, no por camino más corto: las colas largas disuaden.
-    const o = this.elegir(opciones, (op) => ('remonte' in op ? 1 / (1 + this.colas[op.remonte.id].length) : 1));
+    const o = this.elegir(opciones, (op) => {
+      if ('remonte' in op) return 1 / (1 + this.colas[op.remonte.id].length);
+      if ('andar' in op) return 1 / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
+      return 1;
+    });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);
       this.esquiadores.set(id, { id, estado: 'cola', nodo, remonte: o.remonte.id });
-    } else {
+    } else if ('pista' in o) {
       this.esquiadores.set(id, { id, estado: 'pista', pista: o.pista.id, recorrido: 0 });
+    } else {
+      this.caminarABase(id, this.red.nodo(nodo), [o.andar]);
     }
   }
 
@@ -164,7 +188,7 @@ export class Simulacion {
     switch (e.estado) {
       case 'andando':
         e.recorrido += this.p.velocidadAndando * dt;
-        if (e.recorrido >= e.largo) this.decidir(e.id, e.hacia);
+        if (e.recorrido >= e.largo) this.decidir(e.id, e.hacia, false);
         break;
       case 'pista': {
         const pista = this.red.pistas[e.pista];
