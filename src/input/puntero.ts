@@ -2,6 +2,7 @@
 import { CONFIG } from '../config';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
+import { rectBotonVelocidad } from '../render/escena';
 
 export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara: Camara): void {
   let activo: number | null = null;
@@ -13,6 +14,15 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
 
   lienzo.addEventListener('pointerdown', (e) => {
     if (activo !== null) return; // un solo dedo a la vez
+    const r = lienzo.getBoundingClientRect();
+    const b = rectBotonVelocidad(r.width, r.height);
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    if (x >= b.x && x <= b.x + b.ancho && y >= b.y && y <= b.y + b.alto) {
+      juego.cambiarVelocidad();
+      e.preventDefault();
+      return;
+    }
     if (juego.empezarArrastre(enMundo(e), radio())) {
       activo = e.pointerId;
       lienzo.setPointerCapture(e.pointerId);

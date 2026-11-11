@@ -31,7 +31,7 @@ const DT = 1 / 60;
 let anterior = performance.now();
 let acumulado = 0;
 function fotograma(ahora: number): void {
-  acumulado += Math.min((ahora - anterior) / 1000, 0.25);
+  acumulado += Math.min((ahora - anterior) / 1000, 0.25) * juego.velocidad;
   anterior = ahora;
   while (acumulado >= DT) {
     juego.paso(DT);

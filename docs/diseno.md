@@ -7,7 +7,8 @@ Actualizado: 2026-11-11
 Juego minimalista de gestión en tiempo real: el jugador construye remontes entre puntos fijos de una montaña y decide qué pistas abrir para que los esquiadores no se acumulen en las colas.
 
 - Referencia: Mini Metro, por la conexión de puntos con líneas, la música generativa y la sensación relajante.
-- Como mucho un remonte sale de cada nodo y uno llega a cada nodo.
+- Como mucho un remonte sale de cada nodo y uno llega a cada nodo. Los picos tienen dos estaciones gemelas para admitir dos remontes.
+- Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
 - Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), pensada para pantalla táctil y para probarse desde el navegador del móvil. Si más adelante compensa, se porta a un motor para publicar en Android.
@@ -21,6 +22,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados.
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
 - Un remonte por nodo en cada sentido: de cada nodo sale como mucho un remonte y a cada nodo llega como mucho uno. Una base tiene un solo remonte, una cima recibe uno solo y por un intermedio pasa uno solo (llega uno y sale otro). La capacidad de ese remonte, y no el número de remontes, es lo que el jugador mejora.
+- Picos con dos estaciones: cada cima del mapa tiene dos triángulos gemelos muy juntos, para que a un mismo pico puedan llegar dos remontes sin romper la regla anterior. Entre gemelos no hay remontes ni pistas. Si se suelta un remonte sobre una estación que ya recibe uno, se usa su gemela.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
@@ -188,7 +190,8 @@ Notas técnicas:
 - En fases posteriores puede haber varias carreteras de acceso.
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
-- Como mucho un remonte sale de cada nodo y uno llega a cada nodo.
+- Como mucho un remonte sale de cada nodo y uno llega a cada nodo. Los picos tienen dos estaciones gemelas para admitir dos remontes.
+- Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
 - Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Plataforma: web (TypeScript y Canvas 2D), para iterar rápido y probar desde el móvil. Portar a un motor solo si más adelante compensa.

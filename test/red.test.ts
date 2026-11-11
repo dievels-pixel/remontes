@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { redPequena } from './apoyo';
+import { Red } from '../src/core/red';
+import { REGLAS, redPequena } from './apoyo';
 
 describe('Red: activación y reglas de construcción', () => {
   it('al empezar solo están activas las bases', () => {
@@ -80,5 +81,16 @@ describe('Red: activación y reglas de construcción', () => {
     expect(p.pendiente).toBeCloseTo(900 / p.trazado.longitud, 10);
     const recta = Math.hypot(200, 1000);
     expect(p.trazado.longitud).toBeGreaterThan(recta);
+  });
+
+  it('entre estaciones gemelas no hay remontes ni pistas', () => {
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    nodos.push({ id: 4, tipo: 'cima', x: 350, y: 0, cota: 2460, gemelo: 3 });
+    nodos[3].gemelo = 4;
+    const red = new Red(nodos, REGLAS);
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 4);
+    expect(red.puedeConstruirRemonte(3, 4)).toBe('gemelos');
+    expect(red.puedeAbrirPista(4, 3)).toBe('gemelos');
   });
 });
