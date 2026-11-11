@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { trazarPista } from '../src/core/curva';
 import { Polilinea } from '../src/core/polilinea';
+import { segmentosSeCruzan } from '../src/core/vector';
 
 describe('Polilínea', () => {
   const l = new Polilinea([
@@ -53,5 +54,17 @@ describe('Trazado de pista', () => {
     const s = izq.longitud / 1000;
     expect(s).toBeGreaterThan(1.02);
     expect(s).toBeLessThan(1.6);
+  });
+});
+
+describe('Cruce de segmentos', () => {
+  const p = (x: number, y: number) => ({ x, y });
+  it('detecta un cruce en X', () => {
+    expect(segmentosSeCruzan(p(0, 0), p(10, 10), p(0, 10), p(10, 0))).toBe(true);
+  });
+  it('no cuenta segmentos separados, paralelos ni que se tocan en un extremo', () => {
+    expect(segmentosSeCruzan(p(0, 0), p(1, 1), p(5, 0), p(6, 1))).toBe(false);
+    expect(segmentosSeCruzan(p(0, 0), p(10, 0), p(0, 1), p(10, 1))).toBe(false);
+    expect(segmentosSeCruzan(p(0, 0), p(10, 0), p(10, 0), p(10, 10))).toBe(false);
   });
 });

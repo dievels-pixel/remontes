@@ -3,7 +3,7 @@
 import { hashPareja } from './azar';
 import { trazarPista, type ParametrosCurva } from './curva';
 import type { Polilinea } from './polilinea';
-import { distancia } from './vector';
+import { distancia, segmentosSeCruzan } from './vector';
 
 export type TipoNodo = 'base' | 'intermedio' | 'cima';
 
@@ -72,16 +72,22 @@ export type Motivo =
   | 'destino-base'
   | 'destino-no-mas-bajo'
   | 'ya-existe'
+  | 'cruza-remonte'
   | 'origen-lleno'
   | 'destino-lleno'
   | 'pista-desde-base'
   | 'destino-no-viable';
+
+/** Construcción registrada en el historial. */
+export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
 
 export class Red {
   readonly nodos: readonly Nodo[];
   readonly remontes: Remonte[] = [];
   readonly pistas: Pista[] = [];
   readonly estaciones: Estacion[] = [];
+  /** Construcciones en orden, para deshacer la última. */
+  private readonly historial: Hecho[] = [];
 
   constructor(nodos: Nodo[], readonly reglas: ReglasRed) {
     nodos.forEach((n, i) => {
@@ -170,6 +176,7 @@ export class Red {
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
+    if (this.cruzaRemonte(desde, hasta)) return 'cruza-remonte';
     // Cada estación admite un remonte por sentido; el emplazamiento se desdobla
     // hasta el máximo de estaciones.
     if (!this.planearEstacion(desde, 'salida', hasta)) return 'origen-lleno';
@@ -187,9 +194,23 @@ export class Red {
     return 'ok';
   }
 
+  /**
+   * ¿La recta desde→hasta corta algún remonte existente? Los que comparten
+   * emplazamiento con ella no cuentan: salen o llegan al mismo sitio.
+   */
+  cruzaRemonte(desde: number, hasta: number): boolean {
+    const a = this.nodos[desde];
+    const b = this.nodos[hasta];
+    return this.remontes.some((r) => {
+      if (r.desde === desde || r.desde === hasta || r.hasta === desde || r.hasta === hasta) return false;
+      return segmentosSeCruzan(a, b, this.nodos[r.desde], this.nodos[r.hasta]);
+    });
+  }
+
   construirRemonte(desde: number, hasta: number): Remonte {
     const motivo = this.puedeConstruirRemonte(desde, hasta);
     if (motivo !== 'ok') throw new Error(`No se puede construir el remonte: ${motivo}`);
+    const antes = this.estaciones.length;
     const estacionDesde = this.materializar(this.planearEstacion(desde, 'salida', hasta)!);
     const estacionHasta = this.materializar(this.planearEstacion(hasta, 'llegada', desde)!);
     const r: Remonte = {
@@ -201,6 +222,7 @@ export class Red {
       longitud: distancia(this.nodos[desde], this.nodos[hasta]),
     };
     this.remontes.push(r);
+    this.historial.push({ tipo: 'remonte', remonte: r, estacionesNuevas: this.estaciones.length - antes });
     return r;
   }
 
@@ -224,7 +246,29 @@ export class Red {
       pendiente: (a.cota - b.cota) / trazado.longitud,
     };
     this.pistas.push(p);
+    this.historial.push({ tipo: 'pista', pista: p });
     return p;
+  }
+
+  get puedeDeshacer(): boolean {
+    return this.historial.length > 0;
+  }
+
+  /**
+   * Deshace la última construcción. Al ir en orden inverso, la red vuelve
+   * exactamente a un estado anterior, que ya era válido (sin puntos ciegos).
+   * Devuelve lo deshecho para que la simulación retire a quien lo usaba.
+   */
+  deshacer(): Hecho | null {
+    const h = this.historial.pop();
+    if (!h) return null;
+    if (h.tipo === 'remonte') {
+      this.remontes.pop();
+      this.estaciones.splice(this.estaciones.length - h.estacionesNuevas, h.estacionesNuevas);
+    } else {
+      this.pistas.pop();
+    }
+    return h;
   }
 
   pistasEntre(desde: number, hasta: number): Pista[] {

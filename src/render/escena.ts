@@ -126,9 +126,6 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
       case 'cola':
         q = puntoEnRacimo(red.remontes[e.remonte].estacionDesde);
         break;
-      case 'espera':
-        q = puntoEnRacimo(e.nodo); // la estación principal tiene el id del nodo
-        break;
       case 'andando':
         q = P(interpolar(e.origen, red.nodo(e.hacia), Math.min(e.recorrido / e.largo, 1)));
         break;
@@ -146,6 +143,46 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
 
   dibujarTextos(ctx, juego, ancho);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
+  dibujarBotonDeshacer(ctx, juego, alto);
+}
+
+type Rect = { x: number; y: number; ancho: number; alto: number };
+
+/** Botón de deshacer en la esquina inferior izquierda. */
+export function rectBotonDeshacer(alto: number): Rect {
+  return { x: 12, y: alto - 44 - 16, ancho: 110, alto: 44 };
+}
+
+function dibujarBotonDeshacer(ctx: CanvasRenderingContext2D, juego: Juego, alto: number): void {
+  const b = rectBotonDeshacer(alto);
+  ctx.save();
+  ctx.globalAlpha = juego.red.puedeDeshacer ? 1 : 0.35;
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.9)';
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
+  ctx.fill();
+  ctx.stroke();
+  // Flecha curva hacia atrás.
+  const cx = b.x + 22;
+  const cy = b.y + b.alto / 2 + 2;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 7, Math.PI * 1.15, Math.PI * 2.1);
+  ctx.stroke();
+  ctx.fillStyle = COLOR.tinta;
+  ctx.beginPath();
+  ctx.moveTo(cx - 12, cy - 5);
+  ctx.lineTo(cx - 3, cy - 7);
+  ctx.lineTo(cx - 8, cy + 1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Deshacer', b.x + 38, b.y + b.alto / 2 + 1);
+  ctx.restore();
 }
 
 /** Botón de velocidad en la esquina inferior derecha, con tamaño cómodo para el dedo. */

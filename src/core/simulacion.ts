@@ -2,7 +2,7 @@
 // los remontes, suben en bolitas, bajan por pistas y vuelven a empezar.
 // Lógica pura: ni DOM ni canvas.
 import type { Azar } from './azar';
-import type { Red, Remonte, Pista } from './red';
+import type { Hecho, Red, Remonte, Pista } from './red';
 import { distancia, type Punto } from './vector';
 
 export interface ParametrosSimulacion {
@@ -22,8 +22,7 @@ export type Esquiador =
   | { id: number; estado: 'andando'; origen: Punto; hacia: number; recorrido: number; largo: number }
   | { id: number; estado: 'cola'; nodo: number; remonte: number }
   | { id: number; estado: 'remonte'; remonte: number }
-  | { id: number; estado: 'pista'; pista: number; recorrido: number }
-  | { id: number; estado: 'espera'; nodo: number };
+  | { id: number; estado: 'pista'; pista: number; recorrido: number };
 
 export interface Bolita {
   recorrido: number;
@@ -58,7 +57,26 @@ export class Simulacion {
     this.sincronizarRemontes();
     this.generarLlegadas(dt);
     this.moverRemontes(dt);
-    for (const e of [...this.esquiadores.values()]) this.moverEsquiador(e, dt);
+    for (const e of [...this.esquiadores.values()]) {
+      // Puede haber cambiado de estado o haberse ido durante este mismo paso.
+      if (this.esquiadores.get(e.id) === e) this.moverEsquiador(e, dt);
+    }
+  }
+
+  /** Ajusta la simulación tras deshacer una construcción en la red. */
+  alDeshacer(h: Hecho): void {
+    if (h.tipo === 'remonte') {
+      // Quien esperaba o subía en el remonte deshecho se va de la estación.
+      const id = h.remonte.id;
+      for (const e of this.colas[id] ?? []) this.esquiadores.delete(e);
+      for (const b of this.bolitas[id] ?? []) for (const e of b.pasajeros) this.esquiadores.delete(e);
+      this.colas.length = this.bolitas.length = this.temporizadores.length = id;
+    } else {
+      // Quien bajaba por la pista deshecha llega de golpe a su destino.
+      for (const e of [...this.esquiadores.values()]) {
+        if (e.estado === 'pista' && e.pista === h.pista.id) this.decidir(e.id, h.pista.hasta);
+      }
+    }
   }
 
   velocidadEnPista(pista: Pista): number {
@@ -141,8 +159,9 @@ export class Simulacion {
           return;
         }
       }
-      // No debería ocurrir gracias a la regla de nodo viable; se reintenta.
-      this.esquiadores.set(id, { id, estado: 'espera', nodo });
+      // Sin salida (solo tras deshacer algo, o sin ningún remonte en servicio):
+      // el esquiador se va de la estación.
+      this.esquiadores.delete(id);
       return;
     }
     // Reparto por cola, no por camino más corto: las colas largas disuaden.
@@ -166,6 +185,11 @@ export class Simulacion {
     for (const r of this.red.remontes) {
       const bolitas = this.bolitas[r.id];
       for (const b of bolitas) b.recorrido += v * dt;
+      if (!this.red.enServicio(r) && this.colas[r.id].length > 0) {
+        // El remonte ha dejado de funcionar (por deshacer su pista): su cola
+        // busca otra salida.
+        for (const id of this.colas[r.id].splice(0)) this.decidir(id, r.desde);
+      }
       if (this.red.enServicio(r)) {
         this.temporizadores[r.id] += dt;
         while (this.temporizadores[r.id] >= intervalo) {
@@ -199,9 +223,6 @@ export class Simulacion {
         }
         break;
       }
-      case 'espera':
-        this.decidir(e.id, e.nodo);
-        break;
       case 'cola':
       case 'remonte':
         break;

@@ -21,6 +21,7 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'ya-existe': 'Ya está construido.',
+  'cruza-remonte': 'Los remontes no pueden cruzarse.',
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
   'destino-lleno': `A este punto ya llegan todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
   'pista-desde-base': 'Desde un punto de inicio solo salen remontes.',
@@ -124,6 +125,13 @@ export class Juego {
     }
     if (tipo === 'remonte') this.red.construirRemonte(a.origen, nodo);
     else this.red.abrirPista(a.origen, nodo);
+  }
+
+  /** Deshace la última construcción (remonte o pista). */
+  deshacer(): void {
+    this.arrastre = null;
+    const h = this.red.deshacer();
+    if (h) this.sim.alDeshacer(h);
   }
 
   cancelarArrastre(): void {
