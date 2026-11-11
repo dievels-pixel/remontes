@@ -84,7 +84,7 @@ Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real d
 - Consecuencia: como s_max / s_min ≈ 2, una pareja abarca a lo sumo dos colores contiguos. Para que haya verdes y negras, el mapa necesita parejas con pendientes en recta muy distintas (por debajo de 0,2 para verdes y por encima de 0,5 para negras con las bandas provisionales).
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 (por ejemplo 1,1) para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente. Al elegir color se toma la pendiente central de la banda, se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
-- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,2 en las dos laterales de un remonte, que dan s ≈ 1,1, y b pequeño en el resto) y el segundo una serpentina de n ondas (n según la distancia) y amplitud a. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
+- Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,14 en las dos laterales de un remonte, que dan s ≈ 1,05, y b pequeño en el resto) y el segundo una serpentina de n ondas (una cada 150 m de distancia: ondas cortas dan zigzags cerrados y estrechos para la misma longitud) y amplitud a. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
 - El lado de la primera pista de una pareja sale de una semilla fija por pareja; la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
 - La velocidad de los esquiadores depende de la pendiente efectiva, así que una pista negra se ve más rápida que una verde.
@@ -106,7 +106,14 @@ Deshacer: un botón deshace la última construcción (remonte o pista), y pulsá
 
 ## Cruces de pistas
 
-El jugador solo activa proyectos de pista y elige color; no gestiona los cruces. En el prototipo los cruces son solo visuales, como un puente: cada esquiador sigue su pista.
+El jugador solo activa proyectos de pista y elige color; no gestiona los cruces.
+
+Confluencias (adelantado a petición del usuario, antes de la etapa 7): si el trazado de una pista nueva se encuentra con una pista existente, se une a ella y comparten el tramo, como en las estaciones de verdad. Si no van al mismo destino, la nueva sigue a la existente hasta el punto más cercano a su destino (siempre por encima de la cota de ese destino) y ahí sale un ramal. Si el tramo compartido fuera muy corto (por debajo de un mínimo), no se unen y se cruzan sin más. No se buscan encuentros en el tramo inicial, porque las pistas que salen del mismo nodo empiezan juntas. En el grafo no cambia nada: la pista sigue yendo de su origen a su destino, y solo cambia su geometría. Los proyectos a trazos ya muestran la confluencia que tendrán.
+
+- Consecuencia: la longitud real de una pista unida a otra no es la que pedía su color, así que su pendiente media (y su velocidad) se recalcula con el trazado final y puede salirse algo de la banda del color elegido. El color se mantiene como etiqueta.
+- La primera pista de una pareja va por el lado en que su curva corta menos remontes, para que no los cruce sin necesidad.
+
+Los cruces que quedan (pistas que se cortan sin unirse) son solo visuales, como un puente: cada esquiador sigue su pista.
 
 En una segunda fase pueden convertirse en enlaces automáticos (atajos) cuando sean compatibles:
 
@@ -167,7 +174,7 @@ Se construye por etapas, y cada una debe poder jugarse antes de pasar a la sigui
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
 5. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento.
 6. Economía: precio por longitud y tipo, ingresos por bajada completada, mejora de remontes y condición de derrota por colas saturadas.
-7. Cruces con enlaces automáticos.
+7. Cruces con enlaces automáticos. (Las confluencias, que unen una pista nueva a la existente que toca, ya están hechas; queda el enlace en los cruces que no se unen.)
 8. Pulido visual y sonoro: sombreado, texturas de bosque y roca, ciclo de día y música generativa.
 9. Fases posteriores: varias carreteras de acceso, agua y averías o mal tiempo que dejan remontes inactivos temporalmente.
 

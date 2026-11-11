@@ -67,14 +67,15 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // Pistas.
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (const p of red.pistas) dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3);
+  // El tramo compartido de una confluencia lo dibuja la pista a la que se une.
+  for (const p of red.pistas) dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido);
 
   // Proyectos de pista a trazos; el que tiene el selector abierto, más grueso.
   const elegido = juego.selector?.proyecto;
   ctx.setLineDash([6, 6]);
   for (const pr of juego.proyectosVisibles()) {
     const activo = elegido && elegido.desde === pr.desde && elegido.hasta === pr.hasta && elegido.lado === pr.lado;
-    dibujarTrazado(ctx, juego.trazadoProyecto(pr), P, COLOR.proyecto, activo ? 4 : 2);
+    dibujarTrazado(ctx, juego.trazadoProyecto(pr).trazado, P, COLOR.proyecto, activo ? 4 : 2);
   }
   ctx.setLineDash([]);
 
@@ -247,17 +248,33 @@ function dibujarBotonVelocidad(ctx: CanvasRenderingContext2D, juego: Juego, anch
   ctx.fillText(`${juego.velocidad}×`, b.x + b.ancho - 9, cy + 1);
 }
 
-function dibujarTrazado(ctx: CanvasRenderingContext2D, trazado: Polilinea, P: (p: Punto) => Punto, color: string, grosor: number): void {
+function dibujarTrazado(
+  ctx: CanvasRenderingContext2D,
+  trazado: Polilinea,
+  P: (p: Punto) => Punto,
+  color: string,
+  grosor: number,
+  compartido: { inicio: number; fin: number } | null = null,
+): void {
   // La pista empieza y acaba algo separada del nodo para que se lea mejor.
   const L = trazado.longitud;
   const sep = Math.min(CONFIG.pista.separacionNodo, L * 0.2);
-  const tramo = trazado.tramo(sep, L - sep).map(P);
+  const tramos: [number, number][] = compartido
+    ? [
+        [sep, compartido.inicio],
+        [compartido.fin, L - sep],
+      ]
+    : [[sep, L - sep]];
   ctx.strokeStyle = color;
   ctx.lineWidth = grosor;
-  ctx.beginPath();
-  ctx.moveTo(tramo[0].x, tramo[0].y);
-  for (let i = 1; i < tramo.length; i++) ctx.lineTo(tramo[i].x, tramo[i].y);
-  ctx.stroke();
+  for (const [a, b] of tramos) {
+    if (b <= a) continue;
+    const tramo = trazado.tramo(a, b).map(P);
+    ctx.beginPath();
+    ctx.moveTo(tramo[0].x, tramo[0].y);
+    for (let i = 1; i < tramo.length; i++) ctx.lineTo(tramo[i].x, tramo[i].y);
+    ctx.stroke();
+  }
 }
 
 /** Línea doble: gruesa del color de tinta con otra fina clara encima. */

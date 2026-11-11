@@ -41,7 +41,7 @@ describe('Juego: arrastre y velocidad', () => {
     const proyectos = j.proyectosVisibles();
     expect(proyectos.length).toBeGreaterThan(0);
     const pr = proyectos[0];
-    const t = j.trazadoProyecto(pr);
+    const t = j.trazadoProyecto(pr).trazado;
     j.tocar(t.puntoEn(t.longitud / 2), 5);
     expect(j.selector?.proyecto).toEqual(pr);
     const color = j.selector!.colores.find((c) => c.factible)!.color;
