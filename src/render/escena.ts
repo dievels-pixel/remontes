@@ -3,6 +3,7 @@
 import { CONFIG } from '../config';
 import { PLAZA } from '../core/mapa';
 import { COLORES, type ColorPista } from '../core/colores';
+import { desplazamientoPista as calcularDesplazamiento } from '../core/desplazamiento';
 import type { Polilinea } from '../core/polilinea';
 import type { Estacion, Pista, TipoEstacion } from '../core/red';
 import { interpolar, type Punto } from '../core/vector';
@@ -40,7 +41,11 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   const desplazamientoPista = (p: Pista): ((s: number) => Punto) => {
     let f = despPorPista.get(p.id);
     if (!f) {
-      f = funcionDesplazamiento(red.estacionDePista(p, 'salida'), red.estacionDePista(p, 'llegada'), p.trazado.longitud, p.lateral);
+      f = calcularDesplazamiento(red, p, {
+        separacionPx: CONFIG.estaciones.separacionPx,
+        tramoEstacion: CONFIG.pista.tramoEstacion,
+        radioAcuerdo: red.reglas.pista.radioAcuerdo,
+      });
       despPorPista.set(p.id, f);
     }
     return f;
@@ -313,30 +318,6 @@ function puntosConLongitud(l: Polilinea, a: number, b: number): { p: Punto; s: n
   for (let i = 0; i < l.puntos.length; i++) if (l.acumulada[i] > a && l.acumulada[i] < b) r.push({ p: l.puntos[i], s: l.acumulada[i] });
   r.push({ p: l.puntoEn(b), s: b });
   return r;
-}
-
-/**
- * Desplazamiento en pantalla (px) a lo largo de una pista: el primer y el
- * último tramo se llevan suavemente desde el centro del punto hasta su
- * estación; en medio, nada. Las laterales se desplazan a lo largo de toda la
- * pista, como su remonte (que se dibuja de estación a estación), para que la
- * lente siga envolviéndolo y no cruce los remontes vecinos.
- */
-function funcionDesplazamiento(salida: Estacion, llegada: Estacion, L: number, lateral: boolean): (s: number) => Punto {
-  const sep = CONFIG.estaciones.separacionPx;
-  if (lateral) {
-    return (s: number) => {
-      const t = Math.min(Math.max(s / L, 0), 1);
-      return { x: (salida.ox * (1 - t) + llegada.ox * t) * sep, y: (salida.oy * (1 - t) + llegada.oy * t) * sep };
-    };
-  }
-  const tramo = Math.min(CONFIG.pista.tramoEstacion, L / 2);
-  const suave = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
-  return (s: number) => {
-    const w0 = suave(1 - s / tramo);
-    const w1 = suave(1 - (L - s) / tramo);
-    return { x: (salida.ox * w0 + llegada.ox * w1) * sep, y: (salida.oy * w0 + llegada.oy * w1) * sep };
-  };
 }
 
 /** Línea doble: gruesa del color de tinta con otra fina clara encima. */

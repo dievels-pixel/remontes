@@ -17,8 +17,11 @@ export interface PistaExistente {
 
 export interface Confluencia {
   trazado: Polilinea;
-  /** Tramo del trazado (por longitud recorrida) que comparte con otra pista. */
-  compartido: { inicio: number; fin: number; pista: number } | null;
+  /**
+   * Tramo del trazado (por longitud recorrida) que comparte con otra pista.
+   * `inicioPista` es dónde empieza ese tramo medido sobre la otra pista.
+   */
+  compartido: { inicio: number; fin: number; pista: number; inicioPista: number } | null;
 }
 
 export interface ParametrosConfluencia {
@@ -117,7 +120,7 @@ export function confluir(
   if (pista.hasta === destino.id) {
     if (L - sB < p.tramoMinimo) return { trazado: propio, compartido: null };
     const puntos = [...entrada, ...pista.trazado.tramo(sB, L).slice(1)];
-    return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (L - sB), pista: pista.id } };
+    return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (L - sB), pista: pista.id, inicioPista: sB } };
   }
 
   // Otro destino: sigue la existente hasta el punto más cercano a su destino
@@ -142,7 +145,7 @@ export function confluir(
   const dd = Math.hypot(haciaDestino.x, haciaDestino.y) || 1;
   const ramal = acuerdo(salida, tangente(pista.trazado, sSalida), destino, { x: haciaDestino.x / dd, y: haciaDestino.y / dd }, 24);
   const puntos = [...entrada, ...pista.trazado.tramo(sB, sSalida).slice(1), ...ramal.slice(1)];
-  return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (sSalida - sB), pista: pista.id } };
+  return { trazado: new Polilinea(puntos), compartido: { inicio, fin: inicio + (sSalida - sB), pista: pista.id, inicioPista: sB } };
 }
 
 /**

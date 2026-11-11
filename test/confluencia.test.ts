@@ -114,6 +114,6 @@ describe('Confluencias', () => {
     expect(pistasCruzadas({ trazado: horizontal, compartido: null }, lista, 50, 100)).toBe(2);
     // Si el encuentro con la primera acaba en confluencia, la zona de la unión
     // no cuenta (aquí también cae dentro el cruce con la segunda, a 100 m).
-    expect(pistasCruzadas({ trazado: horizontal, compartido: { inicio: 500, fin: 520, pista: 0 } }, lista, 50, 100)).toBe(0);
+    expect(pistasCruzadas({ trazado: horizontal, compartido: { inicio: 500, fin: 520, pista: 0, inicioPista: 500 } }, lista, 50, 100)).toBe(0);
   });
 });
