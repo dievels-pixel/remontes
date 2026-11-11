@@ -5,7 +5,7 @@ import { evaluarColores, type Bandas, type ColorPista, type Factibilidad, type P
 import { confluir, pistasCruzadas, type Confluencia } from './confluencia';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
-import { distancia, segmentosSeCruzan } from './vector';
+import { distancia, distanciaAPolilinea, segmentosSeCruzan } from './vector';
 
 export type TipoNodo = 'base' | 'intermedio' | 'cima';
 
@@ -90,6 +90,8 @@ export interface ReglasPista {
   irregularidad: number;
   /** Amplitud mínima de la serpentina, en metros. */
   temblor: number;
+  /** Margen (m) alrededor de los obstáculos que tampoco pueden pisar las pistas. */
+  margenObstaculo: number;
   pendienteObjetivo: PendienteObjetivo;
 }
 
@@ -98,6 +100,11 @@ export interface ReglasRed {
   maxPistasPorPareja: number;
   pista: ReglasPista;
   maxEstacionesPorNodo: number;
+  /**
+   * Zonas que ninguna pista propuesta puede atravesar (la plaza del pie de
+   * pistas). Se les suma el margen `margenObstaculo` de las reglas de pista.
+   */
+  obstaculos?: { x: number; y: number; radio: number }[];
 }
 
 export type Motivo =
@@ -302,6 +309,12 @@ export class Red {
     return cruces(-porSemilla as 1 | -1) < a ? (-porSemilla as 1 | -1) : porSemilla;
   }
 
+  /** ¿Entra la polilínea en algún obstáculo (más su margen)? */
+  pisaObstaculo(l: Polilinea): boolean {
+    const m = this.reglas.pista.margenObstaculo;
+    return (this.reglas.obstaculos ?? []).some((o) => distanciaAPolilinea(o, l.puntos) < o.radio + m);
+  }
+
   /** Número de veces que una polilínea corta la línea de algún remonte. */
   crucesConRemontes(l: Polilinea): number {
     let n = 0;
@@ -477,6 +490,8 @@ export class Red {
     const conf = this.trazadoPrevisto(desde, hasta, lado);
     if (this.crucesConRemontes(conf.trazado) > 0) return false;
     const rp = this.reglas.pista;
+    // Ni el tramo propio ni el compartido ni el ramal pueden entrar en la plaza.
+    if (this.pisaObstaculo(conf.trazado)) return false;
     const existentes = this.pistas.map((p) => ({
       id: p.id,
       hasta: p.hasta,

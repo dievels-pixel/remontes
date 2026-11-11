@@ -1,5 +1,14 @@
 import { CONFIG } from '../src/config';
+import type { Bandas } from '../src/core/colores';
 import { Red, type Nodo, type ReglasRed } from '../src/core/red';
+
+/** Bandas sin solape con las que se escribieron las primeras pruebas. */
+export const BANDAS_CLASICAS: Bandas = {
+  verde: [0.05, 0.15],
+  azul: [0.15, 0.25],
+  roja: [0.25, 0.4],
+  negra: [0.4, 0.6],
+};
 
 export const REGLAS: ReglasRed = {
   desnivelMinimoRemonte: CONFIG.remonte.desnivelMinimo,
@@ -33,10 +42,10 @@ export function abrir(red: Red, desde: number, hasta: number) {
 
 /**
  * Fija los valores de pista con los que se escribieron algunas pruebas
- * (pendiente central de la banda y sinuosidad máxima 2), para que no dependan
+ * (pendiente central de la banda, sinuosidad máxima 2 y bandas sin solape), para que no dependan
  * de la calibración de config.ts.
  */
 export function conValoresClasicos(red: Red): Red {
-  Object.assign(red.reglas.pista, { pendienteObjetivo: 'central', sinuosidadMaxima: 2 });
+  Object.assign(red.reglas.pista, { pendienteObjetivo: 'central', sinuosidadMaxima: 2, bandas: BANDAS_CLASICAS });
   return red;
 }

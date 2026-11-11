@@ -3,7 +3,7 @@
 import { CONFIG } from './config';
 import { generarMapaAlturas, type MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
-import type { ColorPista, Factibilidad } from './core/colores';
+import { copiarBandas, type ColorPista, type Factibilidad } from './core/colores';
 import type { Confluencia } from './core/confluencia';
 import { crearNodos, PLAZA } from './core/mapa';
 import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
@@ -62,9 +62,11 @@ export class Juego {
     this.red = new Red(crearNodos(this.alturas), {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
       maxPistasPorPareja: pista.maxPorPareja,
-      // Copia modificable: el panel de ajustes la cambia en memoria.
-      pista: { ...pista },
+      // Copia modificable (bandas incluidas): el panel de ajustes la cambia en memoria.
+      pista: { ...pista, bandas: copiarBandas(pista.bandas) },
       maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
+      // La plaza del pie de pistas es un obstáculo para las pistas.
+      obstaculos: [PLAZA],
     });
     this.sim = new Simulacion(
       this.red,

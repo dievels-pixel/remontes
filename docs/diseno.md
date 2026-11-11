@@ -66,6 +66,7 @@ Para evitar una maraña de trazos:
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
 - No se propone una pista cuyo trazado previsto corte un remonte, ni que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
 - Tope de pistas por punto: como mucho 3 saliendo de una cima o intermedio y 4 llegando a un punto (base o intermedio). Alrededor de los nodos es donde peor se lee la maraña.
+- La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
 
@@ -87,7 +88,9 @@ Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real d
 - Efecto del temblor en los colores posibles del mapa actual: hasta 30 m no desaparece ninguno; con 40 a 50 m se pierde la única verde (entre los dos intermedios); con 80 m se pierden además dos negras y una roja.
 - Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores, casi siempre contiguos. Con el mapa actual y la pendiente objetivo «cercana» salen azules, rojas y negras, y solo una verde (entre los dos intermedios, casi llanos entre sí).
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
-- Cada color es una banda de pendiente. Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
+- Cada color es una banda de pendiente, y las bandas se solapan: con la misma pendiente, una pista más ancha es más fácil, así que el color no depende solo de la pendiente sino también del grosor (anchura) de la pista. Una pendiente que cae en el solape de dos bandas puede ser de cualquiera de los dos colores; la de color más fácil se entiende más ancha. Provisional: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60 (calibrables con el panel de ajustes).
+- Grosor por color: como el color lleva implícita la anchura, el dibujo puede reflejarlo con un grosor de línea por color (más gruesa cuanto más fácil). Sirve además de señal secundaria para el daltonismo (ver «Movimiento y aspecto visual»). Por ahora todas se dibujan con el mismo grosor.
+- Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
 - Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,1 en las dos laterales de un remonte y 0,06 en el resto) y el segundo una serpentina de n ondas (una cada 720 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 0,95), para que no parezca una sinusoide perfecta. La amplitud nunca baja de un mínimo, el temblor (provisional 20 m), para que las pistas más directas (s ≈ 1) no queden como una curva lisa; la sinuosidad mínima de una pareja ya lo incluye y la bisección busca a partir de él. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
 - El lado de la primera pista de una pareja es el que menos remontes corta (a igualdad, por semilla); la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
@@ -143,7 +146,7 @@ El movimiento es lo que da la sensación Mini Metro: todo fluye de forma continu
 - Colas: un racimo de puntos alrededor del nodo, con un anillo que se llena y se enrojece, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasa a representar varios esquiadores.
 - Aburrimiento (propuesta): el puntito pierde color y se vuelve gris si baja pistas inferiores a su nivel, y se recupera con una de su nivel. Si se vuelve muy gris, se va y no genera ingresos.
 - Remontes frente a pistas negras: los remontes van en línea doble (línea gruesa negra con otra fina del color del fondo encima). Se prueba en el móvil con muchas líneas a la vez, y si ensucia se añaden marcas de pilonas.
-- Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma).
+- Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma). El grosor encaja con las bandas solapadas: un color más fácil es una pista más ancha.
 - Símbolos de nodo: círculo para base, triángulo para cima y una forma intermedia para los intermedios, con la cota en un número pequeño.
 
 Prueba temprana de densidad: 150 a 300 puntos en movimiento, antes de añadir más reglas.
@@ -204,6 +207,8 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Irregularidad (0 a 1): la amplitud y la longitud de onda de la serpentina varían a lo largo de la pista (hasta ±40 % y ±50 %), de forma estable por pareja, para que no parezca una sinusoide perfecta. Con 0 la forma es la regular.
 - Pendiente objetivo del color: "central" (centro de la banda) o "cercana" (la de la banda más próxima a la de la recta, que es la que menos sinuosidad necesita). Decidido: "cercana".
 - Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
+- Bandas de pendiente de cada color (mínimo y máximo, que se arrastran entre sí para no cruzarse).
+- Margen de la plaza (0 a 100 m).
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -222,6 +227,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Forma de las pistas calibrada con el panel: s_max 1,55, abombamientos 0,1 (lateral) y 0,06, onda 720 m, irregularidad 0,95 y pendiente objetivo «cercana». Temblor provisional 20 m.
 - En un punto desdoblado, las pistas salen y llegan por las estaciones laterales (ver «Estaciones y desdoble»).
 - Se limitan las propuestas de pista: sin cortar remontes, como mucho 1 pista cruzada sin unirse, y topes de 3 pistas saliendo y 4 llegando por punto.
+- Las pistas no cruzan la plaza del pie de pistas.
+- Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
@@ -238,7 +245,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
 - [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
-- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L): verde 0,05–0,15, azul 0,15–0,25, roja 0,25–0,40, negra 0,40–0,60. Con el mapa actual y la calibración de pistas salen azules, rojas y negras, pero solo una verde posible (entre los dos intermedios): para los niveles de esquiador hará falta decidir si se cambian las bandas o el mapa.
+- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L), solapadas: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60. Con el mapa actual casi todas las parejas admiten tres colores y hay verdes en varias parejas hacia o desde el intermedio de 1904 m. Con la pendiente objetivo «cercana», dentro del solape varios colores dan exactamente la misma pista (misma s): la diferencia entre ellos es solo la anchura que se supone.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.
