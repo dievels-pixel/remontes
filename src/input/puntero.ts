@@ -2,7 +2,7 @@
 import { CONFIG } from '../config';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
-import { rectBotonVelocidad } from '../render/escena';
+import { rectBotonDeshacer, rectBotonVelocidad } from '../render/escena';
 
 export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara: Camara): void {
   let activo: number | null = null;
@@ -16,11 +16,16 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
   lienzo.addEventListener('pointerdown', (e) => {
     if (activo !== null) return; // un solo dedo a la vez
     const r = lienzo.getBoundingClientRect();
-    const b = rectBotonVelocidad(r.width, r.height);
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    if (x >= b.x && x <= b.x + b.ancho && y >= b.y && y <= b.y + b.alto) {
+    const dentro = (b: { x: number; y: number; ancho: number; alto: number }) => x >= b.x && x <= b.x + b.ancho && y >= b.y && y <= b.y + b.alto;
+    if (dentro(rectBotonVelocidad(r.width, r.height))) {
       juego.cambiarVelocidad();
+      e.preventDefault();
+      return;
+    }
+    if (dentro(rectBotonDeshacer(r.height))) {
+      juego.deshacer();
       e.preventDefault();
       return;
     }

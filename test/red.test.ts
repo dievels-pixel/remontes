@@ -160,4 +160,32 @@ describe('Red: activación y reglas de construcción', () => {
     const nuevo = red.construirRemonte(1, 3);
     expect(red.enServicio(nuevo)).toBe(true);
   });
+
+  it('los remontes no pueden cruzarse, pero sí compartir emplazamiento', () => {
+    // 0 (0,1000) → 3 (200,0) y 1 (300,1000) → 4 (−100,500) se cruzan.
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    nodos.push({ id: 4, tipo: 'intermedio', x: -100, y: 500, cota: 1900 });
+    const red = new Red(nodos, REGLAS);
+    red.construirRemonte(0, 3);
+    expect(red.puedeConstruirRemonte(1, 4)).toBe('cruza-remonte');
+    expect(red.puedeConstruirRemonte(1, 3)).toBe('ok'); // llega al mismo pico
+    expect(red.puedeConstruirRemonte(0, 2)).toBe('ok'); // sale de la misma base
+  });
+
+  it('deshacer quita la última construcción y las estaciones que creó', () => {
+    const red = redPequena();
+    expect(red.puedeDeshacer).toBe(false);
+    const r = red.construirRemonte(0, 3);
+    red.abrirPista(3, 0);
+    red.construirRemonte(1, 3); // desdobla la cima
+    expect(red.estaciones.length).toBe(5);
+    expect(red.deshacer()).toMatchObject({ tipo: 'remonte' });
+    expect(red.estaciones.length).toBe(4);
+    expect(red.remontes.length).toBe(1);
+    expect(red.deshacer()).toMatchObject({ tipo: 'pista' });
+    expect(red.enServicio(r)).toBe(false);
+    red.deshacer();
+    expect(red.activo(3)).toBe(false);
+    expect(red.deshacer()).toBeNull();
+  });
 });

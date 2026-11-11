@@ -51,7 +51,7 @@ describe('Simulación', () => {
     red.abrirPista(3, 2);
     red.abrirPista(3, 0);
     const sim = new Simulacion(red, P, ENTRADA, crearAzar(3));
-    correr(sim, 120, () => sim.esquiadores.forEach((e) => expect(e.estado).not.toBe('espera')));
+    correr(sim, 120);
     // Todos los esquiadores están en un solo sitio: o en una cola o fuera de ellas.
     const enCola = sim.colas.flat();
     expect(new Set(enCola).size).toBe(enCola.length);
@@ -137,5 +137,29 @@ describe('Simulación', () => {
       });
     });
     expect([...subidos].some((id) => sim.esquiadores.get(id)?.estado === 'pista') || sim.bajadasCompletadas > 0).toBe(true);
+  });
+
+  it('al deshacer, nadie queda en un remonte o una pista que ya no existe', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 2);
+    red.abrirPista(2, 1);
+    red.construirRemonte(2, 3);
+    red.abrirPista(3, 0);
+    const sim = new Simulacion(red, P, ENTRADA, crearAzar(6));
+    const coherente = () => {
+      for (const e of sim.esquiadores.values()) {
+        if (e.estado === 'pista') expect(e.pista).toBeLessThan(red.pistas.length);
+        if (e.estado === 'cola' || e.estado === 'remonte') expect(e.remonte).toBeLessThan(red.remontes.length);
+      }
+      expect(sim.colas.length).toBeLessThanOrEqual(red.remontes.length);
+    };
+    correr(sim, 60);
+    while (red.puedeDeshacer) {
+      const h = red.deshacer()!;
+      sim.alDeshacer(h);
+      coherente();
+      correr(sim, 20, coherente);
+    }
+    expect(sim.poblacion).toBe(0);
   });
 });

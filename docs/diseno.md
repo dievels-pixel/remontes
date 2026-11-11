@@ -18,6 +18,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados.
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
 - Estaciones y desdoble: cada emplazamiento (base, intermedio o cima) es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones. Al principio cada emplazamiento tiene una: círculo en las bases (de ella sale un remonte), triángulo en las cimas (a ella llega uno) y cuadrado en los intermedios (punto de paso: llega uno y sale otro). Si se construye otro remonte desde o hacia un emplazamiento con su estación ocupada, se desdobla: aparece una estación nueva pegada a las demás (a pocos píxeles), por el lado del que viene la nueva línea. Los desdobles son siempre de salida (círculo) o de llegada (triángulo), nunca de paso. Como mucho 3 estaciones por emplazamiento (parámetro).
+- Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Las pistas sí pueden cruzar remontes y otras pistas.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de ese mismo cuadrado forman una sola línea. Basta una pista desde la llegada de arriba para que funcionen los dos tramos. No se aplica a los desdobles (un triángulo o un círculo nuevo del intermedio): esos tramos empiezan o acaban allí.
 - Las pistas salen del emplazamiento, no de una estación: quien llega por cualquiera de los triángulos de un pico puede bajar por cualquier pista de ese pico, y un remonte entra en servicio con cualquier pista que salga de su emplazamiento de llegada.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
@@ -99,7 +100,7 @@ Ningún esquiador puede quedar atrapado en un nodo sin salida. La garantía sale
 2. Un remonte solo funciona cuando hay al menos una pista activa desde su cima, o cuando continúa por un punto de paso en otro remonte que funciona. Así nadie llega a una cima por remonte sin tener bajada. Un remonte que llega a un emplazamiento que ya tiene pistas funciona desde que se construye.
 3. Solo se proponen pistas que terminen en un nodo viable. Un nodo activo cuya cima aún no tiene salida operativa no recibe pistas hasta que la tenga.
 
-La garantía vale mientras no se puedan demoler remontes o pistas; si se permite, habrá que revalidar el grafo al borrar. Lo mismo para las averías futuras: la viabilidad de un nodo se vuelve a evaluar cuando un remonte cambia de estado.
+Deshacer: un botón deshace la última construcción (remonte o pista), y pulsándolo varias veces se van deshaciendo en orden inverso. Como se deshace siempre lo último, la red vuelve exactamente a un estado anterior, que ya cumplía estas reglas, y no hace falta revalidar el grafo. Quien estaba en la cola o subiendo en un remonte deshecho se va de la estación; quien bajaba por una pista deshecha llega directamente a su destino. Si un remonte deja de funcionar, su cola busca otra salida, y quien llega a un punto sin salida se va. Demoler un elemento cualquiera, no el último, sí exigiría revalidar el grafo. Lo mismo para las averías futuras: la viabilidad de un nodo se vuelve a evaluar cuando un remonte cambia de estado.
 
 ## Cruces de pistas
 
@@ -188,6 +189,8 @@ Notas técnicas:
 - Un remonte recién construido no funciona (se ve en gris) hasta que el jugador activa una pista desde su cima. Más adelante el mismo estado inactivo se usará para averías y mal tiempo.
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
 - Cada estación admite un remonte por sentido y los emplazamientos se desdoblan en estaciones pegadas, hasta 3.
+- Los remontes no se cruzan entre sí.
+- Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
 - Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
@@ -201,7 +204,7 @@ Notas técnicas:
 - [ ] Agua (fase posterior): ¿decorativa u obstáculo para las pistas?
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
-- [ ] Demolición: ¿se pueden borrar remontes o pistas? Exige revalidar el grafo de nodos viables.
+- [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
 - [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
