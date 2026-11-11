@@ -2,7 +2,7 @@
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
 import { evaluarColores, type Bandas, type ColorPista, type Factibilidad, type PendienteObjetivo } from './colores';
-import { confluir, type Confluencia } from './confluencia';
+import { confluir, pistasCruzadas, type Confluencia } from './confluencia';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
 import { distancia, segmentosSeCruzan } from './vector';
@@ -82,6 +82,10 @@ export interface ReglasPista {
   longitudOnda: number;
   margenConfluencia: number;
   tramoCompartidoMinimo: number;
+  radioAcuerdo: number;
+  maxCrucesPistas: number;
+  maxPistasSalida: number;
+  maxPistasLlegada: number;
   /** 0 a 1: variación de amplitud y longitud de onda de la serpentina. */
   irregularidad: number;
   pendienteObjetivo: PendienteObjetivo;
@@ -109,7 +113,9 @@ export type Motivo =
   | 'destino-no-viable'
   | 'demasiado-plana'
   | 'sin-color'
-  | 'color-imposible';
+  | 'color-imposible'
+  | 'origen-saturado'
+  | 'destino-saturado';
 
 /** Construcción registrada en el historial. */
 export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
@@ -309,6 +315,9 @@ export class Red {
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
     const libres = this.ladosLibres(desde, hasta);
     if (libres.length === 0 || (lado !== undefined && !libres.includes(lado))) return 'ya-existe';
+    // Topes de pistas por punto, para que no se enmarañe alrededor de los nodos.
+    if (this.pistas.filter((p) => p.desde === desde).length >= this.reglas.pista.maxPistasSalida) return 'origen-saturado';
+    if (this.pistas.filter((p) => p.hasta === hasta).length >= this.reglas.pista.maxPistasLlegada) return 'destino-saturado';
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
     if ((a.cota - b.cota) / distancia(a, b) < this.reglas.pista.bandas.verde[0]) return 'demasiado-plana';
@@ -393,7 +402,7 @@ export class Red {
     return confluir(propio, this.nodos[hasta], existentes, {
       margenInicio: rp.margenConfluencia,
       tramoMinimo: rp.tramoCompartidoMinimo,
-      abombamientoRamal: rp.abombamientoNormal,
+      radioAcuerdo: rp.radioAcuerdo,
     });
   }
 
@@ -421,6 +430,25 @@ export class Red {
       p.pendiente = (a.cota - b.cota) / trazado.longitud;
     }
     this.version++;
+  }
+
+  /**
+   * ¿Se puede proponer este proyecto sin enmarañar? Su trazado previsto no
+   * corta ningún remonte ni cruza, sin unirse, más pistas que el máximo.
+   */
+  trazadoLimpio(desde: number, hasta: number, lado: 1 | -1): boolean {
+    const conf = this.trazadoPrevisto(desde, hasta, lado);
+    if (this.crucesConRemontes(conf.trazado) > 0) return false;
+    const rp = this.reglas.pista;
+    const existentes = this.pistas.map((p) => ({
+      id: p.id,
+      hasta: p.hasta,
+      trazado: p.trazado,
+      cotaDesde: this.nodos[p.desde].cota,
+      cotaHasta: this.nodos[p.hasta].cota,
+      compartido: p.compartido,
+    }));
+    return pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) <= rp.maxCrucesPistas;
   }
 
   /** Trazado de un proyecto (sinuosidad mínima), con su posible confluencia. */

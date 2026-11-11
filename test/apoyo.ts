@@ -30,3 +30,13 @@ export function abrir(red: Red, desde: number, hasta: number) {
   if (!c) throw new Error(`Sin color posible para ${desde}→${hasta}`);
   return red.abrirPista(desde, hasta, c.color);
 }
+
+/**
+ * Fija los valores de pista con los que se escribieron algunas pruebas
+ * (pendiente central de la banda y sinuosidad máxima 2), para que no dependan
+ * de la calibración de config.ts.
+ */
+export function conValoresClasicos(red: Red): Red {
+  Object.assign(red.reglas.pista, { pendienteObjetivo: 'central', sinuosidadMaxima: 2 });
+  return red;
+}

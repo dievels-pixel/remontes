@@ -14,8 +14,9 @@ export function claveProyecto(p: Proyecto): string {
   return `${p.desde}>${p.hasta}:${p.lado}`;
 }
 
+/** Se puede abrir y su trazado previsto no enmaraña (ver Red.trazadoLimpio). */
 function abrible(red: Red, p: Proyecto): boolean {
-  return red.puedeAbrirPista(p.desde, p.hasta, undefined, p.lado) === 'ok';
+  return red.puedeAbrirPista(p.desde, p.hasta, undefined, p.lado) === 'ok' && red.trazadoLimpio(p.desde, p.hasta, p.lado);
 }
 
 /** Los `max` nodos más cercanos a `nodo` que cumplen el filtro. */
