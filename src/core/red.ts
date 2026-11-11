@@ -84,7 +84,6 @@ export interface ReglasPista {
   tramoCompartidoMinimo: number;
   radioAcuerdo: number;
   maxCrucesPistas: number;
-  maxPistasSalida: number;
   maxPistasLlegada: number;
   /** 0 a 1: variación de amplitud y longitud de onda de la serpentina. */
   irregularidad: number;
@@ -96,6 +95,10 @@ export interface ReglasPista {
   distanciaMinimaPistas: number;
   /** Ángulo mínimo (grados) entre la salida de una pista y las demás de su punto. */
   anguloMinimoSalida: number;
+  /** Desnivel (m) que se tolera hacia arriba para considerar horizontal una salida. */
+  toleranciaHorizontal: number;
+  /** Pistas que un remonte nuevo puede cruzar como mucho. */
+  maxPistasCruzadasPorRemonte: number;
   /** Longitud inicial (m) con la que se mide la dirección de salida. */
   longitudDireccionSalida: number;
   pendienteObjetivo: PendienteObjetivo;
@@ -111,6 +114,8 @@ export interface ReglasRed {
    * pistas). Se les suma el margen `margenObstaculo` de las reglas de pista.
    */
   obstaculos?: { x: number; y: number; radio: number }[];
+  /** Cota del terreno (mapa de alturas), para exigir que las pistas salgan cuesta abajo. */
+  cotaTerreno?: (p: Punto) => number;
 }
 
 export type Motivo =
@@ -129,8 +134,7 @@ export type Motivo =
   | 'demasiado-plana'
   | 'sin-color'
   | 'color-imposible'
-  | 'origen-saturado'
-  | 'salida-poco-separada'
+  | 'cruza-pistas'
   | 'destino-saturado';
 
 /** Construcción registrada en el historial. */
@@ -357,6 +361,7 @@ export class Red {
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
     if (this.cruzaRemonte(desde, hasta)) return 'cruza-remonte';
+    if (this.pistasCruzadasPorRecta(this.nodos[desde], this.nodos[hasta]) > this.reglas.pista.maxPistasCruzadasPorRemonte) return 'cruza-pistas';
     // Cada estación admite un remonte por sentido; el emplazamiento se desdobla
     // hasta el máximo de estaciones.
     if (!this.planearEstacion(desde, 'salida', hasta)) return 'origen-lleno';
@@ -372,9 +377,8 @@ export class Red {
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
     const libres = this.ladosLibres(desde, hasta);
     if (libres.length === 0 || (lado !== undefined && !libres.includes(lado))) return 'ya-existe';
-    // Topes de pistas por punto, para que no se enmarañe alrededor de los nodos.
-    const salientes = this.pistas.filter((p) => p.desde === desde);
-    if (salientes.length >= this.reglas.pista.maxPistasSalida) return 'origen-saturado';
+    // Tope de pistas llegando a un punto. Las salidas se limitan por ángulo
+    // (ver salidaSeparada), al proponer.
     if (this.pistas.filter((p) => p.hasta === hasta).length >= this.reglas.pista.maxPistasLlegada) return 'destino-saturado';
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
@@ -383,10 +387,6 @@ export class Red {
     if (!colores.some((c) => c.factible)) return 'sin-color';
     if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
     if (!this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
-    // La última plaza de salida solo para una pista que salga en otra dirección.
-    if (salientes.length === this.reglas.pista.maxPistasSalida - 1 && !this.salidaSeparada(desde, hasta, lado ?? libres[0], salientes)) {
-      return 'salida-poco-separada';
-    }
     return 'ok';
   }
 
@@ -399,19 +399,30 @@ export class Red {
   }
 
   /**
-   * ¿Sale la pista prevista con una dirección separada al menos el ángulo
-   * mínimo de las que ya salen de su punto? Las dos laterales de un mismo
+   * ¿Sale el trazado de `desde` cuesta abajo (o, como mucho, en horizontal) y
+   * con una dirección separada al menos el ángulo mínimo de cada pista que ya
+   * sale de ese punto? Sin tope de número: en una ladera plana caben hasta
+   * 180° / ángulo + 1 salidas (5 con 45°). Las dos laterales de un mismo
    * remonte no cuentan entre sí.
    */
-  salidaSeparada(desde: number, hasta: number, lado: 1 | -1, salientes = this.pistas.filter((p) => p.desde === desde)): boolean {
-    const nueva = this.direccionSalida(this.trazadoPrevisto(desde, hasta, lado).trazado);
-    const minimo = (this.reglas.pista.anguloMinimoSalida * Math.PI) / 180;
+  salidaSeparada(desde: number, hasta: number, trazado: Polilinea): boolean {
+    const rp = this.reglas.pista;
+    const dir = this.direccionSalida(trazado);
+    const terreno = this.reglas.cotaTerreno;
+    if (terreno) {
+      const n = this.nodos[desde];
+      const lejos = { x: n.x + dir.x * rp.longitudDireccionSalida, y: n.y + dir.y * rp.longitudDireccionSalida };
+      if (terreno(lejos) > terreno(n) + rp.toleranciaHorizontal) return false;
+    }
+    const minimo = (rp.anguloMinimoSalida * Math.PI) / 180;
     const lateral = this.esLateral(desde, hasta);
-    return salientes.every((q) => {
-      if (lateral && q.lateral && q.hasta === hasta) return true; // su pareja de lente
-      const d = this.direccionSalida(q.trazado);
-      return Math.acos(Math.min(1, Math.max(-1, nueva.x * d.x + nueva.y * d.y))) >= minimo;
-    });
+    return this.pistas
+      .filter((q) => q.desde === desde)
+      .every((q) => {
+        if (lateral && q.lateral && q.hasta === hasta) return true; // su pareja de lente
+        const d = this.direccionSalida(q.trazado);
+        return Math.acos(Math.min(1, Math.max(-1, dir.x * d.x + dir.y * d.y))) >= minimo - 1e-9;
+      });
   }
 
   /**
@@ -425,6 +436,23 @@ export class Red {
       if (r.desde === desde || r.desde === hasta || r.hasta === desde || r.hasta === hasta) return false;
       return segmentosSeCruzan(a, b, this.nodos[r.desde], this.nodos[r.hasta]);
     });
+  }
+
+  /** Pistas distintas cuya parte visible corta la recta a→b (un remonte). */
+  pistasCruzadasPorRecta(a: Punto, b: Punto): number {
+    let n = 0;
+    for (const p of this.pistas) {
+      const t = p.trazado;
+      for (let i = 1; i < t.puntos.length; i++) {
+        const sm = (t.acumulada[i - 1] + t.acumulada[i]) / 2;
+        if (p.compartido && sm > p.compartido.inicio && sm < p.compartido.fin) continue; // lo dibuja la otra
+        if (segmentosSeCruzan(t.puntos[i - 1], t.puntos[i], a, b)) {
+          n++;
+          break;
+        }
+      }
+    }
+    return n;
   }
 
   construirRemonte(desde: number, hasta: number): Remonte {
@@ -519,12 +547,20 @@ export class Red {
     this.version++;
   }
 
+  /** Trazado real que tendría la pista con ese color (sinuosidad del color y confluencia). */
+  trazadoReal(desde: number, hasta: number, lado: 1 | -1, color: ColorPista): Confluencia | null {
+    const f = this.colores(desde, hasta, lado).find((c) => c.color === color)!;
+    if (!f.factible) return null;
+    const propio = pistaConSinuosidad(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), f.s);
+    return propio ? this.confluir(hasta, propio) : null;
+  }
+
   /**
-   * ¿Se puede proponer este proyecto sin enmarañar? Su trazado previsto no
-   * corta ningún remonte ni cruza, sin unirse, más pistas que el máximo.
+   * ¿Enmaraña este trazado? Limpio si no corta ningún remonte, no entra en la
+   * plaza, no va casi pegado a otra pista sin unirse, no cruza sin unirse más
+   * pistas que el máximo y sale cuesta abajo separado de las demás salidas.
    */
-  trazadoLimpio(desde: number, hasta: number, lado: 1 | -1): boolean {
-    const conf = this.trazadoPrevisto(desde, hasta, lado);
+  trazadoLimpioDe(desde: number, hasta: number, conf: Confluencia): boolean {
     if (this.crucesConRemontes(conf.trazado) > 0) return false;
     const rp = this.reglas.pista;
     // Ni el tramo propio ni el compartido ni el ramal pueden entrar en la plaza.
@@ -538,13 +574,53 @@ export class Red {
       compartido: p.compartido,
     }));
     // Si se acerca a otra a menos de la distancia mínima y no ha podido unirse,
-    // iría casi pegada a ella: no se propone.
+    // iría casi pegada a ella.
     if (demasiadoCerca(conf, existentes, rp.distanciaMinimaPistas, rp.margenConfluencia, rp.radioAcuerdo)) return false;
-    return pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) <= rp.maxCrucesPistas;
+    if (pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) > rp.maxCrucesPistas) return false;
+    return this.salidaSeparada(desde, hasta, conf.trazado);
   }
 
-  /** Trazado de un proyecto (sinuosidad mínima), con su posible confluencia. */
+  private cacheLimpios = new Map<string, Factibilidad[]>();
+
+  /**
+   * Colores de la pareja que se pueden elegir: posibles por pendiente y con un
+   * trazado real (el de ese color) que no enmaraña. Se guardan hasta que
+   * cambia la red.
+   */
+  coloresLimpios(desde: number, hasta: number, lado: 1 | -1): Factibilidad[] {
+    // La clave incluye los parámetros de pista: el panel de ajustes (y las
+    // pruebas) los cambian en memoria.
+    const clave = `${this.version}|${desde}|${hasta}|${lado}|${JSON.stringify(this.reglas.pista)}`;
+    let r = this.cacheLimpios.get(clave);
+    if (!r) {
+      if (this.cacheLimpios.size > 500) this.cacheLimpios.clear();
+      r = this.colores(desde, hasta, lado).map((c) => {
+        if (!c.factible) return c;
+        const conf = this.trazadoReal(desde, hasta, lado, c.color);
+        return { ...c, factible: conf !== null && this.trazadoLimpioDe(desde, hasta, conf) };
+      });
+      this.cacheLimpios.set(clave, r);
+    }
+    return r;
+  }
+
+  /** ¿Se puede proponer este proyecto? Si algún color da un trazado limpio. */
+  trazadoLimpio(desde: number, hasta: number, lado: 1 | -1): boolean {
+    return this.coloresLimpios(desde, hasta, lado).some((c) => c.factible);
+  }
+
+  /**
+   * Trazado que se muestra a trazos para un proyecto: el real del color limpio
+   * que menos serpentea, para que lo que se ve sea lo que se abrirá. Si no hay
+   * ninguno, el de sinuosidad mínima.
+   */
   trazadoPrevisto(desde: number, hasta: number, lado: 1 | -1): Confluencia {
+    const limpios = this.coloresLimpios(desde, hasta, lado).filter((c) => c.factible);
+    if (limpios.length > 0) {
+      const mejor = limpios.reduce((m, c) => (c.s < m.s ? c : m));
+      const conf = this.trazadoReal(desde, hasta, lado, mejor.color);
+      if (conf) return conf;
+    }
     return this.confluir(hasta, trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), 0));
   }
 

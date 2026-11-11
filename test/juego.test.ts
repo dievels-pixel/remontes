@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { CONFIG } from '../src/config';
+import { crearAzar } from '../src/core/azar';
+import { desplazamientoPista } from '../src/core/desplazamiento';
 import { Juego } from '../src/juego';
 
 describe('Juego: arrastre y velocidad', () => {
@@ -96,5 +99,57 @@ describe('Juego: arrastre y velocidad', () => {
       j.red.abrirPista(p.desde, p.hasta, c.color, p.lado);
     }
     expect(j.red.pistas.length).toBeGreaterThan(0);
+  });
+
+  it('estaciones al azar: sin pistas sueltas, sin pistas nuevas que corten remontes y remontes que respetan las pistas', () => {
+    const P = { separacionPx: CONFIG.estaciones.separacionPx, tramoEstacion: CONFIG.pista.tramoEstacion, radioAcuerdo: CONFIG.pista.radioAcuerdo };
+    const ESC = 0.168;
+    let uniones = 0;
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      const az = crearAzar(semilla);
+      const j = new Juego();
+      const red = j.red;
+      const n = red.nodos.length;
+      for (let k = 0; k < 40; k++) {
+        if (az() < 0.4) {
+          const a = Math.floor(az() * n);
+          const b = Math.floor(az() * n);
+          if (red.puedeConstruirRemonte(a, b) === 'ok') {
+            red.construirRemonte(a, b);
+            // El remonte nuevo no cruza más pistas de las permitidas.
+            expect(red.pistasCruzadasPorRecta(red.nodo(a), red.nodo(b))).toBeLessThanOrEqual(red.reglas.pista.maxPistasCruzadasPorRemonte);
+          }
+          continue;
+        }
+        j.foco = { tipo: 'nodo', id: Math.floor(az() * n) };
+        const ps = j.proyectosVisibles();
+        if (!ps.length) continue;
+        const pr = ps[Math.floor(az() * ps.length)];
+        const cs = red.coloresLimpios(pr.desde, pr.hasta, pr.lado).filter((c) => c.factible);
+        expect(cs.length).toBeGreaterThan(0);
+        const pi = red.abrirPista(pr.desde, pr.hasta, cs[Math.floor(az() * cs.length)].color, pr.lado);
+        expect(red.crucesConRemontes(pi.trazado)).toBe(0);
+      }
+      // Ninguna pista unida queda suelta: su línea dibujada empalma con la de la otra.
+      for (const pi of red.pistas) {
+        const c = pi.compartido;
+        if (!c) continue;
+        uniones++;
+        const otra = red.pistas[c.pista];
+        const f = desplazamientoPista(red, pi, P);
+        const g = desplazamientoPista(red, otra, P);
+        for (const [s, so] of [
+          [c.inicio, c.inicioPista],
+          [c.fin, c.inicioPista + c.fin - c.inicio],
+        ]) {
+          const a = pi.trazado.puntoEn(s);
+          const b = otra.trazado.puntoEn(so);
+          const da = f(s);
+          const db = g(so);
+          expect(Math.hypot(a.x * ESC + da.x - b.x * ESC - db.x, a.y * ESC + da.y - b.y * ESC - db.y)).toBeLessThan(1);
+        }
+      }
+    }
+    expect(uniones).toBeGreaterThan(0);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trazarPista } from '../src/core/curva';
+import { Polilinea } from '../src/core/polilinea';
 import { Red } from '../src/core/red';
 import { abrir, conValoresClasicos, REGLAS, redPequena } from './apoyo';
 
@@ -293,24 +294,18 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.pistas).toHaveLength(2);
   });
 
-  it('hasta maxPistasSalida − 1 pistas saliendo sin condiciones; la última, solo si sale en otra dirección', () => {
+  it('las salidas de un punto se limitan por ángulo, no por número', () => {
     const red = redPequena();
-    red.reglas.pista.maxPistasSalida = 4;
     red.reglas.pista.distanciaMinimaPistas = 0;
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
     abrir(red, 2, 1);
-    abrir(red, 3, 0);
-    abrir(red, 3, 0);
-    abrir(red, 3, 1);
-    // Cuarta: con ángulo mínimo 0 cabe; con 179° no.
+    const p = abrir(red, 3, 0);
+    // Un trazado que sale en la misma dirección que p no está separado; con ángulo 0, sí.
+    red.reglas.pista.anguloMinimoSalida = 45;
+    expect(red.salidaSeparada(3, 1, p.trazado)).toBe(false);
     red.reglas.pista.anguloMinimoSalida = 0;
-    expect(red.puedeAbrirPista(3, 2)).toBe('ok');
-    red.reglas.pista.anguloMinimoSalida = 179;
-    expect(red.puedeAbrirPista(3, 2)).toBe('salida-poco-separada');
-    red.reglas.pista.anguloMinimoSalida = 0;
-    abrir(red, 3, 2);
-    expect(red.puedeAbrirPista(3, 1)).toBe('origen-saturado'); // quinta: nunca
+    expect(red.salidaSeparada(3, 1, p.trazado)).toBe(true);
   });
 
   it('las dos laterales de un mismo remonte no cuentan entre sí para el ángulo de salida', () => {
@@ -318,10 +313,47 @@ describe('Red: activación y reglas de construcción', () => {
     red.construirRemonte(0, 3);
     const a = abrir(red, 3, 0);
     red.reglas.pista.anguloMinimoSalida = 179;
-    expect(red.salidaSeparada(3, 0, -a.lado as 1 | -1)).toBe(true); // su pareja de lente
-    red.construirRemonte(1, 2);
-    abrir(red, 2, 1);
-    expect(red.salidaSeparada(3, 2, red.ladoLibre(3, 2)!)).toBe(false); // otra pista cualquiera sí cuenta
+    expect(red.salidaSeparada(3, 0, a.trazado)).toBe(true); // su pareja de lente sale casi igual y no cuenta
+    expect(red.salidaSeparada(3, 1, a.trazado)).toBe(false); // otra pista cualquiera sí cuenta
+  });
+
+  it('las salidas tienen que ir cuesta abajo (o, como mucho, en horizontal)', () => {
+    // Ladera plana que baja hacia +y: cota = 2400 − 0,3·y.
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    const red = new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista }, cotaTerreno: (q) => 2400 - 0.3 * q.y });
+    const desde = red.nodo(3); // (400, 0)
+    const recta = (dx: number, dy: number) => new Polilinea([desde, { x: desde.x + dx * 400, y: desde.y + dy * 400 }]);
+    expect(red.salidaSeparada(3, 0, recta(0, 1))).toBe(true); // cuesta abajo
+    expect(red.salidaSeparada(3, 0, recta(1, 0))).toBe(true); // horizontal
+    expect(red.salidaSeparada(3, 0, recta(0.7, -0.7))).toBe(false); // sube
+  });
+
+  it('en una ladera plana caben 5 salidas a 45°, desde una horizontal a la otra', () => {
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    const red = new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista, anguloMinimoSalida: 45 }, cotaTerreno: (q) => 2400 - 0.3 * q.y });
+    const c = red.nodo(3);
+    const recta = (ang: number) => new Polilinea([c, { x: c.x + Math.cos(ang) * 400, y: c.y + Math.sin(ang) * 400 }]);
+    // Cinco direcciones cuesta abajo (y creciente) separadas 45°: 0°, 45°, 90°, 135°, 180°.
+    for (const [k, grados] of [0, 45, 90, 135, 180].entries()) {
+      const t = recta((grados * Math.PI) / 180);
+      expect(red.salidaSeparada(3, 0, t)).toBe(true);
+      // Se registra como pista existente que sale del punto.
+      red.pistas.push({ id: k, desde: 3, hasta: 0, lado: 1, color: 'azul', trazado: t, compartido: null, lateral: false, s: 1, fueraDeRango: false, pendiente: 0.2 });
+    }
+    // Una sexta, en cualquier dirección cuesta abajo, queda a menos de 45° de alguna.
+    for (const grados of [10, 30, 60, 100, 160]) expect(red.salidaSeparada(3, 0, recta((grados * Math.PI) / 180))).toBe(false);
+  });
+
+  it('un remonte nuevo no puede cruzar más pistas que el máximo', () => {
+    const red = redPequena();
+    red.reglas.pista.distanciaMinimaPistas = 0;
+    red.construirRemonte(0, 3);
+    const p = abrir(red, 3, 0);
+    const a = p.trazado.puntoEn(p.trazado.longitud * 0.5);
+    // Una recta que atraviesa la pista por la mitad la cruza una vez.
+    expect(red.pistasCruzadasPorRecta({ x: a.x - 500, y: a.y + 10 }, { x: a.x + 500, y: a.y - 10 })).toBe(1);
+    red.reglas.pista.maxPistasCruzadasPorRemonte = 0;
+    expect(red.puedeConstruirRemonte(1, 2)).toBe(red.pistasCruzadasPorRecta(red.nodo(1), red.nodo(2)) > 0 ? 'cruza-pistas' : 'ok');
   });
 
   it('como mucho maxPistasLlegada pistas llegando a un punto', () => {
