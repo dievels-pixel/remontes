@@ -15,6 +15,8 @@ export interface Nodo {
   cota: number;
   /** Otra estación del mismo pico: entre gemelos no hay remontes ni pistas. */
   gemelo?: number;
+  /** Estación de desdoble de un pico: oculta hasta que la alcanza un remonte. */
+  desdoble?: boolean;
 }
 
 export interface Remonte {
@@ -74,6 +76,11 @@ export class Red {
   /** Activo: es una base o lo alcanza algún remonte. */
   activo(id: number): boolean {
     return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id);
+  }
+
+  /** Se muestra y se puede tocar: todo nodo salvo un desdoble aún sin remonte. */
+  visible(id: number): boolean {
+    return !this.nodos[id].desdoble || this.activo(id);
   }
 
   /** Un remonte funciona si hay al menos una pista activa desde su cima. */

@@ -81,10 +81,19 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
 
   // Nodos.
   for (const n of red.nodos) {
+    // El desdoble oculto solo se ve como vista previa cuando el arrastre va a él.
+    const previa = arr?.objetivo?.nodo === n.id && arr.objetivo.motivo === 'ok';
+    if (!red.visible(n.id) && !previa) continue;
     let marca: 'valido' | 'invalido' | null = null;
-    if (arr && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id).motivo === 'ok' ? 'valido' : 'invalido';
-    // En las estaciones gemelas la cota va por el lado exterior de la pareja.
-    const izquierda = n.gemelo !== undefined && red.nodo(n.gemelo).x > n.x;
+    if (arr && n.id !== arr.origen) {
+      const ok = (id: number) => juego.evaluar(arr.origen, id).motivo === 'ok';
+      const desdobleOk = n.gemelo !== undefined && !red.visible(n.gemelo) && ok(n.gemelo);
+      marca = ok(n.id) || desdobleOk ? 'valido' : 'invalido';
+    }
+    // Con el pico desdoblado, la cota va por el lado exterior de la pareja.
+    const g = n.gemelo;
+    const gemeloVisto = g !== undefined && (red.visible(g) || (arr?.objetivo?.nodo === g && arr.objetivo.motivo === 'ok'));
+    const izquierda = gemeloVisto && red.nodo(g!).x > n.x;
     dibujarNodo(ctx, n, P(n), red.activo(n.id), marca, izquierda);
   }
 

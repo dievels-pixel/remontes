@@ -73,6 +73,7 @@ export class Juego {
     let mejor: number | null = null;
     let dMin = radioMundo;
     for (const n of this.red.nodos) {
+      if (!this.red.visible(n.id)) continue;
       const d = distancia(p, n);
       if (d <= dMin) {
         dMin = d;
@@ -99,8 +100,8 @@ export class Juego {
       return;
     }
     let ev = this.evaluar(origen, n);
-    // Las estaciones gemelas están muy juntas: si la que hay bajo el dedo no
-    // vale y su gemela sí, se toma la gemela.
+    // Si la estación bajo el dedo no vale y su gemela sí (por ejemplo, porque
+    // ya le llega un remonte), se usa la gemela: así se desdobla el pico.
     const g = this.red.nodo(n).gemelo;
     if (ev.motivo !== 'ok' && g !== undefined && g !== origen) {
       const evg = this.evaluar(origen, g);

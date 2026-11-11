@@ -31,14 +31,15 @@ describe('Mapa de alturas y nodos', () => {
     expect(Math.max(...cotas('intermedio'))).toBeLessThan(Math.min(...cotas('cima')) - CONFIG.remonte.desnivelMinimo);
   });
 
-  it('cada pico tiene dos estaciones gemelas, recíprocas y cercanas', () => {
+  it('cada pico tiene una estación principal y un desdoble pegado a ella', () => {
     const nodos = crearNodos(mapa);
     for (const n of nodos.filter((m) => m.tipo === 'cima')) {
       expect(n.gemelo).toBeDefined();
       const g = nodos[n.gemelo!];
       expect(g.gemelo).toBe(n.id);
       expect(g.tipo).toBe('cima');
-      expect(Math.hypot(g.x - n.x, g.y - n.y)).toBeLessThan(300);
+      expect(Math.hypot(g.x - n.x, g.y - n.y)).toBeLessThan(150);
+      expect(Boolean(n.desdoble)).not.toBe(Boolean(g.desdoble));
     }
   });
 });
