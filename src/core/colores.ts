@@ -57,3 +57,19 @@ export function evaluarColores(
     return { color, p, s, factible: !demasiadoPlana && s >= sMin * (1 - 1e-9) && s <= sMax };
   });
 }
+
+/** Nivel de un color: 0 verde, 1 azul, 2 roja, 3 negra. */
+export function nivelDe(color: ColorPista): number {
+  return COLORES.indexOf(color);
+}
+
+/**
+ * Pista forzada: su pendiente cae en la parte alta de su banda, dentro del
+ * solape con el color siguiente (por ejemplo, una verde más empinada que el
+ * mínimo de la azul). Es de su color porque se supone más ancha, pero divierte
+ * menos a los esquiadores de ese nivel. La negra nunca lo está.
+ */
+export function pistaForzada(color: ColorPista, pendiente: number, bandas: Bandas): boolean {
+  const siguiente = COLORES[nivelDe(color) + 1];
+  return siguiente !== undefined && pendiente > bandas[siguiente][0];
+}

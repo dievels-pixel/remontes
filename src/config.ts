@@ -118,6 +118,27 @@ export const CONFIG = {
     // v = base + factor · pendiente
     velocidadBasePista: 70,
     factorPendiente: 380,
+    // Niveles (etapa 3). PROVISIONAL: la mezcla será de los edificios en la
+    // etapa 4; aquí, fija. Proporción de verdes, azules, rojos y negros.
+    mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
+    // Diversión (0 a 1; 1 = color pleno, 0 = gris). Sube al bajar por una pista
+    // de su nivel (poco si es forzada: empinada para su color), baja por cada
+    // nivel que la pista queda por debajo del suyo. Por debajo del umbral, al
+    // llegar a una base el esquiador se va. PROVISIONAL.
+    diversionInicial: 1,
+    diversionSuNivel: 0.2,
+    diversionForzada: 0.05,
+    diversionPorNivelInferior: 0.15,
+    umbralMarcha: 0.25,
+    // Preferencia por las pistas de su nivel frente a las más fáciles.
+    pesoSuNivel: 3,
+  },
+
+  // Colas (etapa 3): el anillo de una estación se llena con este número de
+  // esquiadores esperando y pasa del gris al rojo. PROVISIONAL: va ligado al
+  // umbral de saturación de la derrota, una decisión abierta.
+  colas: {
+    umbralAnillo: 15,
   },
 
   // Entrada: interacción táctil.

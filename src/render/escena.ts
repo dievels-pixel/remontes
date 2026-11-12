@@ -2,7 +2,8 @@
 // convertidas con la cámara.
 import { CONFIG } from '../config';
 import { PLAZA } from '../core/mapa';
-import { COLORES, type ColorPista } from '../core/colores';
+import { COLORES, pistaForzada, type ColorPista } from '../core/colores';
+import type { Perfil } from '../core/simulacion';
 import { desplazamientoPista as calcularDesplazamiento } from '../core/desplazamiento';
 import type { Polilinea } from '../core/polilinea';
 import type { Estacion, Pista, TipoEstacion } from '../core/red';
@@ -20,6 +21,10 @@ const COLOR = {
   plaza: 'rgba(240, 236, 226, 0.75)',
   valido: '#2f9e6a',
   invalido: '#b9473b',
+  forzada: '#e8908a', // borde rojo suave del selector: color empinado para su nivel
+  aburrido: '#a3a8ad', // gris al que tiende un esquiador aburrido
+  colaVacia: '#8b9298',
+  colaLlena: '#d0453a',
 };
 
 export const COLOR_PISTA: Record<ColorPista, string> = {
@@ -117,7 +122,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
       ctx.fill();
       ctx.stroke();
       if (b.pasajeros.length > 0) {
-        ctx.fillStyle = COLOR.esquiador;
+        ctx.fillStyle = colorEsquiador(sim.perfiles.get(b.pasajeros[0]));
         ctx.beginPath();
         ctx.arc(q.x, q.y, 1.8, 0, Math.PI * 2);
         ctx.fill();
@@ -147,8 +152,17 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.restore();
   }
 
+  // Anillo de cola en cada estación de salida: se llena con la cola y pasa del
+  // gris al rojo, como el temporizador de las estaciones de Mini Metro.
+  const colaPorEstacion = new Map<number, number>();
+  for (const r of red.remontes) {
+    const n = sim.colas[r.id]?.length ?? 0;
+    if (n > 0) colaPorEstacion.set(r.estacionDesde, (colaPorEstacion.get(r.estacionDesde) ?? 0) + n);
+  }
+  for (const [est, n] of colaPorEstacion) dibujarAnilloCola(ctx, PE(red.estaciones[est]), n / CONFIG.colas.umbralAnillo);
+
   // Esquiadores: en cola alrededor del nodo, andando por la plaza y bajando.
-  ctx.fillStyle = COLOR.esquiador;
+  // Del color de su nivel, más gris cuanto más aburridos.
   // Cada cola se agrupa alrededor de la estación de salida de su remonte.
   const porEstacion = new Map<number, number>();
   const puntoEnRacimo = (estacion: number) => {
@@ -183,6 +197,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
         break; // va dentro de su bolita
     }
     if (!q) continue;
+    ctx.fillStyle = colorEsquiador(sim.perfiles.get(e.id));
     ctx.beginPath();
     ctx.arc(q.x, q.y, RADIO_PUNTO, 0, Math.PI * 2);
     ctx.fill();
@@ -478,6 +493,16 @@ function dibujarSelector(ctx: CanvasRenderingContext2D, juego: Juego, punto: Pun
     ctx.beginPath();
     ctx.arc(cx, cy, caja.ancho / 2 - 3, 0, Math.PI * 2);
     ctx.fill();
+    const f = sel.colores.find((c) => c.color === color)!;
+    if (factible && pistaForzada(color, f.p, juego.red.reglas.pista.bandas)) {
+      // Borde rojo suave: cabe, pero es empinada para su color y los
+      // esquiadores de ese nivel se divertirán menos en ella.
+      ctx.strokeStyle = COLOR.forzada;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, caja.ancho / 2 - 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     if (!factible) {
       // Aspa: este color no cabe con la pendiente de esa pareja.
       ctx.globalAlpha = 0.7;
@@ -501,7 +526,8 @@ function dibujarInfoPista(ctx: CanvasRenderingContext2D, juego: Juego, punto: Pu
   const p = juego.red.pistas[juego.infoPista!.pista];
   const coma = (x: number, d: number) => x.toFixed(d).replace('.', ',');
   const lineas = [
-    `${NOMBRE_COLOR[p.color]}${p.fueraDeRango ? ' (fuera de rango)' : ''}`,
+    `${NOMBRE_COLOR[p.color]}${p.fueraDeRango ? ' (fuera de rango)' : ''}${juego.red.forzada(p) ? ' · forzada' : ''}`,
+    `dificultad efectiva: ${NOMBRE_COLOR[COLORES[juego.red.dificultad(p)]]}`,
     `s = ${coma(p.s, 2)} · pendiente ${coma(p.pendiente * 100, 1)} %`,
   ];
   if (p.compartido) lineas.push(`comparte ${Math.round(p.compartido.fin - p.compartido.inicio)} m`);
@@ -522,5 +548,36 @@ function dibujarInfoPista(ctx: CanvasRenderingContext2D, juego: Juego, punto: Pu
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   lineas.forEach((l, i) => ctx.fillText(l, x + 10, y + 8 + i * 18));
+  ctx.restore();
+}
+
+/** Mezcla dos colores hex: t = 0 da el primero, t = 1 el segundo. */
+function mezclar(a: string, b: string, t: number): string {
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [rgb(a), rgb(b)];
+  return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`;
+}
+
+/** Color de un esquiador: el de su nivel, hacia el gris cuanto menos se divierte. */
+function colorEsquiador(perfil: Perfil | undefined): string {
+  if (!perfil) return COLOR.esquiador;
+  return mezclar(COLOR_PISTA[COLORES[perfil.nivel]], COLOR.aburrido, 1 - perfil.diversion);
+}
+
+/** Anillo de cola alrededor de una estación: arco lleno en la fracción dada. */
+function dibujarAnilloCola(ctx: CanvasRenderingContext2D, c: Punto, fraccion: number): void {
+  const f = Math.min(1, Math.max(0, fraccion));
+  const r = RADIO_NODO + 4;
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = 'rgba(38, 42, 49, 0.15)';
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = mezclar(COLOR.colaVacia, COLOR.colaLlena, f);
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }

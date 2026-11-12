@@ -1,7 +1,7 @@
 // Red de la estación como grafo dirigido: nodos fijos, remontes (suben) y
 // pistas (bajan). Aplica las reglas de "sin puntos ciegos" de docs/diseno.md.
 import { hashPareja } from './azar';
-import { evaluarColores, type Bandas, type ColorPista, type Factibilidad, type PendienteObjetivo } from './colores';
+import { evaluarColores, nivelDe, pistaForzada, type Bandas, type ColorPista, type Factibilidad, type PendienteObjetivo } from './colores';
 import { confluir, demasiadoCerca, pistasCruzadas, type Confluencia } from './confluencia';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from './curva';
 import type { Polilinea } from './polilinea';
@@ -262,6 +262,51 @@ export class Red {
     if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
     const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
     return sigue !== undefined && this.enServicio(sigue, extra);
+  }
+
+  /**
+   * Dificultad efectiva de una pista (0 verde … 3 negra): la de su color o, si
+   * se une a otra, la mayor de las dos (el tramo común manda). Un esquiador
+   * solo la coge si su nivel llega a esta dificultad.
+   */
+  dificultad(p: Pista): number {
+    const propia = nivelDe(p.color);
+    const otra = p.compartido ? this.pistas[p.compartido.pista] : undefined;
+    return otra ? Math.max(propia, this.dificultad(otra)) : propia;
+  }
+
+  /** ¿Es una pista forzada (empinada para su color)? Divierte menos a su nivel. */
+  forzada(p: Pista): boolean {
+    return pistaForzada(p.color, p.pendiente, this.reglas.pista.bandas);
+  }
+
+  private cacheViables: { version: number; porNivel: Set<number>[] } | null = null;
+
+  /**
+   * Puntos desde los que un esquiador de cada nivel (0 verde … 3 negra) puede
+   * llegar a una base: por remontes en servicio y por pistas de dificultad
+   * efectiva no mayor que su nivel. Se recalcula cuando cambia la red.
+   */
+  viablesPorNivel(): Set<number>[] {
+    if (this.cacheViables?.version === this.version) return this.cacheViables.porNivel;
+    const porNivel = [0, 1, 2, 3].map((nivel) => {
+      const aristas: [number, number][] = this.pistas.filter((p) => this.dificultad(p) <= nivel).map((p) => [p.desde, p.hasta]);
+      for (const r of this.remontes) if (this.enServicio(r)) aristas.push([r.desde, r.hasta]);
+      const alcanza = new Set(this.nodos.filter((n) => n.tipo === 'base').map((n) => n.id));
+      let cambio = true;
+      while (cambio) {
+        cambio = false;
+        for (const [a, b] of aristas) {
+          if (alcanza.has(b) && !alcanza.has(a)) {
+            alcanza.add(a);
+            cambio = true;
+          }
+        }
+      }
+      return alcanza;
+    });
+    this.cacheViables = { version: this.version, porNivel };
+    return porNivel;
   }
 
   /**
