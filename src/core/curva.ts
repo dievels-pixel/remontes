@@ -28,6 +28,13 @@ export interface FormaPista {
    * necesite alargar la pista, para que las más directas no queden lisas.
    */
   temblor?: number;
+  /**
+   * Giro de salida (grados, hacia el lado de la pista): un gancho solo al
+   * principio, lado · tan(giro) · D · t · (1 − t)³, que hace salir la pista
+   * girada ese ángulo y la devuelve enseguida a su eje. Sirve para que una
+   * pista salga por un hueco libre entre las salidas que ya hay.
+   */
+  giro?: number;
 }
 
 /** Variación lenta y estable por semilla: fases y frecuencias de la irregularidad. */
@@ -54,12 +61,15 @@ export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitudPedid
   // La fase avanza a ritmo variable (la longitud de onda cambia hasta ±50 %
   // con irregularidad 1) sin dejar de crecer, y la amplitud varía hasta ±40 %.
   const beta = (0.5 * forma.ondas) / ir.m;
+  const tanGiro = Math.tan(((forma.giro ?? 0) * Math.PI) / 180);
   const puntos: Punto[] = [];
   for (let i = 0; i <= muestras; i++) {
     const t = i / muestras;
     const fase = 2 * Math.PI * forma.ondas * t + irr * beta * Math.sin(2 * Math.PI * ir.m * t + ir.fase1);
     const amp = amplitud * (1 + 0.4 * irr * Math.sin(2 * Math.PI * ir.m2 * t + ir.fase2));
-    const desp = forma.lado * Math.sin(Math.PI * t) * (forma.abombamiento * d + amp * (1 - Math.cos(fase)));
+    const desp =
+      forma.lado * Math.sin(Math.PI * t) * (forma.abombamiento * d + amp * (1 - Math.cos(fase))) +
+      forma.lado * tanGiro * d * t * (1 - t) ** 3;
     puntos.push({ x: a.x + dx * t + nx * desp, y: a.y + dy * t + ny * desp });
   }
   return new Polilinea(puntos);

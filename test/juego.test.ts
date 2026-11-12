@@ -105,8 +105,8 @@ describe('Juego: arrastre y velocidad', () => {
       for (const p of ps) expect(pistasCruzadas(j.trazadoProyecto(p), existentes, rp.margenConfluencia, rp.radioAcuerdo)).toBeLessThanOrEqual(rp.maxCrucesPistas);
       if (ps.length === 0) continue;
       const p = ps[0];
-      const c = j.red.colores(p.desde, p.hasta, p.lado).find((x) => x.factible)!;
-      j.red.abrirPista(p.desde, p.hasta, c.color, p.lado);
+      const c = j.red.coloresLimpios(p.desde, p.hasta, p.lado, p.giro).find((x) => x.factible)!;
+      j.red.abrirPista(p.desde, p.hasta, c.color, p.lado, p.giro);
     }
     expect(j.red.pistas.length).toBeGreaterThan(0);
   });
@@ -131,9 +131,9 @@ describe('Juego: arrastre y velocidad', () => {
         const ps = j.proyectosVisibles();
         if (!ps.length) continue;
         const pr = ps[Math.floor(az() * ps.length)];
-        const cs = red.coloresLimpios(pr.desde, pr.hasta, pr.lado).filter((c) => c.factible);
+        const cs = red.coloresLimpios(pr.desde, pr.hasta, pr.lado, pr.giro).filter((c) => c.factible);
         expect(cs.length).toBeGreaterThan(0);
-        red.abrirPista(pr.desde, pr.hasta, cs[Math.floor(az() * cs.length)].color, pr.lado);
+        red.abrirPista(pr.desde, pr.hasta, cs[Math.floor(az() * cs.length)].color, pr.lado, pr.giro);
       }
       // Ninguna pista unida queda suelta: su línea dibujada empalma con la de la otra.
       for (const pi of red.pistas) {

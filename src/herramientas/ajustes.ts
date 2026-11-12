@@ -21,7 +21,7 @@ interface Deslizador {
   escribir: (p: ParametrosPista, v: number) => void;
 }
 
-type ClaveNumerica = 'longitudOnda' | 'sinuosidadMaxima' | 'abombamientoLateral' | 'abombamientoNormal' | 'irregularidad' | 'temblor' | 'margenObstaculo' | 'distanciaMinimaPistas' | 'anguloMinimoSalida';
+type ClaveNumerica = 'longitudOnda' | 'sinuosidadMaxima' | 'abombamientoLateral' | 'abombamientoNormal' | 'giroMaximo' | 'irregularidad' | 'temblor' | 'margenObstaculo' | 'distanciaMinimaPistas' | 'anguloMinimoSalida';
 
 const simple = (clave: ClaveNumerica, nombre: string, min: number, max: number, paso: number, decimales: number, unidad?: string): Deslizador => ({
   nombre,
@@ -53,6 +53,7 @@ const DESLIZADORES: Deslizador[] = [
   simple('sinuosidadMaxima', 'Sinuosidad máx.', 1.2, 2.5, 0.05, 2),
   simple('abombamientoLateral', 'Abomb. lateral', 0, 0.3, 0.01, 2),
   simple('abombamientoNormal', 'Abomb. normal', 0, 0.2, 0.01, 2),
+  simple('giroMaximo', 'Giro salida máx.', 0, 80, 10, 0, '°'),
   simple('irregularidad', 'Irregularidad', 0, 1, 0.05, 2),
   simple('temblor', 'Temblor', 0, 80, 1, 0, 'm'),
   simple('margenObstaculo', 'Margen plaza', 0, 100, 5, 0, 'm'),
