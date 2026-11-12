@@ -7,6 +7,15 @@ import type { PendienteObjetivo } from './core/colores';
 export const CONFIG = {
   // El tamaño del mundo, las cotas y la plaza son del mapa (mapas/<nombre>/mapa.json).
 
+  // Terreno esquiable. Donde la pendiente local del mapa de alturas pasa de
+  // este umbral, el terreno es roca o precipicio: se pinta como roca y ninguna
+  // pista lo cruza. Bastante mayor que la de una negra, porque una pista que
+  // serpentea cruza la ladera con menos pendiente que la del terreno.
+  // PROVISIONAL (decisión abierta de la especificación).
+  terreno: {
+    umbralRoca: 0.9,
+  },
+
   // Remontes (en la etapa 1 todos son telesquí). PROVISIONAL: capacidades y
   // velocidades por tipo son decisión abierta.
   remonte: {

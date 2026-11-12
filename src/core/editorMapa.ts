@@ -70,12 +70,15 @@ export interface LimitesMapa {
   separacion: number;
   /** Zona prohibida (la plaza), con su margen ya sumado al radio. */
   obstaculo: Punto & { radio: number };
+  /** Terreno donde no se puede poner un punto (la roca). */
+  prohibido?: (p: Punto) => boolean;
 }
 
 /** ¿Se puede colocar un punto en `p`? `ignorar`: el que se está moviendo. */
 export function sitioLibre(def: readonly DefinicionNodo[], p: Punto, l: LimitesMapa, ignorar?: number): boolean {
   if (p.x < 0 || p.y < 0 || p.x > l.ancho || p.y > l.alto) return false;
   if (distancia(p, l.obstaculo) < l.obstaculo.radio) return false;
+  if (l.prohibido?.(p)) return false;
   return def.every((d, i) => i === ignorar || distancia(d, p) >= l.separacion);
 }
 

@@ -55,7 +55,12 @@ export function conValoresClasicos(red: Red): Red {
 
 /** Mapa del juego (mapas/inicial), leído del PNG y el JSON como en el navegador. */
 export function mapaInicial(): Mapa {
-  const datos = leerDatosMapa(JSON.parse(readFileSync('mapas/inicial/mapa.json', 'utf8')));
-  const png = decodificarPngGris(readFileSync('mapas/inicial/alturas.png'));
+  return cargarMapaPrueba('inicial');
+}
+
+/** Un mapa de mapas/<nombre>, leído del PNG y el JSON como en el navegador. */
+export function cargarMapaPrueba(nombre: string): Mapa {
+  const datos = leerDatosMapa(JSON.parse(readFileSync(`mapas/${nombre}/mapa.json`, 'utf8')));
+  const png = decodificarPngGris(readFileSync(`mapas/${nombre}/alturas.png`));
   return { datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) };
 }

@@ -34,8 +34,26 @@ export class MapaAlturas {
     return a * (1 - ty) + b * ty;
   }
 
+  /** ¿Está el punto dentro del mundo que cubre el mapa? */
+  dentro(p: Punto): boolean {
+    return p.x >= 0 && p.y >= 0 && p.x <= this.ancho && p.y <= this.alto;
+  }
+
   /** Cota en metros. */
   cotaEn(p: Punto): number {
     return this.cotaMin + this.grisEn(p) * (this.cotaMax - this.cotaMin);
+  }
+
+  /**
+   * Pendiente local del terreno (tanto por uno), por diferencias centradas a
+   * dos celdas a cada lado: con grises de 8 bits, una distancia más corta da
+   * ruido de cuantización (un nivel de gris son unos 6 m).
+   */
+  pendienteEn(p: Punto): number {
+    const hx = (2 * this.ancho) / (this.columnas - 1);
+    const hy = (2 * this.alto) / (this.filas - 1);
+    const dx = (this.cotaEn({ x: p.x + hx, y: p.y }) - this.cotaEn({ x: p.x - hx, y: p.y })) / (2 * hx);
+    const dy = (this.cotaEn({ x: p.x, y: p.y + hy }) - this.cotaEn({ x: p.x, y: p.y - hy })) / (2 * hy);
+    return Math.hypot(dx, dy);
   }
 }

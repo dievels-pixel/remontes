@@ -355,6 +355,25 @@ function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   pintarCota();
   fila.append('Cota máx.', input, valor);
 
+  // Umbral de roca: pendiente local a partir de la cual el terreno no es esquiable.
+  const filaRoca = document.createElement('label');
+  filaRoca.className = 'fila';
+  const roca = document.createElement('input');
+  roca.type = 'range';
+  roca.min = '0.5';
+  roca.max = '2';
+  roca.step = '0.05';
+  roca.value = String(juego.umbralRoca);
+  const valorRoca = document.createElement('span');
+  valorRoca.className = 'valor';
+  valorRoca.textContent = coma(juego.umbralRoca, 2);
+  roca.addEventListener('input', () => {
+    juego.umbralRoca = Number(roca.value);
+    valorRoca.textContent = coma(juego.umbralRoca, 2);
+    juego.recalcularPistas();
+  });
+  filaRoca.append('Umbral roca', roca, valorRoca);
+
   const botones = document.createElement('div');
   botones.className = 'botones';
   const copiar = document.createElement('button');
@@ -376,8 +395,8 @@ function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   const nota = document.createElement('div');
   nota.className = 'nota';
   nota.textContent =
-    'Mover o cambiar la cota máx. conserva lo construido (las pistas que ya no caben en su color quedan a trazos cortos). Añadir o borrar un punto rehace la red y omite lo que ya no se pueda construir. El mapa se guarda en este navegador; «Mapa original» lo vacía.';
-  cuerpo.append(titulo, herramientas, fila, botones, nota);
+    'Mover o cambiar la cota máx. conserva lo construido (las pistas que ya no caben en su color quedan a trazos cortos). Añadir o borrar un punto rehace la red y omite lo que ya no se pueda construir. El mapa se guarda en este navegador; «Mapa original» lo vacía. El umbral de roca va en config.ts (terreno.umbralRoca); con ?mapa=inicial se carga el mapa anterior.';
+  cuerpo.append(titulo, herramientas, fila, filaRoca, botones, nota);
 }
 
 async function copiarTexto(texto: string): Promise<boolean> {

@@ -21,14 +21,26 @@ function colorDe(g: number): [number, number, number] {
   return PARADAS[PARADAS.length - 1][1];
 }
 
-export function crearTerreno(mapa: MapaAlturas): HTMLCanvasElement {
+/** Color de la roca (terreno no esquiable): gris cálido, más oscuro que la ladera. */
+const ROCA: [number, number, number] = [116, 112, 106];
+
+/**
+ * Una muestra por celda del mapa de alturas. La roca empieza justo en el
+ * umbral (lo que se ve como roca es lo que no se puede esquiar) y se oscurece
+ * a lo largo de 0,15 de pendiente, para que el borde no quede dentado.
+ */
+export function crearTerreno(mapa: MapaAlturas, umbralRoca: number): HTMLCanvasElement {
   const lienzo = document.createElement('canvas');
   lienzo.width = mapa.columnas;
   lienzo.height = mapa.filas;
   const ctx = lienzo.getContext('2d')!;
   const img = ctx.createImageData(mapa.columnas, mapa.filas);
+  const dx = mapa.ancho / (mapa.columnas - 1);
+  const dy = mapa.alto / (mapa.filas - 1);
   for (let i = 0; i < mapa.gris.length; i++) {
-    const [r, g, b] = colorDe(mapa.gris[i]);
+    const p = { x: (i % mapa.columnas) * dx, y: Math.floor(i / mapa.columnas) * dy };
+    const t = Math.min(Math.max((mapa.pendienteEn(p) - umbralRoca) / 0.15, 0), 1) * 0.9;
+    const [r, g, b] = colorDe(mapa.gris[i]).map((c, k) => c + (ROCA[k] - c) * t);
     img.data[i * 4] = r;
     img.data[i * 4 + 1] = g;
     img.data[i * 4 + 2] = b;

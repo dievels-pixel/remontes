@@ -206,12 +206,15 @@ El relieve del mapa de alturas define valles, cimas y cordales, y condiciona qu�
 - Montañas rocosas: una cima con roca por un lado solo tiene pistas por la ladera esquiable. La cima se alcanza igualmente con un remonte, porque los remontes son cables y cruzan cualquier terreno.
 - Consecuencias en las reglas: la lente de dos pistas por remonte pasa a ser "hasta dos, según el terreno", y un nodo bajo solo se desbloquea desde una cima si existe una pista factible entre ambos. Si no, se desbloquearía un valle al que no puede bajar nadie.
 - El mismo umbral pinta la roca en el terreno (ver "Terreno"), de modo que lo que se ve como roca es lo que no se puede esquiar.
+- Implementado (paso 3 del plan): umbral provisional 0,9, con la pendiente medida a dos celdas a cada lado (80 m en «Dos valles»). La regla se comprueba cada 20 m del trazado real de cada color; el que la incumple sale apagado (se descarta el color, no se limita la amplitud). Se tolera que el terreno quede 10 m por encima de la salida. Fuera del mapa cuenta como roca. El editor de pruebas no deja poner un punto en roca.
 - Fuera de pista (idea futura, sin diseñar): la máscara ya distingue el terreno esquiable, así que más adelante podría haber rutas libres fuera de pista, por ejemplo para esquiadores negros.
 
 ## Mapas y editor
 
 - Formato: un mapa de alturas en escala de grises (PNG) y un archivo (JSON) con los nodos (tipo y posición, con la cota sacada del mapa) y los parámetros propios del mapa (por ejemplo su curva de afluencia). Implementado en `mapas/<nombre>/`: `alturas.png` (8 bits; el negro es `cotaMin` y el blanco `cotaMax`) y `mapa.json` con `nombre`, `ancho` y `alto` del mundo en metros, `cotaMin`, `cotaMax`, la `plaza` (centro y radio) y los `nodos`. Con 8 bits y 1500 m de desnivel, cada nivel de gris son unos 6 m: basta para las cotas y el degradado.
 - El mapa inicial (`mapas/inicial`) lo escribe un script (`npm run mapa:inicial`) con el mismo ruido con que se hizo el de las primeras etapas. El script no forma parte del juego: el juego solo carga datos.
+- Al cargar, los grises se suavizan con un filtro [1 2 1] en cada dirección: con 8 bits, sin suavizar, la pendiente local (y con ella la roca) sale moteada.
+- Mapa de pruebas «Dos valles» (`mapas/dos-valles`, por defecto; `npm run mapa:dos-valles`): valle A al sur con el pie de pistas, cordal con tres cimas (oeste 2650, centro 2840, este 2917 m), valle B al norte con tres nodos bajos (unos 2070 m) para probar «Abrir un valle», un cortado en la cara norte del pico este (desde él no se baja al valle B) y una banda de roca a media ladera del valle A con un paso de unos 250 m. Se elige mapa con `?mapa=<carpeta>` en la dirección (`?mapa=inicial` para el anterior). Los puntos se retocan con el editor de `?ajustes` y se copian como JSON.
 - El primer prototipo carga un mapa hecho a mano en cualquier editor de imágenes. Un editor integrado en el juego, que escriba el mismo formato, llega después de tener un prototipo jugable; antes de eso retrasaría lo importante, que es probar la dinámica.
 - Generador procedural: descartado por ahora.
 - Estaciones reales: replicar estaciones reales, como hace Mini Metro con ciudades, usando datos abiertos de elevación (revisar la licencia de la fuente concreta) y presentándolas como "inspiradas en", sin el nombre comercial. Además permitiría calibrar los umbrales de pendiente por color con datos reales.
@@ -388,7 +391,7 @@ Para que no se reintroduzca por error:
 
 ## Decisiones abiertas
 
-- [ ] Umbral de pendiente local a partir del cual el terreno es roca o precipicio (bastante mayor que el de una pista negra).
+- [ ] Umbral de pendiente local a partir del cual el terreno es roca o precipicio (bastante mayor que el de una pista negra). Provisional 0,9, ajustable en `?ajustes`.
 - [ ] Precio de los remontes: longitud en planta (lo más simple) o longitud real en 3D.
 - [ ] Fuera de pista (idea futura): rutas libres por terreno esquiable sin pista, por ejemplo para esquiadores negros.
 - [ ] Cuántos nodos bajos se desbloquean por cima (hipótesis: los 2 o 3 más cercanos y más bajos).

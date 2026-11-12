@@ -316,6 +316,7 @@ Actualizado el 2026-11-12, al pasar a la especificación nueva (`docs/diseno-jue
 - **Etapa 2, en parte:** proyectos de pista a trazos, selector de color con rango factible, sinuosidad por bisección y nodo viable. Con los añadidos pedidos jugando: forma de pista calibrada, bandas solapadas y pendiente «cercana», confluencias, límites contra la maraña (una pista cruzada, unión a 40 m, salidas a 30° con giro propio de cada color, 4 llegadas, plaza como obstáculo).
 - **Etapa 3, con otro modelo:** niveles de esquiador, dificultad efectiva (el tramo común manda), colas con anillo. La diversión continua (0 a 1) que hay hoy no es la de la especificación (ver «Pendiente»).
 - **Mapas como datos (v23):** `mapas/inicial/alturas.png` y `mapa.json`, cargados por el juego; el editor de `?ajustes` copia el JSON.
+- **Mapa «Dos valles» y roca (v23):** mapa de pruebas por defecto (`?mapa=inicial` para el anterior) y máscara de terreno esquiable: la roca se pinta y ninguna pista la cruza, ni pasa por terreno más alto que su salida, ni se sale del mapa. Umbral de roca provisional 0,9 en `config.ts` y en el panel.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
@@ -324,8 +325,8 @@ Pasos, cada uno jugable antes del siguiente:
 
 1. Mapas como datos. Hecho (v23).
 2. Recolorear sin coste y «muy forzada» (s / s_min). Aplazado: el usuario aún no lo tiene claro; no hacerlo hasta que lo pida.
-3. Mapa nuevo con dos valles y roca, generado por script como datos; máscara de terreno esquiable (roca pintada; las pistas no cruzan roca ni terreno más alto que su salida).
-4. Abrir un valle: desbloqueo de nodos bajos al activarse una cima. Con esto se cierra la etapa 2.
+3. Mapa nuevo con dos valles y roca, generado por script como datos; máscara de terreno esquiable. Hecho (v23).
+4. Abrir un valle: desbloqueo de nodos bajos al activarse una cima. Con esto se cierra la etapa 2. Siguiente. En «Dos valles», los nodos del valle B son de tipo intermedio de momento; al hacerlo habrá que decidir si son un tipo propio.
 5. Etapa 3 rehecha según la especificación: aguante, contento de 3 puntos con la tabla, variedad, aforo de cola 6 con anillo de 20 s que expulsa al último, destello al irse enfadado, puntos sin gris, quitar «No vienen» y el tope de población; contadores por color (puntito y número) y «Enfadados: N»; en `?ajustes`, desglose de quejas por causa.
 6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo, edificios decorativos (el nivel nuevo se aplica 15 s después).
 

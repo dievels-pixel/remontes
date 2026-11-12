@@ -1,4 +1,4 @@
-import { cargarMapaInicial } from './cargarMapa';
+import { cargarMapa, MAPA_POR_DEFECTO } from './cargarMapa';
 import { conectarPuntero } from './input/puntero';
 import type { Mapa } from './core/mapa';
 import { Juego } from './juego';
@@ -7,7 +7,7 @@ import { dibujar } from './render/escena';
 import { crearTerreno } from './render/terreno';
 
 // El mapa (PNG de alturas y JSON de nodos) se carga antes de empezar.
-cargarMapaInicial().then(iniciar, (e: unknown) => {
+cargarMapa(new URLSearchParams(location.search).get('mapa') ?? MAPA_POR_DEFECTO).then(iniciar, (e: unknown) => {
   document.body.textContent = `No se ha podido cargar el mapa: ${e instanceof Error ? e.message : String(e)}`;
 });
 
@@ -16,7 +16,10 @@ function iniciar(mapa: Mapa): void {
   const ctx = lienzo.getContext('2d')!;
   const juego = new Juego(mapa);
   const camara = new Camara();
-  const terreno = crearTerreno(juego.alturas);
+  // El fondo se rehace si cambian las alturas (cota máx. del editor) o el
+  // umbral de roca (panel de ajustes).
+  let terreno = crearTerreno(juego.alturas, juego.umbralRoca);
+  let claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
   let ancho = 0;
   let alto = 0;
 
@@ -62,6 +65,10 @@ function iniciar(mapa: Mapa): void {
     while (acumulado >= DT) {
       juego.paso(DT);
       acumulado -= DT;
+    }
+    if (claveTerreno.alturas !== juego.alturas || claveTerreno.umbral !== juego.umbralRoca) {
+      terreno = crearTerreno(juego.alturas, juego.umbralRoca);
+      claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
     }
     dibujar(ctx, juego, camara, terreno, ancho, alto);
     requestAnimationFrame(fotograma);

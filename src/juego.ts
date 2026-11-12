@@ -61,6 +61,8 @@ export class Juego {
   definicion: DefinicionNodo[];
   /** Plaza del pie de pistas: entrada de esquiadores y obstáculo para las pistas. */
   readonly plaza: Mapa['datos']['plaza'];
+  /** Pendiente local a partir de la cual el terreno es roca (el panel de ajustes la cambia). */
+  umbralRoca: number = CONFIG.terreno.umbralRoca;
   /** Límites del editor del mapa de pruebas. */
   private readonly limitesMapa: LimitesMapa;
   /** Editor del mapa de pruebas: herramienta activa, o null si está cerrado. */
@@ -98,6 +100,7 @@ export class Juego {
       alto: datos.alto,
       separacion: 80,
       obstaculo: { ...datos.plaza, radio: datos.plaza.radio + 40 },
+      prohibido: (p) => this.alturas.pendienteEn(p) > this.umbralRoca,
     };
     this.reglasRed = {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
@@ -109,6 +112,8 @@ export class Juego {
       obstaculos: [datos.plaza],
       // Para exigir que las pistas salgan cuesta abajo según el terreno.
       cotaTerreno: (p) => this.alturas.cotaEn(p),
+      // Fuera del mapa cuenta como roca: ninguna pista se sale de él.
+      esRoca: (p) => !this.alturas.dentro(p) || this.alturas.pendienteEn(p) > this.umbralRoca,
     };
     this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
     this.parametrosSim = {
@@ -189,7 +194,7 @@ export class Juego {
     }
     if (h) {
       if (!sitioLibre(this.definicion, p, this.limitesMapa)) {
-        this.avisar('Ahí no: fuera del mapa, en la plaza o pegado a otro punto.');
+        this.avisar('Ahí no: fuera del mapa, en la plaza, en roca o pegado a otro punto.');
         return false;
       }
       this.rehacer([...this.definicion, { tipo: h, x: Math.round(p.x), y: Math.round(p.y) }], idsIguales(this.definicion.length));

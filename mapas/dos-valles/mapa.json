@@ -1,0 +1,89 @@
+{
+  "nombre": "Dos valles",
+  "ancho": 2400,
+  "alto": 4200,
+  "cotaMin": 1400,
+  "cotaMax": 3100,
+  "plaza": {
+    "x": 1200,
+    "y": 4060,
+    "radio": 170
+  },
+  "nodos": [
+    {
+      "tipo": "base",
+      "x": 930,
+      "y": 3970
+    },
+    {
+      "tipo": "base",
+      "x": 1200,
+      "y": 3830
+    },
+    {
+      "tipo": "base",
+      "x": 1470,
+      "y": 3970
+    },
+    {
+      "tipo": "intermedio",
+      "x": 600,
+      "y": 3450
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1800,
+      "y": 3420
+    },
+    {
+      "tipo": "intermedio",
+      "x": 450,
+      "y": 2850
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1000,
+      "y": 2700
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1800,
+      "y": 3000
+    },
+    {
+      "tipo": "intermedio",
+      "x": 800,
+      "y": 2100
+    },
+    {
+      "tipo": "cima",
+      "x": 450,
+      "y": 1500
+    },
+    {
+      "tipo": "cima",
+      "x": 1200,
+      "y": 1480
+    },
+    {
+      "tipo": "cima",
+      "x": 1950,
+      "y": 1520
+    },
+    {
+      "tipo": "intermedio",
+      "x": 500,
+      "y": 300
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1250,
+      "y": 250
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1950,
+      "y": 300
+    }
+  ]
+}

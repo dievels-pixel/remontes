@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "mapa:inicial": "node scripts/generarMapaInicial.ts"
+    "mapa:inicial": "node scripts/generarMapaInicial.ts",
+    "mapa:dos-valles": "node scripts/generarMapaDosValles.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

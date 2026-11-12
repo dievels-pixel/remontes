@@ -64,11 +64,20 @@ export function leerDatosMapa(json: unknown): DatosMapa {
   return { nombre: typeof o.nombre === 'string' ? o.nombre : 'Sin nombre', ancho, alto, cotaMin, cotaMax, plaza, nodos };
 }
 
-/** Alturas a partir de los grises del PNG (0..255, por filas). */
+/**
+ * Alturas a partir de los grises del PNG (0..255, por filas). Se suavizan con
+ * un filtro [1 2 1] en cada dirección: con 8 bits cada nivel de gris son
+ * varios metros, y sin suavizar, la pendiente local (y con ella la roca) sale
+ * moteada en las laderas cercanas al umbral.
+ */
 export function alturasDesdeGris(datos: DatosMapa, columnas: number, filas: number, gris: ArrayLike<number>): MapaAlturas {
   if (gris.length !== columnas * filas) throw new Error('Mapa no válido: el PNG no tiene el tamaño que dice');
+  const v = (x: number, y: number) => gris[Math.min(Math.max(y, 0), filas - 1) * columnas + Math.min(Math.max(x, 0), columnas - 1)];
+  const h = new Float32Array(columnas * filas);
+  for (let y = 0; y < filas; y++) for (let x = 0; x < columnas; x++) h[y * columnas + x] = (v(x - 1, y) + 2 * v(x, y) + v(x + 1, y)) / 4;
   const g = new Float32Array(columnas * filas);
-  for (let i = 0; i < g.length; i++) g[i] = gris[i] / 255;
+  const hv = (x: number, y: number) => h[Math.min(Math.max(y, 0), filas - 1) * columnas + x];
+  for (let y = 0; y < filas; y++) for (let x = 0; x < columnas; x++) g[y * columnas + x] = (hv(x, y - 1) + 2 * hv(x, y) + hv(x, y + 1)) / 4 / 255;
   return new MapaAlturas(columnas, filas, datos.ancho, datos.alto, datos.cotaMin, datos.cotaMax, g);
 }
 

@@ -27,6 +27,7 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Antes de arreglar un fallo que describe el usuario, reprodúcelo (con un script o una prueba que use la lógica real) y deja una prueba que lo cubra.
 - Las pruebas no deben depender de los valores calibrados de `src/config.ts`: cada red de prueba lleva su propia copia de los parámetros (`test/apoyo.ts`), y las que se escribieron con valores concretos los fijan (`conValoresClasicos`, `BANDAS_CLASICAS`).
 - Para probar en el navegador: `npx vite` y Playwright con un móvil emulado (Pixel 7). En desarrollo, `window.juego` y `window.camara` están expuestos para guiar las pruebas.
+- Los mapas están en `mapas/<nombre>/` (`alturas.png` y `mapa.json`) y se eligen con `?mapa=<nombre>` (por defecto, `dos-valles`). Los genera un script de `scripts/`; el juego solo los carga.
 - `?ajustes` abre un panel temporal de calibración (`src/herramientas/ajustes.ts`), que no forma parte del juego. Los valores que el usuario fija con él se copian a `src/config.ts`.
 
 # Diseño del juego
