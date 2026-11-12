@@ -4,7 +4,7 @@ import type { MapaAlturas } from './alturas';
 import type { Nodo, TipoNodo } from './red';
 import type { Punto } from './vector';
 
-interface DefinicionNodo {
+export interface DefinicionNodo {
   tipo: TipoNodo;
   x: number;
   y: number;
@@ -13,7 +13,7 @@ interface DefinicionNodo {
 /** Centro de la plaza del pie de pistas y punto único de entrada. */
 export const PLAZA: Punto & { radio: number } = { x: 1200, y: 2930, radio: 170 };
 
-const DEFINICION: DefinicionNodo[] = [
+export const MAPA_INICIAL: readonly DefinicionNodo[] = [
   // Inicios alrededor de la plaza.
   { tipo: 'base', x: 930, y: 2840 },
   { tipo: 'base', x: 1200, y: 2700 },
@@ -26,6 +26,6 @@ const DEFINICION: DefinicionNodo[] = [
   { tipo: 'cima', x: 1850, y: 560 },
 ];
 
-export function crearNodos(alturas: MapaAlturas): Nodo[] {
-  return DEFINICION.map((d, id) => ({ id, ...d, cota: Math.round(alturas.cotaEn(d)) }));
+export function crearNodos(alturas: MapaAlturas, definicion: readonly DefinicionNodo[] = MAPA_INICIAL): Nodo[] {
+  return definicion.map((d, id) => ({ id, ...d, cota: Math.round(alturas.cotaEn(d)) }));
 }

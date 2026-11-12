@@ -42,6 +42,15 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       e.preventDefault();
       return;
     }
+    // Editor del mapa de pruebas (?ajustes): el toque es para la herramienta.
+    if (juego.herramientaMapa) {
+      if (juego.editarMapa(enMundo(e), radio(), sep())) {
+        activo = e.pointerId;
+        lienzo.setPointerCapture(e.pointerId);
+      }
+      e.preventDefault();
+      return;
+    }
     if (juego.empezarArrastre(enMundo(e), radio(), sep())) {
       activo = e.pointerId;
       lienzo.setPointerCapture(e.pointerId);

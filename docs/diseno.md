@@ -111,8 +111,9 @@ Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real d
 - Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores contiguos. Con las bandas solapadas y la pendiente objetivo «cercana», en el mapa actual casi todas las parejas admiten tres colores, y hay verdes hacia o desde el intermedio de 1904 m y entre los dos intermedios.
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente, y las bandas se solapan: con la misma pendiente, una pista más ancha es más fácil, así que el color no depende solo de la pendiente sino también del grosor (anchura) de la pista. Una pendiente que cae en el solape de dos bandas puede ser de cualquiera de los dos colores; la de color más fácil se entiende más ancha. Provisional: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60 (calibrables con el panel de ajustes).
-- Grosor: todas las pistas se dibujan con el mismo grosor (decidido). La anchura que justifica el solape se traduce en diversión: una pista forzada (su pendiente entra en la banda del color siguiente, por ejemplo una verde más empinada que el mínimo de la azul) es de su color, pero divierte menos a los esquiadores de ese nivel. En el selector, un color forzado lleva un borde rojo suave. Con la pendiente objetivo «cercana», muchas pistas salen forzadas: para evitarlo hay que elegir el color más difícil.
-- Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
+- Grosor: todas las pistas se dibujan con el mismo grosor (decidido). La anchura que justifica el solape se traduce en diversión: una pista forzada (su pendiente entra en la banda del color siguiente, por ejemplo una verde más empinada que el mínimo de la azul) es de su color, pero divierte menos a los esquiadores de ese nivel. En el selector, un color forzado lleva un borde rojo suave. Para que salgan forzadas solo cuando no hay otra opción, cada color busca primero su parte limpia de la banda (ver el punto siguiente).
+- Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se busca primero en la parte limpia de la banda, por debajo del mínimo del color siguiente (verde hasta 0,13, azul hasta 0,22, roja hasta 0,35); solo si ahí no cabe con s_max se usa el solape y la pista sale forzada. Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
+- Resultado (corregido en v21, antes solo la negra salía limpia en las laderas empinadas): con s_max 1,55 la gama posible de pendientes [p_recta / 1,55, p_recta] contiene casi siempre uno de los límites 0,13 / 0,22 / 0,35 (están a razón 1,59 o más), así que casi toda pareja ofrece dos colores limpios contiguos y, a menudo, un tercero forzado. La parte limpia del color más fácil pide más sinuosidad: es la pista más larga y serpenteante.
 - Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,1 en las dos laterales de un remonte y 0,06 en el resto) y el segundo una serpentina de n ondas (una cada 720 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 0,95), para que no parezca una sinusoide perfecta. La amplitud nunca baja de un mínimo, el temblor (provisional 20 m), para que las pistas más directas (s ≈ 1) no queden como una curva lisa; la sinuosidad mínima de una pareja ya lo incluye y la bisección busca a partir de él. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
 - El lado de la primera pista de una pareja es el que menos remontes corta (a igualdad, por semilla); la segunda va al lado contrario.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
@@ -234,6 +235,13 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Margen de la plaza (0 a 100 m).
 - Distancia mínima entre pistas (0 a 150 m), ángulo mínimo entre salidas (0 a 90°) y giro máximo de la salida orientada (0 a 80°).
 
+Mapa de pruebas (en el mismo panel), para probar otras pendientes y disposiciones:
+
+- Herramientas: mover un punto arrastrándolo (su cota sale del terreno y se ve mientras se arrastra), añadir una base, un intermedio o una cima tocando el mapa, y borrar un punto. No se puede poner un punto fuera del mapa, en la plaza (más 40 m) ni a menos de 80 m de otro.
+- Cota máxima del terreno (1700 a 4000 m): la cota del pie se mantiene y el terreno se estira, así que todas las pendientes cambian a la vez.
+- Mover un punto o cambiar la cota máxima conserva lo construido: remontes y pistas se rehacen en sitio y las pistas cuyo color ya no cabe quedan a trazos cortos. Añadir o borrar un punto rehace la red repitiendo las construcciones en orden y omite las que ya no se puedan hacer (las que usaban el punto borrado y las que dependían de ellas).
+- El mapa se guarda en el navegador. "Copiar mapa" copia la lista de puntos para pegarla en `src/core/mapa.ts` (y la cota máxima, para `config.ts`); "Mapa original" vuelve al mapa del juego y vacía la red.
+
 Cuando los valores queden fijados se puede retirar el panel.
 
 ## Decisiones tomadas
@@ -277,7 +285,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Valores económicos: precio por unidad de longitud y por tipo, ingreso por bajada, coste de las mejoras.
 - [ ] Umbral de saturación de cola para la derrota.
 - [ ] Demolición selectiva (borrar un elemento cualquiera, no solo el último): exige revalidar el grafo de nodos viables. Por ahora solo hay deshacer.
-- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L), solapadas: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60. Con el mapa actual casi todas las parejas admiten tres colores y hay verdes en varias parejas hacia o desde el intermedio de 1904 m. Con la pendiente objetivo «cercana», dentro del solape varios colores dan exactamente la misma pista (misma s): la diferencia entre ellos es solo la anchura que se supone.
+- [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales. Provisional (pendiente media ΔH / L), solapadas: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60. Con el mapa actual casi todas las parejas admiten tres colores y hay verdes en varias parejas hacia o desde el intermedio de 1904 m. Desde v21 cada color busca su parte limpia (por debajo del mínimo del siguiente), así que dos colores ya no dan la misma pista salvo que uno salga forzado. Se pueden probar otras pendientes con el mapa de pruebas de `?ajustes`.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.
@@ -295,7 +303,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-12, tras la etapa 3.
+Actualizado el 2026-11-12, tras la etapa 3 y su ajuste de colores (v21).
 
 ### Hecho
 
@@ -309,9 +317,13 @@ Actualizado el 2026-11-12, tras la etapa 3.
   - comprobación con la pista real de cada color;
   - pistas que salen por las estaciones laterales de un punto desdoblado.
 - **Etapa 3:** niveles de esquiador (mezcla fija provisional), dificultad efectiva de las pistas (el tramo común manda), viabilidad por nivel, diversión con pistas forzadas, colas con anillo y contador de los que se han ido.
-- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas.
+- **Tras la etapa 3 (v21):** cada color busca primero la parte limpia de su banda, así que ya no queda solo la negra limpia en las laderas empinadas.
+- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas, con un mapa de pruebas editable (mover, añadir y borrar puntos y cambiar el desnivel).
 
 ### Siguiente paso
+
+Antes de la etapa 4, jugar con el mapa de pruebas para ajustar las bandas y la diversión.
+
 
 Etapa 4: entrada de esquiadores por la carretera, curva de afluencia creciente y edificios alrededor de la plaza (que podrán decidir la mezcla de niveles).
 
