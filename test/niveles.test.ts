@@ -88,12 +88,23 @@ describe('Esquiadores con nivel', () => {
     expect(azules).toBeLessThan(0.6);
   });
 
-  it('un verde sin bajadas de su nivel no se queda: viene y se va', () => {
+  it('un verde sin bajadas de su nivel no viene: la afluencia es menor, pero no cuenta como ido', () => {
     const red = redAzul();
     const sim = new Simulacion(red, { ...P, mezclaNiveles: [1, 0, 0, 0] }, ENTRADA, crearAzar(1));
     correr(sim, 30);
     expect(sim.poblacion).toBe(0);
-    expect(sim.seFueron).toBeGreaterThan(0);
+    expect(sim.seFueron).toBe(0);
+    expect(sim.noVinieron).toBeGreaterThan(0);
+  });
+
+  it('con una mezcla de verdes y azules sin bajada verde, solo vienen los azules', () => {
+    const red = redAzul();
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0.5, 0.5, 0, 0], poblacionMaxima: 1000, llegadasPorMinuto: 600 }, ENTRADA, crearAzar(4));
+    correr(sim, 20);
+    const niveles = [...sim.perfiles.values()].map((p) => p.nivel);
+    expect(niveles.length).toBeGreaterThan(50);
+    expect(niveles.every((n) => n === 1)).toBe(true);
+    expect(sim.noVinieron / (sim.noVinieron + niveles.length)).toBeGreaterThan(0.35);
   });
 
   it('nadie baja por una pista más difícil que su nivel', () => {
