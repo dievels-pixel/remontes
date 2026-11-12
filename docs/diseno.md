@@ -1,6 +1,8 @@
 # Diseño del juego de remontes y pistas de esquí
 
-Actualizado: 2026-11-11
+Actualizado: 2026-11-12
+
+El estado actual del desarrollo (qué está hecho, qué falta y qué está pendiente de decidir) está al final, en «Estado del desarrollo».
 
 ## Visión
 
@@ -18,7 +20,8 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados.
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
 - Estaciones y desdoble: cada emplazamiento (base, intermedio o cima) es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones. Al principio cada emplazamiento tiene una: círculo en las bases (de ella sale un remonte), triángulo en las cimas (a ella llega uno) y cuadrado en los intermedios (punto de paso: llega uno y sale otro). Si se construye otro remonte desde o hacia un emplazamiento con su estación ocupada, se desdobla: aparece una estación nueva pegada a las demás (a pocos píxeles), por el lado del que viene la nueva línea. Los desdobles son siempre de salida (círculo) o de llegada (triángulo), nunca de paso. Como mucho 3 estaciones por emplazamiento (parámetro).
-- Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Las pistas sí pueden cruzar remontes y otras pistas.
+- Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Remontes y pistas sí pueden cruzarse (cruce solo visual). Los cruces entre pistas están limitados (ver «Proyectos de pista»).
+- Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de ese mismo cuadrado forman una sola línea. Basta una pista desde la llegada de arriba para que funcionen los dos tramos. No se aplica a los desdobles (un triángulo o un círculo nuevo del intermedio): esos tramos empiezan o acaban allí.
 - Las pistas salen del emplazamiento, no de una estación: quien llega por cualquiera de los triángulos de un pico puede bajar por cualquier pista de ese pico, y un remonte entra en servicio con cualquier pista que salga de su emplazamiento de llegada.
 - Aun así, en un punto desdoblado cada pista se dibuja saliendo (y llegando) por una estación, para que no salgan todas por la central. Las dos laterales de un remonte salen de la estación donde llega ese remonte y llegan a la estación de donde sale; el resto usan la estación del lado hacia el que van (o del que vienen), proyectando su dirección sobre la fila de estaciones. Es solo dibujo: el primer y el último tramo de la pista (unos 120 m) se desplazan suavemente desde el centro del punto hasta su estación, y los esquiadores se dibujan sobre esa misma curva. Las laterales se desplazan a lo largo de toda la pista, igual que su remonte (que se dibuja de estación a estación), para que la lente lo siga envolviendo. El grafo, los colores y las confluencias no cambian, y si el punto se desdobla después, la pista pasa a la estación que le toque. En el tramo compartido de una confluencia, la pista que se une usa el desplazamiento de la pista a la que se une, y en los acuerdos de entrada y salida pasa suavemente del suyo al de la otra: así sus esquiadores van sobre la línea que se ve y la línea no salta.
@@ -88,9 +91,9 @@ p = ΔH / L = ΔH / (s · D)
 
 Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real de la pista y s = L / D la sinuosidad (s = 1 es la recta).
 
-- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (calibrado con el panel de ajustes: s_max = 1,4).
+- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (calibrado con el panel de ajustes: s_max = 1,55).
 - Efecto del temblor en los colores posibles del mapa actual: hasta 30 m no desaparece ninguno; con 40 a 50 m se pierde la única verde (entre los dos intermedios); con 80 m se pierden además dos negras y una roja.
-- Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores, casi siempre contiguos. Con el mapa actual y la pendiente objetivo «cercana» salen azules, rojas y negras, y solo una verde (entre los dos intermedios, casi llanos entre sí).
+- Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores contiguos. Con las bandas solapadas y la pendiente objetivo «cercana», en el mapa actual casi todas las parejas admiten tres colores, y hay verdes hacia o desde el intermedio de 1904 m y entre los dos intermedios.
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente, y las bandas se solapan: con la misma pendiente, una pista más ancha es más fácil, así que el color no depende solo de la pendiente sino también del grosor (anchura) de la pista. Una pendiente que cae en el solape de dos bandas puede ser de cualquiera de los dos colores; la de color más fácil se entiende más ancha. Provisional: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60 (calibrables con el panel de ajustes).
 - Grosor por color: como el color lleva implícita la anchura, el dibujo puede reflejarlo con un grosor de línea por color (más gruesa cuanto más fácil). Sirve además de señal secundaria para el daltonismo (ver «Movimiento y aspecto visual»). Por ahora todas se dibujan con el mismo grosor.
@@ -179,8 +182,8 @@ Música generativa como en Mini Metro: cada evento dispara una nota de una escal
 
 Se construye por etapas, y cada una debe poder jugarse antes de pasar a la siguiente.
 
-1. Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
-2. Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
+1. (Hecha.) Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
+2. (Hecha, con añadidos: ver «Estado del desarrollo».) Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
 3. Niveles de esquiador, colores, aburrimiento y colas con anillo.
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
 5. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento.
@@ -242,6 +245,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
 - Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
+- Un punto es viable si desde él se llega a una base (evita bucles cerrados).
+- En pantalla se ve la versión desplegada (`vN · fecha y hora`), con N el número de la petición de fusión.
 - Plataforma: web (TypeScript y Canvas 2D), para iterar rápido y probar desde el móvil. Portar a un motor solo si más adelante compensa.
 
 ## Decisiones abiertas
@@ -257,3 +262,33 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.
+- [ ] Confluencias y dificultad (para la etapa 3): una pista unida a otra comparte su tramo, que puede ser de un color más difícil (por ejemplo, una azul que baja por el trazado de una roja). Opciones: permitir la unión solo con pistas del mismo color o más fáciles (preferida, más sencilla y como en las estaciones reales), o que el tramo compartido cuente con la dificultad mayor de las dos.
+- [ ] Grosor de línea por color (más gruesa cuanto más fácil): encaja con las bandas solapadas y sirve para el daltonismo. Documentado, sin dibujar todavía.
+- [ ] ¿Deben poder cruzarse también los remontes entre sí? Hoy no pueden; los remontes y las pistas sí se cruzan.
+- [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Probablemente haya que ampliar el mapa antes de las etapas de afluencia y economía.
+
+## Estado del desarrollo
+
+Actualizado el 2026-11-12, tras la petición de fusión 17 (en pantalla, `v17`).
+
+### Hecho
+
+- **Etapa 1:** remontes arrastrando, estaciones que se desdoblan (hasta 3 por punto), bolitas, esquiadores que suben, bajan, hacen cola y cambian de base andando, deshacer, velocidad 1×/2×/4× y versión en pantalla.
+- **Etapa 2:** proyectos de pista a trazos, selector de color, sinuosidad por bisección y nodo viable como alcanzabilidad de una base.
+- **Añadidos sobre la etapa 2, pedidos jugando:**
+  - forma de pista calibrada (abombamiento, serpentina irregular y temblor);
+  - bandas de color solapadas y pendiente objetivo «cercana»;
+  - confluencias con acuerdo tangente y unión por cercanía (50 m);
+  - límites contra la maraña: como mucho una pista cruzada sin unirse, salidas a 45° y cuesta abajo, salida orientada con giro de hasta 60°, plaza como obstáculo y 4 llegadas por punto;
+  - comprobación con la pista real de cada color;
+  - pistas que salen por las estaciones laterales de un punto desdoblado.
+- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas.
+
+### Siguiente paso
+
+Etapa 3: niveles de esquiador, colores de los esquiadores, aburrimiento y colas con anillo. Antes conviene decidir lo de confluencias y dificultad, y probablemente el grosor por color (ver «Decisiones abiertas»).
+
+### Cómo se trabaja
+
+- Cada cambio va en una petición de fusión desde la rama de trabajo de Claude. El usuario la fusiona y se despliega sola en GitHub Pages. En pantalla se ve `vN`, con N el número de la petición, para saber qué versión está cargada.
+- Los pasos de un plan que quede a medias se apuntan aquí, en este apartado, no solo en la conversación, para que la siguiente sesión pueda continuar.

@@ -19,6 +19,15 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Si cambia una decisión de diseño, actualiza `docs/diseno.md` en el mismo cambio.
 - Comentarios y textos visibles para el jugador en español de España.
 - Al terminar, explica qué debería verse al abrir la página, qué has dejado fuera a propósito y qué has probado de verdad (pruebas automáticas) frente a lo que solo se puede comprobar jugando.
+- Lee la sección «Estado del desarrollo» al final de `docs/diseno.md`: dice qué está hecho, qué falta y qué decisiones están pendientes. Actualízala al cerrar cada cambio, y apunta ahí los pasos de un plan que quede a medias: los planes de la conversación no se conservan entre sesiones.
+
+## Convenciones del proyecto
+
+- Cada petición del usuario termina en una petición de fusión. Tras fusionarse, la rama de trabajo se recrea desde `main` antes del siguiente cambio. En pantalla se ve `vN · fecha` (N = número de la petición de fusión), para que el usuario sepa qué versión tiene cargada; si ve algo raro, comprueba primero la versión.
+- Antes de arreglar un fallo que describe el usuario, reprodúcelo (con un script o una prueba que use la lógica real) y deja una prueba que lo cubra.
+- Las pruebas no deben depender de los valores calibrados de `src/config.ts`: cada red de prueba lleva su propia copia de los parámetros (`test/apoyo.ts`), y las que se escribieron con valores concretos los fijan (`conValoresClasicos`, `BANDAS_CLASICAS`).
+- Para probar en el navegador: `npx vite` y Playwright con un móvil emulado (Pixel 7). En desarrollo, `window.juego` y `window.camara` están expuestos para guiar las pruebas.
+- `?ajustes` abre un panel temporal de calibración (`src/herramientas/ajustes.ts`), que no forma parte del juego. Los valores que el usuario fija con él se copian a `src/config.ts`.
 
 ## Sobre el usuario
 
