@@ -220,3 +220,30 @@ describe('Bandas solapadas', () => {
     expect(r.filter((c) => c.factible).length).toBeGreaterThan(sinSolape);
   });
 });
+
+describe('Giro de salida', () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 0, y: 2000 };
+  const base: FormaPista = { lado: 1, abombamiento: 0.06, ondas: 3 };
+
+  it('con giro 0 la forma es idéntica a la de sin giro', () => {
+    expect(trazarPista(a, b, { ...base, giro: 0 }, 40).puntos).toEqual(trazarPista(a, b, base, 40).puntos);
+  });
+
+  it('la pista sale girada el ángulo pedido hacia su lado y no cruza al otro lado de su eje', () => {
+    for (const giro of [20, 40, 60]) {
+      const t = trazarPista(a, b, { ...base, abombamiento: 0, giro }, 0);
+      const q = t.puntos[1];
+      // Respecto al eje (hacia +y), hacia el lado +1 (x < 0).
+      const angulo = (Math.atan2(-q.x, q.y) * 180) / Math.PI;
+      expect(Math.abs(angulo - giro)).toBeLessThan(2); // la cuerda del primer tramo, no la tangente exacta
+      for (const p of t.puntos) expect(p.x).toBeLessThanOrEqual(1e-9);
+    }
+  });
+
+  it('el gancho es local: al final la pista vuelve a su eje', () => {
+    const t = trazarPista(a, b, { ...base, abombamiento: 0, giro: 60 }, 0);
+    const final = t.puntoEn(t.longitud * 0.9);
+    expect(Math.abs(final.x)).toBeLessThan(10);
+  });
+});

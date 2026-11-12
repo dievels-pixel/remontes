@@ -52,6 +52,10 @@ export const CONFIG = {
     // (lente); el resto apenas se separa de la recta. Calibrado con el panel.
     abombamientoLateral: 0.1,
     abombamientoNormal: 0.06,
+    // Salida orientada: si la salida de una pista no cabe entre las que ya
+    // hay, puede salir girada hacia su lado (en pasos de 10°, hasta este
+    // máximo) y volver enseguida a su eje. PROVISIONAL.
+    giroMaximo: 60, // grados
     // m por oscilación de la serpentina. Más corta da zigzags más cerrados y
     // menos anchos para la misma longitud: las pistas se salen menos de su eje.
     longitudOnda: 720, // calibrado con el panel de ajustes

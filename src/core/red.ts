@@ -67,6 +67,11 @@ export interface Pista {
    * Se mantiene (no se borra) y se traza con la sinuosidad posible más cercana.
    */
   fueraDeRango: boolean;
+  /**
+   * Giro de salida (grados) si se abrió con una salida orientada, para ocupar
+   * un hueco libre entre las salidas de su punto. Sin él, sale sin girar.
+   */
+  giro?: number;
   /** Pendiente media efectiva: ΔH / L. */
   pendiente: number;
 }
@@ -78,6 +83,8 @@ export interface ReglasPista {
   abombamientoLateral: number;
   /** Abombamiento del resto de pistas. */
   abombamientoNormal: number;
+  /** Giro de salida máximo (grados) para orientar una pista hacia un hueco libre. */
+  giroMaximo: number;
   /** Longitud de cada oscilación de la serpentina, en metros. */
   longitudOnda: number;
   margenConfluencia: number;
@@ -287,12 +294,22 @@ export class Red {
     return this.remontes.some((r) => r.desde === hasta && r.hasta === desde);
   }
 
-  forma(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta)): FormaPista {
+  /** Abombamiento de las reglas para la pareja: el de las laterales o el normal. */
+  abombamientoBase(desde: number, hasta: number, lateral = this.esLateral(desde, hasta)): number {
+    return lateral ? this.reglas.pista.abombamientoLateral : this.reglas.pista.abombamientoNormal;
+  }
+
+  /**
+   * Forma de la pista. `giro` (grados) hace salir la pista girada hacia su
+   * lado (salida orientada, ver giroLimpio).
+   */
+  forma(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta), giro?: number): FormaPista {
     const rp = this.reglas.pista;
     const d = distancia(this.nodos[desde], this.nodos[hasta]);
     return {
       lado,
-      abombamiento: lateral ? rp.abombamientoLateral : rp.abombamientoNormal,
+      abombamiento: this.abombamientoBase(desde, hasta, lateral),
+      giro,
       ondas: Math.max(1, Math.round(d / rp.longitudOnda)),
       irregularidad: rp.irregularidad,
       temblor: rp.temblor,
@@ -343,11 +360,11 @@ export class Red {
   }
 
   /** Factibilidad de cada color para la pareja y el lado. */
-  colores(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta)): Factibilidad[] {
+  colores(desde: number, hasta: number, lado: 1 | -1, lateral = this.esLateral(desde, hasta), giro?: number): Factibilidad[] {
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
     const rp = this.reglas.pista;
-    const sMin = sinuosidadMinima(a, b, this.forma(desde, hasta, lado, lateral));
+    const sMin = sinuosidadMinima(a, b, this.forma(desde, hasta, lado, lateral, giro));
     return evaluarColores(a.cota - b.cota, distancia(a, b), sMin, rp.sinuosidadMaxima, rp.bandas, rp.pendienteObjetivo);
   }
 
@@ -366,7 +383,7 @@ export class Red {
   }
 
   /** Sin color, comprueba si hay alguno posible; con color, ese en concreto. */
-  puedeAbrirPista(desde: number, hasta: number, color?: ColorPista, lado?: 1 | -1): Motivo {
+  puedeAbrirPista(desde: number, hasta: number, color?: ColorPista, lado?: 1 | -1, giro?: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
@@ -379,7 +396,7 @@ export class Red {
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
     if ((a.cota - b.cota) / distancia(a, b) < this.reglas.pista.bandas.verde[0]) return 'demasiado-plana';
-    const colores = this.colores(desde, hasta, lado ?? libres[0]);
+    const colores = this.colores(desde, hasta, lado ?? libres[0], undefined, giro);
     if (!colores.some((c) => c.factible)) return 'sin-color';
     if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
     if (!this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
@@ -454,15 +471,16 @@ export class Red {
     return r;
   }
 
-  abrirPista(desde: number, hasta: number, color: ColorPista, lado?: 1 | -1): Pista {
-    const motivo = this.puedeAbrirPista(desde, hasta, color, lado);
+  /** `giro`: el de una salida orientada (ver giroLimpio); si no, el de las reglas. */
+  abrirPista(desde: number, hasta: number, color: ColorPista, lado?: 1 | -1, giro?: number): Pista {
+    const motivo = this.puedeAbrirPista(desde, hasta, color, lado, giro);
     if (motivo !== 'ok') throw new Error(`No se puede abrir la pista: ${motivo}`);
     const l = lado ?? this.ladoLibre(desde, hasta)!;
     const a = this.nodos[desde];
     const b = this.nodos[hasta];
     const lateral = this.esLateral(desde, hasta);
-    const s = this.colores(desde, hasta, l, lateral).find((c) => c.color === color)!.s;
-    const { trazado, compartido } = this.confluir(hasta, pistaConSinuosidad(a, b, this.forma(desde, hasta, l, lateral), s)!);
+    const s = this.colores(desde, hasta, l, lateral, giro).find((c) => c.color === color)!.s;
+    const { trazado, compartido } = this.confluir(hasta, pistaConSinuosidad(a, b, this.forma(desde, hasta, l, lateral, giro), s)!);
     const p: Pista = {
       id: this.pistas.length,
       desde,
@@ -472,6 +490,7 @@ export class Red {
       trazado,
       compartido,
       lateral,
+      giro,
       s: trazado.longitud / distancia(a, b),
       fueraDeRango: false,
       pendiente: (a.cota - b.cota) / trazado.longitud,
@@ -511,8 +530,8 @@ export class Red {
     for (const p of this.pistas) {
       const a = this.nodos[p.desde];
       const b = this.nodos[p.hasta];
-      const forma = this.forma(p.desde, p.hasta, p.lado, p.lateral);
-      const f = this.colores(p.desde, p.hasta, p.lado, p.lateral).find((c) => c.color === p.color)!;
+      const forma = this.forma(p.desde, p.hasta, p.lado, p.lateral, p.giro);
+      const f = this.colores(p.desde, p.hasta, p.lado, p.lateral, p.giro).find((c) => c.color === p.color)!;
       const sMin = sinuosidadMinima(a, b, forma);
       const sObjetivo = f.factible ? f.s : Math.min(Math.max(f.s, sMin), rp.sinuosidadMaxima);
       const propio = pistaConSinuosidad(a, b, forma, Math.max(sObjetivo, sMin)) ?? trazarPista(a, b, forma, 0);
@@ -527,10 +546,10 @@ export class Red {
   }
 
   /** Trazado real que tendría la pista con ese color (sinuosidad del color y confluencia). */
-  trazadoReal(desde: number, hasta: number, lado: 1 | -1, color: ColorPista): Confluencia | null {
-    const f = this.colores(desde, hasta, lado).find((c) => c.color === color)!;
+  trazadoReal(desde: number, hasta: number, lado: 1 | -1, color: ColorPista, giro?: number): Confluencia | null {
+    const f = this.colores(desde, hasta, lado, undefined, giro).find((c) => c.color === color)!;
     if (!f.factible) return null;
-    const propio = pistaConSinuosidad(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), f.s);
+    const propio = pistaConSinuosidad(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado, undefined, giro), f.s);
     return propio ? this.confluir(hasta, propio) : null;
   }
 
@@ -566,16 +585,16 @@ export class Red {
    * trazado real (el de ese color) que no enmaraña. Se guardan hasta que
    * cambia la red.
    */
-  coloresLimpios(desde: number, hasta: number, lado: 1 | -1): Factibilidad[] {
+  coloresLimpios(desde: number, hasta: number, lado: 1 | -1, giro?: number): Factibilidad[] {
     // La clave incluye los parámetros de pista: el panel de ajustes (y las
     // pruebas) los cambian en memoria.
-    const clave = `${this.version}|${desde}|${hasta}|${lado}|${JSON.stringify(this.reglas.pista)}`;
+    const clave = `${this.version}|${desde}|${hasta}|${lado}|${giro ?? ''}|${JSON.stringify(this.reglas.pista)}`;
     let r = this.cacheLimpios.get(clave);
     if (!r) {
-      if (this.cacheLimpios.size > 500) this.cacheLimpios.clear();
-      r = this.colores(desde, hasta, lado).map((c) => {
+      if (this.cacheLimpios.size > 2000) this.cacheLimpios.clear();
+      r = this.colores(desde, hasta, lado, undefined, giro).map((c) => {
         if (!c.factible) return c;
-        const conf = this.trazadoReal(desde, hasta, lado, c.color);
+        const conf = this.trazadoReal(desde, hasta, lado, c.color, giro);
         return { ...c, factible: conf !== null && this.trazadoLimpioDe(desde, hasta, conf) };
       });
       this.cacheLimpios.set(clave, r);
@@ -583,9 +602,24 @@ export class Red {
     return r;
   }
 
-  /** ¿Se puede proponer este proyecto? Si algún color da un trazado limpio. */
+  /**
+   * Salida orientada: el menor giro de salida (en pasos de 10°, hasta
+   * `giroMaximo`) con el que la pista tiene algún color limpio. Si su salida
+   * no cabe entre las que ya hay, la pista sale girada hacia su lado y vuelve
+   * enseguida a su eje: así ocupa un hueco libre (sale de lado y luego baja).
+   * Devuelve undefined si vale sin girar, y null si no vale ningún giro.
+   */
+  giroLimpio(desde: number, hasta: number, lado: 1 | -1): number | undefined | null {
+    if (this.coloresLimpios(desde, hasta, lado).some((c) => c.factible)) return undefined;
+    for (let g = 10; g <= this.reglas.pista.giroMaximo + 1e-9; g += 10) {
+      if (this.coloresLimpios(desde, hasta, lado, g).some((c) => c.factible)) return g;
+    }
+    return null;
+  }
+
+  /** ¿Se puede proponer este proyecto? Si algún color da un trazado limpio, con alguna salida. */
   trazadoLimpio(desde: number, hasta: number, lado: 1 | -1): boolean {
-    return this.coloresLimpios(desde, hasta, lado).some((c) => c.factible);
+    return this.giroLimpio(desde, hasta, lado) !== null;
   }
 
   /**
@@ -593,14 +627,14 @@ export class Red {
    * que menos serpentea, para que lo que se ve sea lo que se abrirá. Si no hay
    * ninguno, el de sinuosidad mínima.
    */
-  trazadoPrevisto(desde: number, hasta: number, lado: 1 | -1): Confluencia {
-    const limpios = this.coloresLimpios(desde, hasta, lado).filter((c) => c.factible);
+  trazadoPrevisto(desde: number, hasta: number, lado: 1 | -1, giro?: number): Confluencia {
+    const limpios = this.coloresLimpios(desde, hasta, lado, giro).filter((c) => c.factible);
     if (limpios.length > 0) {
       const mejor = limpios.reduce((m, c) => (c.s < m.s ? c : m));
-      const conf = this.trazadoReal(desde, hasta, lado, mejor.color);
+      const conf = this.trazadoReal(desde, hasta, lado, mejor.color, giro);
       if (conf) return conf;
     }
-    return this.confluir(hasta, trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado), 0));
+    return this.confluir(hasta, trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado, undefined, giro), 0));
   }
 
   get puedeDeshacer(): boolean {

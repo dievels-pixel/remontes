@@ -134,7 +134,7 @@ export class Juego {
     const k = claveProyecto(p);
     let t = cache.get(k);
     if (!t) {
-      t = this.red.trazadoPrevisto(p.desde, p.hasta, p.lado);
+      t = this.red.trazadoPrevisto(p.desde, p.hasta, p.lado, p.giro);
       cache.set(k, t);
     }
     return t;
@@ -155,7 +155,7 @@ export class Juego {
     if (mejor) {
       // Colores apagados: los que no caben por pendiente y los que darían una
       // pista que enmaraña (corta remontes, cruza demasiadas pistas...).
-      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresLimpios(mejor.desde, mejor.hasta, mejor.lado) };
+      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresLimpios(mejor.desde, mejor.hasta, mejor.lado, mejor.giro) };
       return;
     }
     if (this.modoAjustes) {
@@ -180,14 +180,14 @@ export class Juego {
     const s = this.selector;
     this.selector = null;
     if (!s) return;
-    const { desde, hasta, lado } = s.proyecto;
-    const motivo = this.red.puedeAbrirPista(desde, hasta, color, lado);
-    const limpio = this.red.coloresLimpios(desde, hasta, lado).find((c) => c.color === color)?.factible;
+    const { desde, hasta, lado, giro } = s.proyecto;
+    const motivo = this.red.puedeAbrirPista(desde, hasta, color, lado, giro);
+    const limpio = this.red.coloresLimpios(desde, hasta, lado, giro).find((c) => c.color === color)?.factible;
     if (motivo !== 'ok' || !limpio) {
       this.avisar('Esa pista ya no se puede abrir.');
       return;
     }
-    this.red.abrirPista(desde, hasta, color, lado);
+    this.red.abrirPista(desde, hasta, color, lado, giro);
   }
 
   /** Tras cambiar parámetros de pista (panel de ajustes): rehace todo. */

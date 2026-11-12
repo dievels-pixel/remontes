@@ -16,6 +16,8 @@ describe('La plaza como obstáculo para las pistas', () => {
   it('no se propone una pista cuyo trazado previsto entre en la plaza', () => {
     // Plaza en mitad de la bajada 3 (400,0) → 0 (0,3000).
     const red = conObstaculo({ x: 200, y: 1500, radio: 450 }); // tapa las dos laterales (se abomban ~300 m)
+    // Sin salida orientada: saliendo girada, la pista podría rodear la plaza.
+    red.reglas.pista.giroMaximo = 0;
     red.construirRemonte(0, 3);
     for (const lado of [1, -1] as const) expect(red.trazadoLimpio(3, 0, lado)).toBe(false);
     expect(proyectosDesde(red, 3, 3).some((p) => p.hasta === 0)).toBe(false);

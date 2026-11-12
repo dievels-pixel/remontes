@@ -67,6 +67,7 @@ Para evitar una maraña de trazos:
 - No se propone una pista que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
 - Remontes y pistas sí pueden cruzarse, en los dos sentidos: una pista nueva puede pasar por debajo de un remonte y un remonte nuevo puede pasar por encima de pistas. Es un cruce solo visual, como un puente: los esquiadores de la pista y los del remonte no se afectan, y el grafo, la viabilidad y las confluencias no cambian. Prohibirlo quitaba mucha flexibilidad al construir. (La primera pista de una pareja sigue eligiendo, como preferencia, el lado que corta menos remontes.)
 - Salidas de un punto por ángulo, sin tope de número: cada pista nueva tiene que salir con una dirección (la de sus primeros 200 m) separada al menos un ángulo mínimo (provisional 45°) de cada pista que ya sale de ese punto, y siempre cuesta abajo según el terreno (o, como mucho, en horizontal: se toleran 10 m de subida). En una ladera plana caben así hasta 5 salidas, de una horizontal a la otra. Las dos laterales de un mismo remonte no cuentan entre sí. Llegando a un punto, como mucho 4 pistas.
+- Salida orientada: si la salida de una pista no cabe entre las que ya hay, puede salir girada hacia su lado (en pasos de 10°, hasta un giro máximo provisional de 60°) y volver enseguida a su eje: un gancho solo al principio, lado · tan(giro) · D · t · (1 − t)³, que apenas la alarga. Se elige el menor giro con el que la pista queda limpia, y para una pista que no es lateral se prueba también el otro lado. Así una pista puede salir por un hueco libre (por ejemplo, hacia el sureste) y luego bajar a su destino. El giro se guarda en la pista y se respeta al recalcular. Un abombamiento mayor no servía para esto: curva toda la pista, gira poco la salida y la alarga hasta salirse del rango de sinuosidad.
 - Los cruces se comprueban con la pista real de cada color (con su sinuosidad y su confluencia), no con el trazado de sinuosidad mínima: en el selector se apagan los colores cuya pista entraría en la plaza, iría casi pegada a otra pista, cruzaría demasiadas o saldría poco separada de las demás. Un proyecto se propone si al menos un color da una pista limpia, y el trazo discontinuo muestra la pista real del color limpio que menos serpentea.
 - Distancia mínima entre pistas: si el trazado previsto se acerca a otra pista a menos de una distancia (provisional 50 m), cuenta como encuentro y se une a ella (confluencia). Si no puede unirse (por ejemplo, porque el tramo compartido sería demasiado corto), no se propone. Así no quedan pistas paralelas casi pegadas.
 - La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
@@ -212,7 +213,7 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Temblor (0 a 80 m): amplitud mínima de la serpentina, que se aplica siempre.
 - Bandas de pendiente de cada color (mínimo y máximo, que se arrastran entre sí para no cruzarse).
 - Margen de la plaza (0 a 100 m).
-- Distancia mínima entre pistas (0 a 150 m), y ángulo mínimo entre salidas (0 a 90°).
+- Distancia mínima entre pistas (0 a 150 m), ángulo mínimo entre salidas (0 a 90°) y giro máximo de la salida orientada (0 a 80°).
 
 Cuando los valores queden fijados se puede retirar el panel.
 
@@ -233,7 +234,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Se limitan las propuestas de pista: como mucho 1 pista cruzada sin unirse y como mucho 4 llegando por punto (las salidas, por ángulo).
 - Las pistas no cruzan la plaza del pie de pistas.
 - Una pista que pasa cerca de otra (menos de 50 m) se une a ella; si no puede, no se propone.
-- Salidas de un punto por ángulo (45° entre ellas, siempre cuesta abajo), sin tope de número.
+- Salidas de un punto por ángulo (45° entre ellas, siempre cuesta abajo), sin tope de número; si no cabe, la pista puede salir girada hasta 60° hacia un hueco libre.
 - Remontes y pistas pueden cruzarse (cruce visual, como un puente); lo que se limita son los cruces entre pistas, y los colores que darían una pista enmarañada no se pueden elegir.
 - Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Los remontes no se cruzan entre sí.
