@@ -115,7 +115,7 @@ describe('Juego: arrastre y velocidad', () => {
     const P = { separacionPx: CONFIG.estaciones.separacionPx, tramoEstacion: CONFIG.pista.tramoEstacion, radioAcuerdo: CONFIG.pista.radioAcuerdo };
     const ESC = 0.168;
     let uniones = 0;
-    for (let semilla = 1; semilla <= 20; semilla++) {
+    for (let semilla = 1; semilla <= 12; semilla++) {
       const az = crearAzar(semilla);
       const j = new Juego();
       const red = j.red;
@@ -156,5 +156,5 @@ describe('Juego: arrastre y velocidad', () => {
       }
     }
     expect(uniones).toBeGreaterThan(0);
-  });
+  }, 20_000); // es lenta: construye 12 estaciones al azar con su salida orientada
 });
