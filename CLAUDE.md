@@ -29,6 +29,6 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Para probar en el navegador: `npx vite` y Playwright con un móvil emulado (Pixel 7). En desarrollo, `window.juego` y `window.camara` están expuestos para guiar las pruebas.
 - `?ajustes` abre un panel temporal de calibración (`src/herramientas/ajustes.ts`), que no forma parte del juego. Los valores que el usuario fija con él se copian a `src/config.ts`.
 
-## Sobre el usuario
+# Diseño del juego
 
-Es ingeniero de estructuras, con conocimientos técnicos avanzados, y quiere un colaborador crítico: señala incoherencias del diseño y alternativas más simples, y no des explicaciones básicas. Prefiere soluciones prácticas y sencillas frente a las complejas.
+La especificación completa está en docs/diseno-juego-remontes.md. Léela al empezar cualquier tarea y respétala; manda sobre suposiciones propias. No reintroduzcas lo que figura en su sección "Descartado".
