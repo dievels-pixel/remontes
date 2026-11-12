@@ -682,6 +682,22 @@ export class Red {
     return this.confluir(hasta, trazarPista(this.nodos[desde], this.nodos[hasta], this.forma(desde, hasta, lado, undefined, giro), 0));
   }
 
+  /**
+   * Editor del mapa de pruebas: cambia la posición o la cota de unos nodos y
+   * rehace en sitio remontes y pistas (las que ya no caben en su color quedan
+   * fuera de rango, como al recalcular desde el panel de ajustes).
+   */
+  actualizarNodos(cambios: readonly Pick<Nodo, 'id' | 'x' | 'y' | 'cota'>[]): void {
+    for (const c of cambios) Object.assign(this.nodos[c.id], { x: c.x, y: c.y, cota: c.cota });
+    for (const r of this.remontes) r.longitud = distancia(this.nodos[r.desde], this.nodos[r.hasta]);
+    this.recalcularPistas();
+  }
+
+  /** Construcciones en el orden en que se hicieron. */
+  get construcciones(): readonly Hecho[] {
+    return this.historial;
+  }
+
   get puedeDeshacer(): boolean {
     return this.historial.length > 0;
   }

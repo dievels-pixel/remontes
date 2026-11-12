@@ -1,13 +1,14 @@
 // Estado de la partida y reglas de los gestos. Une la lógica pura (red,
 // proyectos y simulación) con la entrada; no dibuja.
 import { CONFIG } from './config';
-import { generarMapaAlturas, type MapaAlturas } from './core/alturas';
+import { generarMapaAlturas, MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import { copiarBandas, type ColorPista, type Factibilidad } from './core/colores';
 import type { Confluencia } from './core/confluencia';
-import { crearNodos, PLAZA } from './core/mapa';
+import { idsIguales, idsTrasBorrar, reconstruirRed, sitioLibre, type LimitesMapa } from './core/editorMapa';
+import { crearNodos, MAPA_INICIAL, PLAZA, type DefinicionNodo } from './core/mapa';
 import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
-import { Red, type Estacion, type Motivo } from './core/red';
+import { Red, type Estacion, type Motivo, type ReglasRed, type TipoNodo } from './core/red';
 import { Simulacion } from './core/simulacion';
 import { distancia, distanciaAPolilinea, type Punto } from './core/vector';
 
@@ -30,6 +31,24 @@ export interface Selector {
   colores: Factibilidad[];
 }
 
+/** Herramientas del editor del mapa de pruebas (?ajustes). */
+export type HerramientaMapa = 'mover' | TipoNodo | 'borrar';
+
+/** Punto que se arrastra con la herramienta «mover». */
+export interface ArrastreNodo {
+  id: number;
+  punto: Punto;
+  /** Se puede soltar ahí (dentro del mapa, fuera de la plaza, no pegado a otro). */
+  valido: boolean;
+}
+
+const LIMITES_MAPA: LimitesMapa = {
+  ancho: CONFIG.mundo.ancho,
+  alto: CONFIG.mundo.alto,
+  separacion: 80,
+  obstaculo: { ...PLAZA, radio: PLAZA.radio + 40 },
+};
+
 const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben. Las pistas se abren tocando los trazos discontinuos.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
@@ -40,9 +59,18 @@ const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
 };
 
 export class Juego {
-  readonly alturas: MapaAlturas;
-  readonly red: Red;
-  readonly sim: Simulacion;
+  // No son readonly: el editor del mapa de pruebas puede rehacerlos.
+  alturas: MapaAlturas;
+  red: Red;
+  sim: Simulacion;
+  /** Puntos del mapa (tipo y posición); las cotas salen del terreno. */
+  definicion: DefinicionNodo[] = MAPA_INICIAL.map((d) => ({ ...d }));
+  /** Editor del mapa de pruebas: herramienta activa, o null si está cerrado. */
+  herramientaMapa: HerramientaMapa | null = null;
+  arrastreNodo: ArrastreNodo | null = null;
+  /** Aviso tras cambiar el mapa (para guardarlo, en el panel de ajustes). */
+  alCambiarMapa: (() => void) | null = null;
+  private readonly reglasRed: ReglasRed;
   arrastre: Arrastre | null = null;
   foco: Foco = null;
   selector: Selector | null = null;
@@ -57,9 +85,9 @@ export class Juego {
   infoPista: { pista: number; punto: Punto } | null = null;
 
   constructor() {
-    const { mundo, alturas, remonte, pista, esquiador } = CONFIG;
+    const { mundo, alturas, pista, remonte } = CONFIG;
     this.alturas = generarMapaAlturas(alturas, mundo.ancho, mundo.alto);
-    this.red = new Red(crearNodos(this.alturas), {
+    this.reglasRed = {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
       maxPistasPorPareja: pista.maxPorPareja,
       // Copia modificable (bandas incluidas): el panel de ajustes la cambia en memoria.
@@ -69,8 +97,14 @@ export class Juego {
       obstaculos: [PLAZA],
       // Para exigir que las pistas salgan cuesta abajo según el terreno.
       cotaTerreno: (p) => this.alturas.cotaEn(p),
-    });
-    this.sim = new Simulacion(
+    };
+    this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
+    this.sim = this.nuevaSimulacion();
+  }
+
+  private nuevaSimulacion(): Simulacion {
+    const { remonte, esquiador } = CONFIG;
+    return new Simulacion(
       this.red,
       {
         velocidadRemonte: remonte.velocidad,
@@ -81,6 +115,89 @@ export class Juego {
       PLAZA,
       crearAzar(12345),
     );
+  }
+
+  // ---- Editor del mapa de pruebas (?ajustes) ----
+
+  get cotaMaxima(): number {
+    return this.alturas.cotaMax;
+  }
+
+  /** Rehace la red sobre otra lista de puntos, repitiendo lo construido. */
+  private rehacer(definicion: DefinicionNodo[], ids: readonly (number | null)[]): void {
+    const vieja = this.red;
+    this.definicion = definicion;
+    this.red = new Red(crearNodos(this.alturas, definicion), this.reglasRed);
+    const { omitidas } = reconstruirRed(vieja, this.red, ids);
+    this.sim = this.nuevaSimulacion();
+    this.trasCambiarMapa();
+    if (omitidas > 0) this.avisar(`No se han podido rehacer ${omitidas} construcciones.`);
+  }
+
+  private trasCambiarMapa(): void {
+    this.cacheProyectos = null;
+    this.selector = null;
+    this.infoPista = null;
+    this.arrastre = null;
+    if (this.foco?.tipo === 'remonte' && !this.red.remontes[this.foco.id]) this.foco = null;
+    if (this.foco?.tipo === 'nodo' && !this.red.nodos[this.foco.id]) this.foco = null;
+    this.alCambiarMapa?.();
+  }
+
+  /** Cambia el desnivel del terreno: la cota de abajo se mantiene y se estira hasta `cotaMax`. */
+  cambiarDesnivel(cotaMax: number): void {
+    const a = this.alturas;
+    this.alturas = new MapaAlturas(a.columnas, a.filas, a.ancho, a.alto, a.cotaMin, cotaMax, a.gris);
+    this.red.actualizarNodos(this.red.nodos.map((n) => ({ ...n, cota: Math.round(this.alturas.cotaEn(n)) })));
+    this.trasCambiarMapa();
+  }
+
+  /** Carga un mapa guardado (o el original) y vacía la red. */
+  cargarMapa(definicion: readonly DefinicionNodo[], cotaMax: number): void {
+    const a = this.alturas;
+    this.alturas = new MapaAlturas(a.columnas, a.filas, a.ancho, a.alto, a.cotaMin, cotaMax, a.gris);
+    this.definicion = definicion.map((d) => ({ ...d }));
+    this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
+    this.sim = this.nuevaSimulacion();
+    this.foco = null;
+    this.trasCambiarMapa();
+  }
+
+  /**
+   * Toque con una herramienta del editor. Devuelve true si empieza a
+   * arrastrar un punto (herramienta «mover»).
+   */
+  editarMapa(p: Punto, radioMundo: number, sepMundo: number): boolean {
+    const h = this.herramientaMapa;
+    const n = this.nodoEn(p, radioMundo, sepMundo);
+    if (h === 'mover') {
+      if (n === null) return false;
+      this.arrastreNodo = { id: n, punto: p, valido: true };
+      return true;
+    }
+    if (h === 'borrar') {
+      if (n !== null) this.rehacer(this.definicion.filter((_, i) => i !== n), idsTrasBorrar(this.definicion.length, n));
+      return false;
+    }
+    if (h) {
+      if (!sitioLibre(this.definicion, p, LIMITES_MAPA)) {
+        this.avisar('Ahí no: fuera del mapa, en la plaza o pegado a otro punto.');
+        return false;
+      }
+      this.rehacer([...this.definicion, { tipo: h, x: Math.round(p.x), y: Math.round(p.y) }], idsIguales(this.definicion.length));
+    }
+    return false;
+  }
+
+  private soltarNodo(): void {
+    const a = this.arrastreNodo;
+    this.arrastreNodo = null;
+    if (!a || !a.valido) return;
+    const x = Math.round(a.punto.x);
+    const y = Math.round(a.punto.y);
+    this.definicion[a.id] = { ...this.definicion[a.id], x, y };
+    this.red.actualizarNodos([{ id: a.id, x, y, cota: Math.round(this.alturas.cotaEn({ x, y })) }]);
+    this.trasCambiarMapa();
   }
 
   paso(dt: number): void {
@@ -238,6 +355,11 @@ export class Juego {
   }
 
   moverArrastre(p: Punto, radioMundo: number, sepMundo = 0): void {
+    if (this.arrastreNodo) {
+      this.arrastreNodo.punto = p;
+      this.arrastreNodo.valido = sitioLibre(this.definicion, p, LIMITES_MAPA, this.arrastreNodo.id);
+      return;
+    }
     const a = this.arrastre;
     if (!a) return;
     a.puntero = p;
@@ -248,6 +370,7 @@ export class Juego {
 
   /** Al soltar: construye el remonte o, si no se movió, es un toque al nodo. */
   soltarArrastre(): void {
+    if (this.arrastreNodo) return this.soltarNodo();
     const a = this.arrastre;
     this.arrastre = null;
     if (!a) return;
@@ -270,6 +393,7 @@ export class Juego {
 
   cancelarArrastre(): void {
     this.arrastre = null;
+    this.arrastreNodo = null;
   }
 
   /** Deshace la última construcción (remonte o pista). */
@@ -284,6 +408,10 @@ export class Juego {
 
   /** Indicación para el jugador según el estado de la red. */
   ayuda(): string {
+    const h = this.herramientaMapa;
+    if (h === 'mover') return 'Editor: arrastra un punto para moverlo. Su cota sale del terreno.';
+    if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
+    if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
     if (this.red.remontes.length === 0) return 'Arrastra desde un punto de inicio hasta un punto más alto para construir un remonte.';
     if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));

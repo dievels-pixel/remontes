@@ -1,6 +1,7 @@
 // Color de pista según su pendiente media efectiva p = ΔH / L = ΔH / (s · D).
-// Cada color es una banda de pendiente; al elegirlo se toma la pendiente
-// central de la banda y de ahí sale la sinuosidad necesaria.
+// Cada color es una banda de pendiente; al elegirlo se toma una pendiente de
+// la banda (la central o la más cercana a la recta) y de ahí sale la
+// sinuosidad necesaria.
 
 export const COLORES = ['verde', 'azul', 'roja', 'negra'] as const;
 export type ColorPista = (typeof COLORES)[number];
@@ -49,14 +50,27 @@ export function evaluarColores(
 ): Factibilidad[] {
   const pRecta = desnivel / distancia;
   const demasiadoPlana = pRecta < bandas.verde[0];
-  return COLORES.map((color) => {
+  const acotar = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+  return COLORES.map((color, i) => {
     const [lo, hi] = bandas[color];
-    // Con s ≥ sMin la pendiente no puede pasar de pRecta / sMin.
-    const p = modo === 'central' ? pendienteCentral(bandas, color) : Math.max(lo, Math.min(hi, pRecta / sMin));
+    let p: number;
+    if (modo === 'central') {
+      p = pendienteCentral(bandas, color);
+    } else {
+      // Con s ≥ sMin la pendiente no puede pasar de pRecta / sMin. Se busca
+      // primero en la parte limpia de la banda (por debajo del mínimo del
+      // color siguiente); solo si no cabe ahí, en el solape, y sale forzada.
+      const siguiente = COLORES[i + 1];
+      const hiLimpio = siguiente ? Math.min(hi, bandas[siguiente][0]) : hi;
+      p = acotar(pRecta / sMin, lo, hiLimpio);
+      if (pRecta / p > sMax) p = acotar(pRecta / sMin, lo, hi);
+    }
     const s = pRecta / p;
     return { color, p, s, factible: !demasiadoPlana && s >= sMin * (1 - 1e-9) && s <= sMax };
   });
 }
+
+const TOLERANCIA_FORZADA = 0.003;
 
 /** Nivel de un color: 0 verde, 1 azul, 2 roja, 3 negra. */
 export function nivelDe(color: ColorPista): number {
@@ -71,5 +85,7 @@ export function nivelDe(color: ColorPista): number {
  */
 export function pistaForzada(color: ColorPista, pendiente: number, bandas: Bandas): boolean {
   const siguiente = COLORES[nivelDe(color) + 1];
-  return siguiente !== undefined && pendiente > bandas[siguiente][0];
+  // Pequeña tolerancia: una pista buscada justo en el límite puede quedar unas
+  // milésimas por encima al trazarla.
+  return siguiente !== undefined && pendiente > bandas[siguiente][0] + TOLERANCIA_FORZADA;
 }

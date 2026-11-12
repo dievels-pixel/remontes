@@ -152,6 +152,33 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.restore();
   }
 
+  // Editor del mapa de pruebas: el punto que se arrastra, con la cota que
+  // tendría ahí, en verde si se puede soltar y en rojo si no.
+  const an = juego.arrastreNodo;
+  if (an) {
+    const c = P(an.punto);
+    const o = P(red.nodo(an.id));
+    const color = an.valido ? COLOR.valido : COLOR.invalido;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(c.x, c.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, RADIO_NODO + 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.round(juego.alturas.cotaEn(an.punto))), c.x + RADIO_NODO + 6, c.y - RADIO_NODO - 4);
+    ctx.restore();
+  }
+
   // Anillo de cola en cada estación de salida: se llena con la cola y pasa del
   // gris al rojo, como el temporizador de las estaciones de Mini Metro.
   const colaPorEstacion = new Map<number, number>();

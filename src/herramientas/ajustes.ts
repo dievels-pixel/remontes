@@ -5,7 +5,9 @@
 // proyectos. "Copiar valores" deja en el portapapeles el bloque de config.ts.
 import { CONFIG } from '../config';
 import { copiarBandas, type ColorPista, type PendienteObjetivo } from '../core/colores';
-import type { Juego } from '../juego';
+import { textoMapa } from '../core/editorMapa';
+import { MAPA_INICIAL, type DefinicionNodo } from '../core/mapa';
+import type { HerramientaMapa, Juego } from '../juego';
 import { textoConfigPista } from './textoConfig';
 
 type ParametrosPista = Juego['red']['reglas']['pista'];
@@ -88,6 +90,9 @@ const ESTILO = `
 #ajustes .botones { display: flex; gap: 8px; margin: 6px 0 2px; }
 #ajustes button { flex: 1; padding: 8px 6px; font: inherit; font-weight: 600; border: 2px solid #262a31;
   border-radius: 8px; background: #fff; color: #262a31; }
+#ajustes h3 { margin: 10px 0 2px; font-size: 13px; }
+#ajustes .herramientas button { padding: 8px 2px; font-size: 12px; }
+#ajustes button.activa { background: #262a31; color: #fff; }
 #ajustes .nota { margin: 4px 0 2px; color: #5b616b; font-size: 11px; }
 `;
 
@@ -185,11 +190,113 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   nota.className = 'nota';
   nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
   cuerpo.append(botones, nota);
+  montarEditorMapa(juego, cuerpo);
 
   document.body.append(panel);
   const avisarAltura = () => alCambiarAltura(panel.open ? panel.getBoundingClientRect().bottom + 6 : 0);
   panel.addEventListener('toggle', avisarAltura);
   window.addEventListener('resize', () => requestAnimationFrame(avisarAltura));
+}
+
+const CLAVE_MAPA = 'remontes.mapaPruebas';
+
+/**
+ * Editor del mapa de pruebas: mover, añadir y borrar puntos, y cambiar el
+ * desnivel del terreno. El mapa se guarda en este navegador (si se puede) y
+ * se copia como texto para pegarlo en src/core/mapa.ts.
+ */
+function montarEditorMapa(juego: Juego, cuerpo: Element): void {
+  const cotaOriginal = juego.cotaMaxima;
+  try {
+    const guardado = localStorage.getItem(CLAVE_MAPA);
+    if (guardado) {
+      const { definicion, cotaMax } = JSON.parse(guardado) as { definicion: DefinicionNodo[]; cotaMax: number };
+      if (Array.isArray(definicion) && definicion.length > 0 && cotaMax > 0) juego.cargarMapa(definicion, cotaMax);
+    }
+  } catch {
+    // Sin almacenamiento (ventana privada, bloqueado): se empieza con el mapa original.
+  }
+  juego.alCambiarMapa = () => {
+    try {
+      localStorage.setItem(CLAVE_MAPA, JSON.stringify({ definicion: juego.definicion, cotaMax: juego.cotaMaxima }));
+    } catch {
+      // Sin almacenamiento: el mapa dura lo que la página.
+    }
+  };
+
+  const titulo = document.createElement('h3');
+  titulo.textContent = 'Mapa de pruebas';
+  const herramientas = document.createElement('div');
+  herramientas.className = 'botones herramientas';
+  const opciones: [HerramientaMapa, string][] = [
+    ['mover', 'Mover'],
+    ['base', '+ Base'],
+    ['intermedio', '+ Interm.'],
+    ['cima', '+ Cima'],
+    ['borrar', 'Borrar'],
+  ];
+  const botonesHerramienta = opciones.map(([h, texto]) => {
+    const b = document.createElement('button');
+    b.textContent = texto;
+    b.addEventListener('click', () => {
+      juego.herramientaMapa = juego.herramientaMapa === h ? null : h;
+      pintarHerramientas();
+    });
+    return { h, b };
+  });
+  const pintarHerramientas = () => botonesHerramienta.forEach(({ h, b }) => b.classList.toggle('activa', juego.herramientaMapa === h));
+  herramientas.append(...botonesHerramienta.map((x) => x.b));
+
+  // Desnivel: la cota del pie se mantiene y el terreno se estira hasta la máxima.
+  const fila = document.createElement('label');
+  fila.className = 'fila';
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = '1700';
+  input.max = '4000';
+  input.step = '50';
+  const valor = document.createElement('span');
+  valor.className = 'valor';
+  const pintarCota = () => {
+    input.value = String(juego.cotaMaxima);
+    valor.textContent = `${juego.cotaMaxima} m`;
+  };
+  let pendiente = false;
+  input.addEventListener('input', () => {
+    valor.textContent = `${input.value} m`;
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(() => {
+      pendiente = false;
+      juego.cambiarDesnivel(Number(input.value));
+    });
+  });
+  pintarCota();
+  fila.append('Cota máx.', input, valor);
+
+  const botones = document.createElement('div');
+  botones.className = 'botones';
+  const copiar = document.createElement('button');
+  copiar.textContent = 'Copiar mapa';
+  copiar.addEventListener('click', async () => {
+    const texto = textoMapa(juego.definicion) + `// alturas.cotaMax en config.ts: ${juego.cotaMaxima}\n`;
+    const ok = await copiarTexto(texto);
+    copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
+    setTimeout(() => (copiar.textContent = 'Copiar mapa'), 1500);
+  });
+  const original = document.createElement('button');
+  original.textContent = 'Mapa original';
+  original.addEventListener('click', () => {
+    juego.cargarMapa(MAPA_INICIAL, cotaOriginal);
+    pintarCota();
+  });
+  botones.append(copiar, original);
+
+  const nota = document.createElement('div');
+  nota.className = 'nota';
+  nota.textContent =
+    'Mover o cambiar la cota máx. conserva lo construido (las pistas que ya no caben en su color quedan a trazos cortos). Añadir o borrar un punto rehace la red y omite lo que ya no se pueda construir. El mapa se guarda en este navegador; «Mapa original» lo vacía.';
+  cuerpo.append(titulo, herramientas, fila, botones, nota);
 }
 
 async function copiarTexto(texto: string): Promise<boolean> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluarColores, pendienteCentral } from '../src/core/colores';
+import { evaluarColores, pendienteCentral, pistaForzada } from '../src/core/colores';
 import { pistaConSinuosidad, sinuosidadMinima, trazarPista, type FormaPista } from '../src/core/curva';
 import { Polilinea } from '../src/core/polilinea';
 import { segmentosSeCruzan } from '../src/core/vector';
@@ -209,15 +209,43 @@ describe('Bandas solapadas', () => {
   } as const;
 
   it('una misma pendiente puede ser de dos colores, y una pareja admite más colores', () => {
-    // Recta con pendiente 0,25 y sMin 1: azul y roja la aceptan tal cual (s = 1).
+    // Recta con pendiente 0,25 y sMin 1: la roja la acepta tal cual (s = 1).
+    // La azul también cabría así, pero en el solape (forzada): prefiere su
+    // parte limpia, hasta 0,22, el mínimo de la roja.
     const r = evaluarColores(500, 2000, 1, 1.55, solapadas, 'cercana');
     const f = Object.fromEntries(r.map((c) => [c.color, c]));
     expect(f.azul.factible && f.roja.factible).toBe(true);
-    expect(f.azul.s).toBeCloseTo(1, 10);
     expect(f.roja.s).toBeCloseTo(1, 10);
-    expect(f.verde.factible).toBe(true); // 0,2 con s = 1,25
+    expect(f.azul.p).toBeCloseTo(0.22, 10);
+    expect(pistaForzada('azul', f.azul.p, solapadas)).toBe(false);
+    expect(f.verde.factible).toBe(true); // 0,2 con s = 1,25, forzada: la limpia (0,13) no cabe
+    expect(pistaForzada('verde', f.verde.p, solapadas)).toBe(true);
     const sinSolape = evaluarColores(500, 2000, 1, 1.55, BANDAS_CLASICAS, 'cercana').filter((c) => c.factible).length;
     expect(r.filter((c) => c.factible).length).toBeGreaterThan(sinSolape);
+  });
+
+  it('en una ladera empinada no deja solo la negra limpia (fallo de v20)', () => {
+    // Recta a 0,44: antes la roja se buscaba a 0,42 (forzada) y la azul a 0,30
+    // (forzada). Ahora la roja baja a su parte limpia (0,35) y quedan dos
+    // limpias, roja y negra, y una forzada, la azul.
+    const r = evaluarColores(440, 1000, 1.01, 1.55, solapadas, 'cercana');
+    const limpias = r.filter((c) => c.factible && !pistaForzada(c.color, c.p, solapadas)).map((c) => c.color);
+    const forzadas = r.filter((c) => c.factible && pistaForzada(c.color, c.p, solapadas)).map((c) => c.color);
+    expect(limpias).toEqual(['roja', 'negra']);
+    expect(forzadas).toEqual(['azul']);
+  });
+
+  it('en casi toda la gama de pendientes hay dos colores limpios', () => {
+    // Con s máx. 1,55 la gama posible [p/1,55, p] cubre casi siempre un límite
+    // entre partes limpias (0,13 / 0,22 / 0,35), que están a razón ≥ 1,59.
+    let dos = 0;
+    let total = 0;
+    for (let p = 0.14; p <= 0.6; p += 0.01) {
+      total++;
+      const r = evaluarColores(p * 1000, 1000, 1.01, 1.55, solapadas, 'cercana');
+      if (r.filter((c) => c.factible && !pistaForzada(c.color, c.p, solapadas)).length >= 2) dos++;
+    }
+    expect(dos / total).toBeGreaterThan(0.75);
   });
 });
 
