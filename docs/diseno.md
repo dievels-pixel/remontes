@@ -41,7 +41,22 @@ El juego empieza en el pie de pistas: una plaza con varios puntos de inicio (bas
 - Edificios: casas y hoteles alrededor de la plaza representan visualmente la afluencia. Cuando la curva cruza un umbral aparece uno nuevo en un hueco predefinido, con una pequeña animación. Su aporte empieza unos 15 segundos después, como margen de reacción (igual que una estación nueva en Mini Metro).
 - Cuando se llenan los huecos, los edificios mejoran (casa, hotel, gran hotel) en lugar de añadir más, de modo que la afluencia sigue creciendo en un espacio limitado.
 - Más adelante, el tipo de edificio puede definir la mezcla de niveles: las casas aportan más verdes y azules, los hoteles de lujo más rojos y negros.
-- Fase posterior: cuando la estación crezca mucho, puede haber varias carreteras de acceso, es decir, varios puntos de entrada.
+- Fase posterior: cuando la estación crezca mucho, puede haber varias carreteras de acceso, es decir, varios puntos de entrada. (Se adelanta en parte con la ampliación del dominio, siguiente sección.)
+
+## Ampliación del dominio esquiable
+
+Idea del usuario: la estación crece en extensión, no solo en afluencia. Al llegar con los remontes a una zona alta aparecen bases nuevas, desde las que se puede seguir construyendo. Es lo que hace crecer la estación a lo largo de la partida. Lo que sigue es una propuesta concreta, con sus decisiones abiertas al final.
+
+- El mapa es mayor que lo que se ve al empezar. Se divide en zonas: la inicial, alrededor del pie de pistas, y otras ocultas o atenuadas más allá (otra ladera, un valle vecino, una meseta alta).
+- Desbloqueo: ciertos puntos son puertas (un collado o una cima en el límite de la zona). Cuando un remonte llega a una puerta, se revela la zona siguiente: sus puntos, y en ella una base nueva.
+- La base nueva es un pie de pistas secundario: un pueblo en el otro valle o una urbanización a media ladera. Tiene su plaza y su entrada de esquiadores, es sumidero de las bajadas como cualquier base y desde ella se construyen remontes.
+- La cámara se aleja suavemente para que quepa la estación ampliada, como el mapa de Mini Metro al crecer. En el móvil, los símbolos y los esquiadores mantienen su tamaño en pantalla aunque el mapa se aleje.
+- Una zona nueva da al jugador espacio para repartir la afluencia, que sigue creciendo, cuando la zona inicial se satura.
+
+Choques con decisiones ya tomadas, a resolver al empezar la etapa:
+
+- «Los nodos existen todos desde el principio»: pasa a ser cierto solo dentro de cada zona. Los de las zonas ocultas existen en los datos del mapa, pero no se ven ni se pueden usar hasta que se revela su zona.
+- Base «de cota baja» y «de las bases no salen pistas»: una base a media ladera es alta y podría tener pistas que bajan al valle. Hay que decidir si una base alta es solo entrada y sumidero, como las de abajo, o también un punto del que salen pistas.
 
 ## Construcción y economía
 
@@ -122,7 +137,7 @@ Deshacer: un botón deshace la última construcción (remonte o pista), y pulsá
 
 El jugador solo activa proyectos de pista y elige color; no gestiona los cruces.
 
-Confluencias (adelantado a petición del usuario, antes de la etapa 7): si el trazado de una pista nueva se encuentra con una pista existente, se une a ella y comparten el tramo, como en las estaciones de verdad. Si no van al mismo destino, la nueva sigue a la existente hasta el punto más cercano a su destino (siempre por encima de la cota de ese destino) y ahí sale un ramal. La unión y la salida del ramal no son en ángulo: un acuerdo curvo (Bézier, de unos 150 m) hace que la pista nueva emboque tangente a la existente y que el ramal salga tangente a ella. Si el tramo compartido fuera muy corto (por debajo de un mínimo), no se unen y se cruzan sin más. No se buscan encuentros en el tramo inicial, porque las pistas que salen del mismo nodo empiezan juntas. En el grafo no cambia nada: la pista sigue yendo de su origen a su destino, y solo cambia su geometría. Los proyectos a trazos ya muestran la confluencia que tendrán.
+Confluencias (adelantado a petición del usuario, antes de la etapa 8): si el trazado de una pista nueva se encuentra con una pista existente, se une a ella y comparten el tramo, como en las estaciones de verdad. Si no van al mismo destino, la nueva sigue a la existente hasta el punto más cercano a su destino (siempre por encima de la cota de ese destino) y ahí sale un ramal. La unión y la salida del ramal no son en ángulo: un acuerdo curvo (Bézier, de unos 150 m) hace que la pista nueva emboque tangente a la existente y que el ramal salga tangente a ella. Si el tramo compartido fuera muy corto (por debajo de un mínimo), no se unen y se cruzan sin más. No se buscan encuentros en el tramo inicial, porque las pistas que salen del mismo nodo empiezan juntas. En el grafo no cambia nada: la pista sigue yendo de su origen a su destino, y solo cambia su geometría. Los proyectos a trazos ya muestran la confluencia que tendrán.
 
 - Consecuencia: la longitud real de una pista unida a otra no es la que pedía su color, así que su pendiente media (y su velocidad) se recalcula con el trazado final y puede salirse algo de la banda del color elegido. El color se mantiene como etiqueta.
 - La primera pista de una pareja va por el lado en que su curva corta menos remontes, para que no los cruce sin necesidad.
@@ -186,11 +201,12 @@ Se construye por etapas, y cada una debe poder jugarse antes de pasar a la sigui
 2. (Hecha, con añadidos: ver «Estado del desarrollo».) Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
 3. Niveles de esquiador, colores, aburrimiento y colas con anillo.
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
-5. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento.
-6. Economía: precio por longitud y tipo, ingresos por bajada completada, mejora de remontes y condición de derrota por colas saturadas.
-7. Cruces con enlaces automáticos. (Las confluencias, que unen una pista nueva a la existente que toca, ya están hechas; queda el enlace en los cruces que no se unen.)
-8. Pulido visual y sonoro: sombreado, texturas de bosque y roca, ciclo de día y música generativa.
-9. Fases posteriores: varias carreteras de acceso, agua y averías o mal tiempo que dejan remontes inactivos temporalmente.
+5. Ampliación del dominio: mapa por zonas, puntos puerta que al alcanzarse revelan una zona nueva con su base (pie de pistas secundario, con su entrada de esquiadores), y cámara que se aleja al crecer (ver «Ampliación del dominio esquiable»).
+6. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento, ya con el mapa ampliado.
+7. Economía: precio por longitud y tipo, ingresos por bajada completada, mejora de remontes y condición de derrota por colas saturadas.
+8. Cruces con enlaces automáticos. (Las confluencias, que unen una pista nueva a la existente que toca, ya están hechas; queda el enlace en los cruces que no se unen.)
+9. Pulido visual y sonoro: sombreado, texturas de bosque y roca, ciclo de día y música generativa.
+10. Fases posteriores: más carreteras de acceso además de las de las zonas nuevas, agua y averías o mal tiempo que dejan remontes inactivos temporalmente.
 
 Notas técnicas:
 
@@ -222,7 +238,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Decisiones tomadas
 
-- Los nodos existen todos desde el principio y se activan al ser alcanzados por un remonte.
+- Los nodos existen todos desde el principio y se activan al ser alcanzados por un remonte. (Con la ampliación del dominio, dentro de cada zona: los de una zona oculta aparecen al revelarse.)
+- La estación crece también en extensión: al llegar a zonas altas se revelan zonas nuevas con bases nuevas (etapa 5).
 - Los remontes se construyen arrastrando, con precio proporcional a la longitud y al tipo; las pistas son gratuitas.
 - Los ingresos vienen de cada bajada completada.
 - La derrota viene de las colas, no de la quiebra.
@@ -266,7 +283,14 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Grosor de línea por color (más gruesa cuanto más fácil): encaja con las bandas solapadas y sirve para el daltonismo. Documentado, sin dibujar todavía.
 - [ ] ¿Deben poder cruzarse también los remontes entre sí? Hoy no pueden; los remontes y las pistas sí se cruzan.
 - [ ] Rendimiento de los proyectos: con la salida orientada, recalcular los proyectos al tocar un punto tarda en el ordenador 8 ms de media y hasta unos 70 ms; en un móvil puede notarse un tirón. Optimizar si se nota jugando (por ejemplo, calcular los giros solo para los candidatos que se van a mostrar).
-- [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Probablemente haya que ampliar el mapa antes de las etapas de afluencia y economía.
+- [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Se resuelve en buena parte con la ampliación del dominio (etapa 5), que necesita un mapa mayor dividido en zonas.
+- [ ] Ampliación del dominio (etapa 5):
+    - qué revela una zona: llegar a un punto puerta concreto, superar una cota, o una combinación con la afluencia;
+    - qué aparece: una base en otro valle, una base a media ladera o las dos según la zona;
+    - si una base alta es solo entrada y sumidero o también un punto del que salen pistas;
+    - si cada base nueva tiene su propia afluencia o reparte la global;
+    - cómo vuelve a su zona un esquiador que acaba en la base de otra (andando, en autobús, o se queda);
+    - cuántas zonas tiene el prototipo (propuesta: la inicial y dos más) y cómo se dibujan las ocultas (atenuadas o con niebla).
 
 ## Estado del desarrollo
 
@@ -288,6 +312,8 @@ Actualizado el 2026-11-12, tras la petición de fusión 17 (en pantalla, `v17`).
 ### Siguiente paso
 
 Etapa 3: niveles de esquiador, colores de los esquiadores, aburrimiento y colas con anillo. Antes conviene decidir lo de confluencias y dificultad, y probablemente el grosor por color (ver «Decisiones abiertas»).
+
+Después: etapa 4 (afluencia y edificios) y etapa 5 (ampliación del dominio con zonas y bases nuevas), añadida el 2026-11-12 a petición del usuario. Las etapas siguientes se han renumerado.
 
 ### Cómo se trabaja
 
