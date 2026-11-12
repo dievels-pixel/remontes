@@ -265,6 +265,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Confluencias y dificultad (para la etapa 3): una pista unida a otra comparte su tramo, que puede ser de un color más difícil (por ejemplo, una azul que baja por el trazado de una roja). Opciones: permitir la unión solo con pistas del mismo color o más fáciles (preferida, más sencilla y como en las estaciones reales), o que el tramo compartido cuente con la dificultad mayor de las dos.
 - [ ] Grosor de línea por color (más gruesa cuanto más fácil): encaja con las bandas solapadas y sirve para el daltonismo. Documentado, sin dibujar todavía.
 - [ ] ¿Deben poder cruzarse también los remontes entre sí? Hoy no pueden; los remontes y las pistas sí se cruzan.
+- [ ] Rendimiento de los proyectos: con la salida orientada, recalcular los proyectos al tocar un punto tarda en el ordenador 8 ms de media y hasta unos 70 ms; en un móvil puede notarse un tirón. Optimizar si se nota jugando (por ejemplo, calcular los giros solo para los candidatos que se van a mostrar).
 - [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Probablemente haya que ampliar el mapa antes de las etapas de afluencia y economía.
 
 ## Estado del desarrollo
