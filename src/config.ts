@@ -87,8 +87,8 @@ export const CONFIG = {
     maxCrucesPistas: 1,
     // Salidas de una cima o intermedio: sin tope de número, pero cada una
     // separada de las demás al menos este ángulo y siempre cuesta abajo (o en
-    // horizontal). En una ladera plana caben 5 con 45°. PROVISIONAL.
-    anguloMinimoSalida: 45, // grados
+    // horizontal). En una ladera plana caben 7 con 30°. Calibrado con el panel.
+    anguloMinimoSalida: 30, // grados
     toleranciaHorizontal: 10, // m que puede subir la salida y contar como horizontal
     longitudDireccionSalida: 200, // m con los que se mide la dirección de salida
     // Tope de pistas llegando a un punto (base o intermedio), donde peor se lee
@@ -101,8 +101,9 @@ export const CONFIG = {
     // puede entrar en el círculo de la plaza más este margen. PROVISIONAL.
     margenObstaculo: 30, // m
     // Si el trazado previsto se acerca a otra pista a menos de esto, cuenta como
-    // encuentro y se une a ella; si no puede unirse, no se propone. PROVISIONAL.
-    distanciaMinimaPistas: 50, // m
+    // encuentro y se une a ella; si no puede unirse, no se propone. Calibrado
+    // con el panel.
+    distanciaMinimaPistas: 40, // m
   },
 
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí

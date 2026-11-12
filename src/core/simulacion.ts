@@ -56,8 +56,13 @@ export class Simulacion {
   /** Cola de cada remonte, en orden de llegada. */
   readonly colas: number[][] = [];
   bajadasCompletadas = 0;
-  /** Esquiadores que se han ido: aburridos, sin pistas de su nivel o sin salida. */
+  /** Esquiadores que se han ido: aburridos o sin salida. */
   seFueron = 0;
+  /**
+   * Clientes potenciales que no han venido porque para su nivel no hay ninguna
+   * bajada (decisión 2b): la afluencia crece menos. No cuentan como idos.
+   */
+  noVinieron = 0;
   tiempo = 0;
   private temporizadores: number[] = [];
   private llegadasPendientes = 0;
@@ -151,9 +156,10 @@ export class Simulacion {
       if (this.poblacion >= this.p.poblacionMaxima) continue;
       const nivel = this.sortearNivel();
       const bases = this.basesPara(nivel);
-      // Si para su nivel no hay ninguna bajada, viene y se va.
+      // Si para su nivel no hay ninguna bajada, no viene: la estación no
+      // ofrece nada para él y la afluencia es menor.
       if (bases.length === 0) {
-        this.seFueron++;
+        this.noVinieron++;
         continue;
       }
       const id = this.siguienteId++;

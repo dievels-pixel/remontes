@@ -28,7 +28,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
-- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas cuya dificultad efectiva no pase de su nivel (una pista unida a otra más difícil cuenta con la dificultad mayor: el tramo común manda) y solo sube por remontes cuya llegada tenga bajada para él. Si al llegar no hay ninguna bajada de su nivel en toda la estación, se va.
+- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas cuya dificultad efectiva no pase de su nivel (una pista unida a otra más difícil cuenta con la dificultad mayor: el tramo común manda) y solo sube por remontes cuya llegada tenga bajada para él. Si no hay ninguna bajada de su nivel en toda la estación, no viene: es un cliente potencial que se pierde y la afluencia crece menos (decidido; no cuenta en «Se han ido»).
 
 ## Pie de pistas y crecimiento de la estación
 
@@ -84,10 +84,11 @@ Para evitar una maraña de trazos:
 - Se limitan a los 2 o 3 candidatos más cercanos por dirección (2 en el prototipo).
 - No se propone una pista que cruce sin unirse a ellas más de N pistas (N = 1). Los encuentros que acaban en confluencia no cuentan, porque no ensucian.
 - Remontes y pistas sí pueden cruzarse, en los dos sentidos: una pista nueva puede pasar por debajo de un remonte y un remonte nuevo puede pasar por encima de pistas. Es un cruce solo visual, como un puente: los esquiadores de la pista y los del remonte no se afectan, y el grafo, la viabilidad y las confluencias no cambian. Prohibirlo quitaba mucha flexibilidad al construir. (La primera pista de una pareja sigue eligiendo, como preferencia, el lado que corta menos remontes.)
-- Salidas de un punto por ángulo, sin tope de número: cada pista nueva tiene que salir con una dirección (la de sus primeros 200 m) separada al menos un ángulo mínimo (provisional 45°) de cada pista que ya sale de ese punto, y siempre cuesta abajo según el terreno (o, como mucho, en horizontal: se toleran 10 m de subida). En una ladera plana caben así hasta 5 salidas, de una horizontal a la otra. Las dos laterales de un mismo remonte no cuentan entre sí. Llegando a un punto, como mucho 4 pistas.
+- Salidas de un punto por ángulo, sin tope de número: cada pista nueva tiene que salir con una dirección (la de sus primeros 200 m) separada al menos un ángulo mínimo (calibrado con el panel: 30°) de cada pista que ya sale de ese punto, y siempre cuesta abajo según el terreno (o, como mucho, en horizontal: se toleran 10 m de subida). En una ladera plana caben así hasta 7 salidas, de una horizontal a la otra. Las dos laterales de un mismo remonte no cuentan entre sí. Llegando a un punto, como mucho 4 pistas.
+- Cada color tiene su propio giro de salida: su sinuosidad y su serpentina hacen que sus primeros 200 m apunten a sitios distintos, así que el selector busca para cada color el menor giro (sin girar o en pasos de 10° hasta el máximo) con el que su trazado es limpio. Antes (hasta v21) el giro era común y se paraba en el primero que valía para algún color, y a veces solo quedaba uno, forzado.
 - Salida orientada: si la salida de una pista no cabe entre las que ya hay, puede salir girada hacia su lado (en pasos de 10°, hasta un giro máximo provisional de 60°) y volver enseguida a su eje: un gancho solo al principio, lado · tan(giro) · D · t · (1 − t)³, que apenas la alarga. Se elige el menor giro con el que la pista queda limpia, y para una pista que no es lateral se prueba también el otro lado. Así una pista puede salir por un hueco libre (por ejemplo, hacia el sureste) y luego bajar a su destino. El giro se guarda en la pista y se respeta al recalcular. Un abombamiento mayor no servía para esto: curva toda la pista, gira poco la salida y la alarga hasta salirse del rango de sinuosidad.
 - Los cruces se comprueban con la pista real de cada color (con su sinuosidad y su confluencia), no con el trazado de sinuosidad mínima: en el selector se apagan los colores cuya pista entraría en la plaza, iría casi pegada a otra pista, cruzaría demasiadas o saldría poco separada de las demás. Un proyecto se propone si al menos un color da una pista limpia, y el trazo discontinuo muestra la pista real del color limpio que menos serpentea.
-- Distancia mínima entre pistas: si el trazado previsto se acerca a otra pista a menos de una distancia (provisional 50 m), cuenta como encuentro y se une a ella (confluencia). Si no puede unirse (por ejemplo, porque el tramo compartido sería demasiado corto), no se propone. Así no quedan pistas paralelas casi pegadas.
+- Distancia mínima entre pistas: si el trazado previsto se acerca a otra pista a menos de una distancia (calibrado con el panel: 40 m), cuenta como encuentro y se une a ella (confluencia). Si no puede unirse (por ejemplo, porque el tramo compartido sería demasiado corto), no se propone. Así no quedan pistas paralelas casi pegadas.
 - La plaza del pie de pistas es un obstáculo: no se propone ningún proyecto cuyo trazado previsto (tramo propio, compartido y ramal) entre en el círculo de la plaza más un margen (provisional 30 m, calibrable con el panel de ajustes). Las bases están en el borde, fuera de ese círculo, así que las llegadas a ellas no se ven afectadas. Con 30 m solo se pierde una lateral hacia la base de 1558 m; ninguna base se queda sin bajadas. Ojo: la base de 1618 m está a 230 m del centro de la plaza (radio 170 m), así que con un margen de más de unos 59 m queda dentro de la zona prohibida y se queda sin ninguna bajada posible.
 - Los trazos solo se muestran para la última obra o al tocar un nodo (tocar sin arrastrar). Tocar el vacío los oculta.
 - Solo se proponen pistas que salgan de nodos activos.
@@ -235,6 +236,8 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Margen de la plaza (0 a 100 m).
 - Distancia mínima entre pistas (0 a 150 m), ángulo mínimo entre salidas (0 a 90°) y giro máximo de la salida orientada (0 a 80°).
 
+Esquiadores (en el mismo panel, desde v22): peso de cada nivel en la mezcla de llegadas (se normaliza al sortear), subida de diversión por una pista de su nivel y por una forzada, bajada por cada nivel de diferencia, umbral de marcha y preferencia por las pistas de su nivel. Se aplican al momento. «Copiar valores» copia los bloques `pista` y `esquiador`.
+
 Mapa de pruebas (en el mismo panel), para probar otras pendientes y disposiciones:
 
 - Herramientas: mover un punto arrastrándolo (su cota sale del terreno y se ve mientras se arrastra), añadir una base, un intermedio o una cima tocando el mapa, y borrar un punto. No se puede poner un punto fuera del mapa, en la plaza (más 40 m) ni a menos de 80 m de otro.
@@ -261,8 +264,9 @@ Cuando los valores queden fijados se puede retirar el panel.
 - En un punto desdoblado, las pistas salen y llegan por las estaciones laterales (ver «Estaciones y desdoble»).
 - Se limitan las propuestas de pista: como mucho 1 pista cruzada sin unirse y como mucho 4 llegando por punto (las salidas, por ángulo).
 - Las pistas no cruzan la plaza del pie de pistas.
-- Una pista que pasa cerca de otra (menos de 50 m) se une a ella; si no puede, no se propone.
-- Salidas de un punto por ángulo (45° entre ellas, siempre cuesta abajo), sin tope de número; si no cabe, la pista puede salir girada hasta 60° hacia un hueco libre.
+- Una pista que pasa cerca de otra (menos de 40 m) se une a ella; si no puede, no se propone.
+- Salidas de un punto por ángulo (30° entre ellas, siempre cuesta abajo), sin tope de número; si no cabe, la pista puede salir girada hasta 60° hacia un hueco libre, con un giro propio para cada color.
+- Un esquiador sin ninguna bajada de su nivel en la estación no viene (cliente potencial perdido); en pantalla se ve como «No vienen».
 - Remontes y pistas pueden cruzarse (cruce visual, como un puente); lo que se limita son los cruces entre pistas, y los colores que darían una pista enmarañada no se pueden elegir.
 - Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
 - Confluencias y dificultad: una pista puede unirse a otra más difícil, pero entonces su dificultad efectiva es la mayor (el tramo común manda).
@@ -289,7 +293,6 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.
-- [ ] Llegadas sin bajada de su nivel: un esquiador que llega y no tiene ninguna bajada de su nivel se va (cuenta en «Se han ido»). Con el mapa actual hay pocas verdes hasta una base y muchos verdes se van; es una presión de juego razonable, pero quizá la mezcla de niveles deba adaptarse a lo que ofrece la estación (etapa 4, con los edificios).
 - [ ] ¿Deben poder cruzarse también los remontes entre sí? Hoy no pueden; los remontes y las pistas sí se cruzan.
 - [ ] Rendimiento de los proyectos: con la salida orientada, recalcular los proyectos al tocar un punto tarda en el ordenador 8 ms de media y hasta unos 70 ms; en un móvil puede notarse un tirón. Optimizar si se nota jugando (por ejemplo, calcular los giros solo para los candidatos que se van a mostrar).
 - [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Se resuelve en buena parte con la ampliación del dominio (etapa 5), que necesita un mapa mayor dividido en zonas.
@@ -303,7 +306,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-12, tras la etapa 3 y su ajuste de colores (v21).
+Actualizado el 2026-11-12, al cerrar la etapa 3 (v22).
 
 ### Hecho
 
@@ -312,18 +315,18 @@ Actualizado el 2026-11-12, tras la etapa 3 y su ajuste de colores (v21).
 - **Añadidos sobre la etapa 2, pedidos jugando:**
   - forma de pista calibrada (abombamiento, serpentina irregular y temblor);
   - bandas de color solapadas y pendiente objetivo «cercana»;
-  - confluencias con acuerdo tangente y unión por cercanía (50 m);
-  - límites contra la maraña: como mucho una pista cruzada sin unirse, salidas a 45° y cuesta abajo, salida orientada con giro de hasta 60°, plaza como obstáculo y 4 llegadas por punto;
+  - confluencias con acuerdo tangente y unión por cercanía (40 m desde v22);
+  - límites contra la maraña: como mucho una pista cruzada sin unirse, salidas a 30° (desde v22) y cuesta abajo, salida orientada con giro de hasta 60° y propio de cada color, plaza como obstáculo y 4 llegadas por punto;
   - comprobación con la pista real de cada color;
   - pistas que salen por las estaciones laterales de un punto desdoblado.
 - **Etapa 3:** niveles de esquiador (mezcla fija provisional), dificultad efectiva de las pistas (el tramo común manda), viabilidad por nivel, diversión con pistas forzadas, colas con anillo y contador de los que se han ido.
 - **Tras la etapa 3 (v21):** cada color busca primero la parte limpia de su banda, así que ya no queda solo la negra limpia en las laderas empinadas.
-- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas, con un mapa de pruebas editable (mover, añadir y borrar puntos y cambiar el desnivel).
+- **Cierre de la etapa 3 (v22):** cada color con su propio giro de salida en el selector; los esquiadores sin bajada de su nivel no vienen (contador «No vienen»); ángulo entre salidas 30° y distancia mínima entre pistas 40 m; panel de diversión y mezcla en `?ajustes`.
+- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas y los esquiadores (mezcla de niveles y diversión), con un mapa de pruebas editable (mover, añadir y borrar puntos y cambiar el desnivel).
 
 ### Siguiente paso
 
-Antes de la etapa 4, jugar con el mapa de pruebas para ajustar las bandas y la diversión.
-
+Antes de la etapa 4, jugar con el panel para fijar la mezcla y la diversión (siguen provisionales).
 
 Etapa 4: entrada de esquiadores por la carretera, curva de afluencia creciente y edificios alrededor de la plaza (que podrán decidir la mezcla de niveles).
 

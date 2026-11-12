@@ -8,7 +8,7 @@ import { copiarBandas, type ColorPista, type PendienteObjetivo } from '../core/c
 import { textoMapa } from '../core/editorMapa';
 import { MAPA_INICIAL, type DefinicionNodo } from '../core/mapa';
 import type { HerramientaMapa, Juego } from '../juego';
-import { textoConfigPista } from './textoConfig';
+import { textoConfigEsquiador, textoConfigPista } from './textoConfig';
 
 type ParametrosPista = Juego['red']['reglas']['pista'];
 
@@ -69,6 +69,54 @@ const DESLIZADORES: Deslizador[] = [
   banda('roja', 1, 'Roja máx.'),
   banda('negra', 0, 'Negra mín.'),
   banda('negra', 1, 'Negra máx.'),
+];
+
+type ParametrosSim = Juego['parametrosSim'];
+
+/** Deslizador de un parámetro de los esquiadores (bloque `esquiador` de config.ts). */
+interface DeslizadorSim {
+  nombre: string;
+  min: number;
+  max: number;
+  paso: number;
+  decimales: number;
+  leer: (p: ParametrosSim) => number;
+  escribir: (p: ParametrosSim, v: number) => void;
+}
+
+type ClaveSim = 'diversionSuNivel' | 'diversionForzada' | 'diversionPorNivelInferior' | 'umbralMarcha' | 'pesoSuNivel';
+
+const sim = (clave: ClaveSim, nombre: string, min: number, max: number, paso: number, decimales: number): DeslizadorSim => ({
+  nombre,
+  min,
+  max,
+  paso,
+  decimales,
+  leer: (p) => p[clave],
+  escribir: (p, v) => (p[clave] = v),
+});
+
+/** Peso de un nivel en la mezcla de llegadas (se normaliza al sortear). */
+const peso = (nivel: number, nombre: string): DeslizadorSim => ({
+  nombre,
+  min: 0,
+  max: 1,
+  paso: 0.05,
+  decimales: 2,
+  leer: (p) => p.mezclaNiveles[nivel],
+  escribir: (p, v) => (p.mezclaNiveles = p.mezclaNiveles.map((x, i) => (i === nivel ? v : x))),
+});
+
+const DESLIZADORES_SIM: DeslizadorSim[] = [
+  peso(0, 'Peso verdes'),
+  peso(1, 'Peso azules'),
+  peso(2, 'Peso rojos'),
+  peso(3, 'Peso negros'),
+  sim('diversionSuNivel', 'Div. su nivel', 0, 0.5, 0.01, 2),
+  sim('diversionForzada', 'Div. forzada', 0, 0.3, 0.01, 2),
+  sim('diversionPorNivelInferior', 'Div. − por nivel', 0, 0.5, 0.01, 2),
+  sim('umbralMarcha', 'Umbral marcha', 0, 1, 0.05, 2),
+  sim('pesoSuNivel', 'Pref. su nivel', 1, 10, 0.5, 1),
 ];
 
 // Franja compacta arriba, a todo lo ancho: en vertical, la parte alta del
@@ -168,12 +216,43 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   labelModo.append(select);
   cuerpo.append(labelModo);
 
+  // Esquiadores: niveles y diversión. Se aplican al momento, sin recalcular.
+  const parametros = juego.parametrosSim;
+  const inicialesSim = { ...parametros, mezclaNiveles: [...parametros.mezclaNiveles] };
+  const tituloSim = document.createElement('h3');
+  tituloSim.textContent = 'Esquiadores';
+  cuerpo.append(tituloSim);
+  for (const d of DESLIZADORES_SIM) {
+    const fila = document.createElement('label');
+    fila.className = 'fila';
+    const valor = document.createElement('span');
+    valor.className = 'valor';
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = String(d.min);
+    input.max = String(d.max);
+    input.step = String(d.paso);
+    const pintar = () => {
+      input.value = String(d.leer(parametros));
+      valor.textContent = coma(d.leer(parametros), d.decimales);
+    };
+    input.addEventListener('input', () => {
+      d.escribir(parametros, Number(input.value));
+      pintar();
+    });
+    pintar();
+    refrescos.push(pintar);
+    fila.append(d.nombre, input, valor);
+    cuerpo.append(fila);
+  }
+
   const botones = document.createElement('div');
   botones.className = 'botones';
   const copiar = document.createElement('button');
   copiar.textContent = 'Copiar valores';
   copiar.addEventListener('click', async () => {
-    const ok = await copiarTexto(textoConfigPista({ ...pista }));
+    const claves = Object.keys(CONFIG.esquiador);
+    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + textoConfigEsquiador({ ...parametros }, claves));
     copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
     setTimeout(() => (copiar.textContent = 'Copiar valores'), 1500);
   });
@@ -181,6 +260,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   restablecer.textContent = 'Restablecer';
   restablecer.addEventListener('click', () => {
     Object.assign(pista, { ...iniciales, bandas: copiarBandas(iniciales.bandas) });
+    Object.assign(parametros, { ...inicialesSim, mezclaNiveles: [...inicialesSim.mezclaNiveles] });
     refrescos.forEach((f) => f());
     recalcular();
   });
@@ -188,7 +268,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   const nota = document.createElement('div');
   nota.className = 'nota';
-  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
+  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista y esquiador. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
   cuerpo.append(botones, nota);
   montarEditorMapa(juego, cuerpo);
 

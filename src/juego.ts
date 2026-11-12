@@ -9,7 +9,7 @@ import { idsIguales, idsTrasBorrar, reconstruirRed, sitioLibre, type LimitesMapa
 import { crearNodos, MAPA_INICIAL, PLAZA, type DefinicionNodo } from './core/mapa';
 import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
 import { Red, type Estacion, type Motivo, type ReglasRed, type TipoNodo } from './core/red';
-import { Simulacion } from './core/simulacion';
+import { Simulacion, type ParametrosSimulacion } from './core/simulacion';
 import { distancia, distanciaAPolilinea, type Punto } from './core/vector';
 
 export interface Arrastre {
@@ -28,7 +28,8 @@ export interface Selector {
   proyecto: Proyecto;
   /** Punto del mundo donde se tocó, para colocar el selector. */
   punto: Punto;
-  colores: Factibilidad[];
+  /** Cada color con su propio giro de salida (ver Red.coloresElegibles). */
+  colores: (Factibilidad & { giro?: number })[];
 }
 
 /** Herramientas del editor del mapa de pruebas (?ajustes). */
@@ -71,6 +72,11 @@ export class Juego {
   /** Aviso tras cambiar el mapa (para guardarlo, en el panel de ajustes). */
   alCambiarMapa: (() => void) | null = null;
   private readonly reglasRed: ReglasRed;
+  /**
+   * Parámetros de la simulación, compartidos por cada simulación nueva: el
+   * panel de ajustes los cambia en memoria y se aplican al momento.
+   */
+  readonly parametrosSim: ParametrosSimulacion;
   arrastre: Arrastre | null = null;
   foco: Foco = null;
   selector: Selector | null = null;
@@ -99,22 +105,18 @@ export class Juego {
       cotaTerreno: (p) => this.alturas.cotaEn(p),
     };
     this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
+    this.parametrosSim = {
+      velocidadRemonte: remonte.velocidad,
+      intervaloBolitas: remonte.intervaloBolitas,
+      capacidadBolita: remonte.capacidad,
+      ...CONFIG.esquiador,
+      mezclaNiveles: [...CONFIG.esquiador.mezclaNiveles],
+    };
     this.sim = this.nuevaSimulacion();
   }
 
   private nuevaSimulacion(): Simulacion {
-    const { remonte, esquiador } = CONFIG;
-    return new Simulacion(
-      this.red,
-      {
-        velocidadRemonte: remonte.velocidad,
-        intervaloBolitas: remonte.intervaloBolitas,
-        capacidadBolita: remonte.capacidad,
-        ...esquiador,
-      },
-      PLAZA,
-      crearAzar(12345),
-    );
+    return new Simulacion(this.red, this.parametrosSim, PLAZA, crearAzar(12345));
   }
 
   // ---- Editor del mapa de pruebas (?ajustes) ----
@@ -272,7 +274,7 @@ export class Juego {
     if (mejor) {
       // Colores apagados: los que no caben por pendiente y los que darían una
       // pista que enmaraña (corta remontes, cruza demasiadas pistas...).
-      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresLimpios(mejor.desde, mejor.hasta, mejor.lado, mejor.giro) };
+      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresElegibles(mejor.desde, mejor.hasta, mejor.lado) };
       return;
     }
     if (this.modoAjustes) {
@@ -297,7 +299,9 @@ export class Juego {
     const s = this.selector;
     this.selector = null;
     if (!s) return;
-    const { desde, hasta, lado, giro } = s.proyecto;
+    const { desde, hasta, lado } = s.proyecto;
+    // Cada color sale con su propio giro, el que le hizo limpio en el selector.
+    const giro = s.colores.find((c) => c.color === color)?.giro;
     const motivo = this.red.puedeAbrirPista(desde, hasta, color, lado, giro);
     const limpio = this.red.coloresLimpios(desde, hasta, lado, giro).find((c) => c.color === color)?.factible;
     if (motivo !== 'ok' || !limpio) {
@@ -416,6 +420,8 @@ export class Juego {
     if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';
-    return `Esquiadores: ${this.sim.poblacion} · Bajadas: ${this.sim.bajadasCompletadas} · Se han ido: ${this.sim.seFueron}`;
+    const s = this.sim;
+    const noVienen = s.noVinieron > 0 ? ` · No vienen: ${s.noVinieron}` : '';
+    return `Esquiadores: ${s.poblacion} · Bajadas: ${s.bajadasCompletadas} · Se han ido: ${s.seFueron}${noVienen}`;
   }
 }

@@ -662,6 +662,26 @@ export class Red {
     return null;
   }
 
+  /**
+   * Colores que ofrece el selector, cada uno con su propio giro de salida: el
+   * menor (sin girar, o en pasos de 10° hasta `giroMaximo`) con el que ese
+   * color da un trazado limpio. Cada color tiene su sinuosidad y su
+   * serpentina, así que sus primeros metros apuntan a sitios distintos: un
+   * giro que vale para uno puede no valer para otro.
+   */
+  coloresElegibles(desde: number, hasta: number, lado: 1 | -1): (Factibilidad & { giro?: number })[] {
+    const giros: (number | undefined)[] = [undefined];
+    for (let g = 10; g <= this.reglas.pista.giroMaximo + 1e-9; g += 10) giros.push(g);
+    const base = this.coloresLimpios(desde, hasta, lado);
+    return base.map((c, i) => {
+      for (const g of giros) {
+        const f = g === undefined ? c : this.coloresLimpios(desde, hasta, lado, g)[i];
+        if (f.factible) return g === undefined ? f : { ...f, giro: g };
+      }
+      return c;
+    });
+  }
+
   /** ¿Se puede proponer este proyecto? Si algún color da un trazado limpio, con alguna salida. */
   trazadoLimpio(desde: number, hasta: number, lado: 1 | -1): boolean {
     return this.giroLimpio(desde, hasta, lado) !== null;
