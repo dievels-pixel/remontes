@@ -4,10 +4,11 @@ import { crearAzar } from '../src/core/azar';
 import { pistasCruzadas } from '../src/core/confluencia';
 import { desplazamientoPista } from '../src/core/desplazamiento';
 import { Juego } from '../src/juego';
+import { mapaInicial } from './apoyo';
 
 describe('Juego: arrastre y velocidad', () => {
   it('el segundo remonte a una cima desdobla la estación y se puede arrastrar desde la base desdoblada', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     for (const b of bases.slice(0, 2)) {
@@ -26,7 +27,7 @@ describe('Juego: arrastre y velocidad', () => {
   });
 
   it('la velocidad cicla entre 1×, 2× y 4×', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const vistas = [j.velocidad];
     for (let i = 0; i < 3; i++) {
       j.cambiarVelocidad();
@@ -36,7 +37,7 @@ describe('Juego: arrastre y velocidad', () => {
   });
 
   it('tocar un proyecto abre el selector y elegir color abre la pista', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const base = j.red.nodos.find((n) => n.tipo === 'base')!;
     const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
     j.empezarArrastre(base, 10);
@@ -56,7 +57,7 @@ describe('Juego: arrastre y velocidad', () => {
   });
 
   it('tocar un nodo sin arrastrar muestra sus proyectos; tocar el vacío los oculta', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const base = j.red.nodos.find((n) => n.tipo === 'base')!;
     const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
     j.red.construirRemonte(base.id, cima.id);
@@ -68,7 +69,7 @@ describe('Juego: arrastre y velocidad', () => {
   });
 
   it('en modo ajustes, tocar una pista abierta muestra sus datos; fuera de él, no', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const base = j.red.nodos.find((n) => n.tipo === 'base')!;
     const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
     j.red.construirRemonte(base.id, cima.id);
@@ -85,7 +86,7 @@ describe('Juego: arrastre y velocidad', () => {
   });
 
   it('ningún proyecto propuesto cruza, sin unirse, más pistas que el máximo, aunque se vaya llenando la estación', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     const altos = j.red.nodos.filter((n) => n.tipo !== 'base');
     // Unos cuantos remontes desde las bases y luego abrir proyectos uno a uno.
@@ -117,7 +118,7 @@ describe('Juego: arrastre y velocidad', () => {
     let uniones = 0;
     for (let semilla = 1; semilla <= 12; semilla++) {
       const az = crearAzar(semilla);
-      const j = new Juego();
+      const j = new Juego(mapaInicial());
       const red = j.red;
       const n = red.nodos.length;
       for (let k = 0; k < 40; k++) {

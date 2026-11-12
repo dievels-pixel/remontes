@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
-import { generarMapaAlturas } from '../src/core/alturas';
 import { copiarBandas, type ColorPista } from '../src/core/colores';
-import { crearNodos, PLAZA } from '../src/core/mapa';
+import { crearNodos } from '../src/core/mapa';
 import { Red } from '../src/core/red';
+import { mapaInicial } from './apoyo';
 
 /**
  * Estación del mapa del juego parecida a la de la captura del fallo (v21):
@@ -12,12 +12,12 @@ import { Red } from '../src/core/red';
  * para no depender de la calibración.
  */
 function estacion(): Red {
-  const alturas = generarMapaAlturas(CONFIG.alturas, CONFIG.mundo.ancho, CONFIG.mundo.alto);
-  const red = new Red(crearNodos(alturas), {
+  const { datos, alturas } = mapaInicial();
+  const red = new Red(crearNodos(alturas, datos.nodos), {
     desnivelMinimoRemonte: 30,
     maxPistasPorPareja: 2,
     maxEstacionesPorNodo: 3,
-    obstaculos: [PLAZA],
+    obstaculos: [datos.plaza],
     cotaTerreno: (p) => alturas.cotaEn(p),
     pista: {
       ...CONFIG.pista,

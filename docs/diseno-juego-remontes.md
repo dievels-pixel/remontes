@@ -38,7 +38,15 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad).
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra. Las pistas no tienen capacidad propia.
-- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas de su nivel o inferiores.
+- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas de su nivel o inferiores. En una confluencia (ver "Cruces de pistas") manda el tramo común: una pista unida a otra más difícil cuenta con la dificultad mayor.
+
+Detalles ya implementados y decididos jugando (etapas 1 a 3 del prototipo):
+
+- Estaciones y desdoble: cada emplazamiento es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones (círculo de salida, triángulo de llegada, cuadrado de paso en los intermedios). Si llega o sale otro remonte, el emplazamiento se desdobla en otra estación pegada, por el lado del que viene la línea nueva, hasta 3 por emplazamiento. Las pistas salen del emplazamiento (cualquiera vale para quien llega por cualquier triángulo), aunque se dibujan saliendo por la estación del lado hacia el que van.
+- Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de él forman una sola línea; basta una pista desde la llegada de arriba para que funcionen los dos tramos.
+- Los remontes no se cruzan entre sí en planta. Remontes y pistas sí pueden cruzarse (cruce solo visual, como un puente).
+- Cambio de base: al terminar en una base, un esquiador puede ir andando a una base contigua si su cola compensa el paseo.
+- Interfaz: botón de deshacer la última construcción, velocidad 1×/2×/4× y versión en pantalla.
 
 ## Esquiadores: aguante, contento y pago
 
@@ -140,9 +148,17 @@ Al crear un remonte de X (punto bajo) a T (punto alto) se proponen:
 
 Para evitar una maraña de trazos:
 
-- Se limitan a los 2 o 3 candidatos más cercanos por dirección.
+- Se limitan a los 2 candidatos más cercanos por dirección.
 - Los trazos solo se muestran para la última obra o al tocar un nodo.
 - Solo se proponen pistas que salgan de nodos activos.
+
+Límites del trazado (decididos y calibrados jugando). Cada color se comprueba con su trazado real, y los que no cumplen salen apagados en el selector:
+
+- Como mucho una pista cruzada sin unirse a ella.
+- Si el trazado pasa a menos de 40 m de otra pista, se une a ella (confluencia, ver "Cruces de pistas"); si no puede unirse, no se propone.
+- Salidas de un punto por ángulo, sin tope de número: cada pista sale (en sus primeros 200 m) separada al menos 30° de las que ya salen de ese punto y siempre cuesta abajo según el terreno (se toleran 10 m de subida). Si no cabe, la pista puede salir girada hacia su lado, en pasos de 10° hasta 60°, y volver enseguida a su eje; cada color busca su propio giro, porque su serpentina apunta a sitios distintos.
+- Como mucho 4 pistas llegando a un punto.
+- La plaza del pie de pistas es un obstáculo: ninguna pista entra en ella más un margen de 30 m.
 
 El remonte pasa a funcionar en cuanto el jugador activa cualquier pista que salga de su cima (no tiene por qué ser una de las dos que vuelven a X). Mientras tanto se ve en gris y los proyectos a trazos de su cima siguen visibles como recordatorio.
 
@@ -170,10 +186,11 @@ p = ΔH / L = ΔH / (s · D)
 
 Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real de la pista y s = L / D la sinuosidad (s = 1 es la recta).
 
-- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max (orientativo: s_max entre 1,6 y 2, por ajustar).
-- En las dos pistas laterales de T a X, s_min es algo mayor que 1 (por ejemplo 1,1) para que no se solapen con la línea del remonte.
-- Cada color es una banda de pendiente. Al elegir color se toma la pendiente central de la banda, se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
-- Trazado: curva Bézier cúbica (o serpentina sinusoidal) con puntos de control desplazados lateralmente una amplitud a. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. Una semilla fija por pareja de nodos mantiene la forma estable al recolorear.
+- Rango factible: cada par de nodos admite una sinuosidad entre s_min y s_max. El techo de pendiente es el de s_min y el suelo el de s_max. Calibrado jugando: s_max = 1,55.
+- En las dos pistas laterales de T a X, s_min es algo mayor que 1: se abomban más (abombamiento 0,1 de la distancia, frente a 0,06 del resto) para no solaparse con la línea del remonte.
+- Cada color es una banda de pendiente, y las bandas se solapan (calibrado jugando): verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60. Con la misma pendiente, una pista más ancha es más fácil, así que una pendiente del solape puede ser de dos colores.
+- Al elegir color se toma, dentro de la banda, la pendiente más cercana a la de la recta (la que menos sinuosidad pide; calibrado jugando, en vez de la central). Primero se busca en la parte de la banda por debajo del mínimo del color siguiente; solo si ahí no cabe se usa el solape. Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango. Con s_max 1,55 casi todo par ofrece dos colores sin entrar en el solape y a menudo un tercero en él.
+- Trazado: recta entre nodos más un desplazamiento lateral: un abombamiento en C y una serpentina (una onda cada 720 m, con amplitud y longitud de onda algo irregulares, irregularidad 0,95, y una amplitud mínima o temblor de 20 m para que ninguna pista quede como una curva lisa). Se muestrea como polilínea, se mide su longitud y se ajusta la amplitud por bisección hasta alcanzar L. La forma depende solo de la pareja y del lado, así que es estable al recolorear. Valores calibrados con el panel de ajustes.
 - Se descartan pares cuya pendiente en recta ya esté por debajo del mínimo de verde: una pista demasiado plana no se puede corregir.
 - La velocidad de los esquiadores depende de la pendiente efectiva, así que una pista negra se ve más rápida que una verde.
 
@@ -193,7 +210,8 @@ El relieve del mapa de alturas define valles, cimas y cordales, y condiciona qu�
 
 ## Mapas y editor
 
-- Formato: un mapa de alturas en escala de grises (PNG) y un archivo (JSON) con los nodos (tipo y posición, con la cota sacada del mapa) y los parámetros propios del mapa (por ejemplo su curva de afluencia).
+- Formato: un mapa de alturas en escala de grises (PNG) y un archivo (JSON) con los nodos (tipo y posición, con la cota sacada del mapa) y los parámetros propios del mapa (por ejemplo su curva de afluencia). Implementado en `mapas/<nombre>/`: `alturas.png` (8 bits; el negro es `cotaMin` y el blanco `cotaMax`) y `mapa.json` con `nombre`, `ancho` y `alto` del mundo en metros, `cotaMin`, `cotaMax`, la `plaza` (centro y radio) y los `nodos`. Con 8 bits y 1500 m de desnivel, cada nivel de gris son unos 6 m: basta para las cotas y el degradado.
+- El mapa inicial (`mapas/inicial`) lo escribe un script (`npm run mapa:inicial`) con el mismo ruido con que se hizo el de las primeras etapas. El script no forma parte del juego: el juego solo carga datos.
 - El primer prototipo carga un mapa hecho a mano en cualquier editor de imágenes. Un editor integrado en el juego, que escriba el mismo formato, llega después de tener un prototipo jugable; antes de eso retrasaría lo importante, que es probar la dinámica.
 - Generador procedural: descartado por ahora.
 - Estaciones reales: replicar estaciones reales, como hace Mini Metro con ciudades, usando datos abiertos de elevación (revisar la licencia de la fuente concreta) y presentándolas como "inspiradas en", sin el nombre comercial. Además permitiría calibrar los umbrales de pendiente por color con datos reales.
@@ -217,6 +235,8 @@ La garantía vale mientras no se puedan demoler remontes o pistas; si se permite
 ## Cruces de pistas
 
 El jugador solo activa proyectos de pista y elige color; no gestiona los cruces. En el prototipo los cruces son solo visuales, como un puente: cada esquiador sigue su pista.
+
+Confluencias (adelantadas a petición del usuario): si el trazado de una pista nueva se encuentra con una existente, o pasa a menos de 40 m, se une a ella y comparten el tramo, como en las estaciones de verdad. Si van a destinos distintos, la nueva sigue a la existente hasta el punto más cercano a su destino y sale con un ramal. La unión y el ramal son tangentes (acuerdo curvo de unos 150 m). En el grafo no cambia nada: solo la geometría. En el tramo común manda la dificultad mayor.
 
 En una segunda fase pueden convertirse en enlaces automáticos (atajos) cuando sean compatibles:
 
@@ -346,6 +366,11 @@ Notas técnicas:
 - La variedad es la forma de que importe la cantidad de pistas; no se añade velocidad por densidad en el primer prototipo.
 - Los puntos llevan anillo de contorno y las pistas se dibujan más suaves para leerse bien.
 - Se calibra con una simulación sin gráficos antes de pulir.
+- Calibrado jugando (se mantiene): bandas de color solapadas (verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60), pendiente más cercana a la recta dentro de la banda, s_max 1,55, forma de pista (abombamientos 0,1 y 0,06, onda 720 m, irregularidad 0,95, temblor 20 m).
+- Límites del trazado: una pista cruzada sin unirse como mucho, unión a menos de 40 m, salidas separadas 30° y cuesta abajo con giro de hasta 60° propio de cada color, 4 llegadas por punto y la plaza como obstáculo.
+- Confluencias: una pista que toca a otra se une a ella con acuerdo tangente; en el tramo común manda la dificultad mayor.
+- Estaciones que se desdoblan (hasta 3 por emplazamiento), línea que pasa por un intermedio, remontes que no se cruzan, cambio de base andando, deshacer y velocidad 1×/2×/4×.
+- Mapas en `mapas/<nombre>/` (PNG de alturas de 8 bits y JSON); el inicial lo genera un script, no el juego.
 
 ## Descartado
 
@@ -380,3 +405,7 @@ Para que no se reintroduzca por error:
 - [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales.
 - [ ] Contraste de las texturas del terreno y de la legibilidad de puntos y pistas: ajustar probando en el móvil.
 - [ ] Orientación de pantalla.
+- [ ] Esquiador sin ninguna pista de su nivel o inferior en la estación (un verde sin verdes no puede bajar por nada). Propuesta: se va enfadado al llegar (queja).
+- [ ] Cuándo se va un esquiador cuyo contento llega a 0. Propuesta: al terminar la bajada, no a media pista.
+- [ ] Color natural con bandas solapadas: es ambiguo. Como el grado de forzado se mide solo con s / s_min, se puede prescindir del término o definirlo como el color más difícil que admite la recta.
+- [ ] Recolorear sin coste y "muy forzada" (s / s_min por encima de un umbral): pendiente de decidir por el usuario antes de implementarlo. Hasta entonces, el prototipo marca como forzada la pista cuya pendiente entra en el solape con la banda siguiente.

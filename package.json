@@ -8,9 +8,11 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mapa:inicial": "node scripts/generarMapaInicial.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

@@ -1,6 +1,6 @@
 # remontes
 
-Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes y pistas de esquí. El diseño completo está en `docs/diseno.md`, que es la fuente de verdad: léelo antes de programar.
+Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes y pistas de esquí. La especificación de diseño es `docs/diseno-juego-remontes.md` y manda (ver «Diseño del juego» al final). `docs/diseno.md` queda como notas técnicas de lo implementado y estado del desarrollo; si discrepa de la especificación, manda la especificación.
 
 ## Pila
 
@@ -14,9 +14,9 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Cada etapa debe poder abrirse y jugarse en el navegador antes de pasar a la siguiente.
 - Lógica pura (grafo, sinuosidad, nodos viables, cruces, colas, afluencia) en `src/core`, sin tocar DOM ni canvas, y con pruebas (Vitest). Dibujo en `src/render`, entrada en `src/input`.
 - Todos los parámetros de balance (afluencia, precios, umbrales de pendiente, capacidades, velocidades) en un único archivo, `src/config.ts`.
-- Las decisiones abiertas de `docs/diseno.md` no se inventan: pon un valor provisional en `src/config.ts` y señálalo al terminar.
+- Las decisiones abiertas de la especificación no se inventan: pon un valor provisional en `src/config.ts` y señálalo al terminar.
 - Trabaja en una rama por etapa y deja el cambio listo para fusionar; el usuario lo revisa y lo fusiona desde el móvil o el ordenador.
-- Si cambia una decisión de diseño, actualiza `docs/diseno.md` en el mismo cambio.
+- Si cambia una decisión de diseño, actualiza la especificación (y, si hace falta, las notas técnicas de `docs/diseno.md`) en el mismo cambio.
 - Comentarios y textos visibles para el jugador en español de España.
 - Al terminar, explica qué debería verse al abrir la página, qué has dejado fuera a propósito y qué has probado de verdad (pruebas automáticas) frente a lo que solo se puede comprobar jugando.
 - Lee la sección «Estado del desarrollo» al final de `docs/diseno.md`: dice qué está hecho, qué falta y qué decisiones están pendientes. Actualízala al cerrar cada cambio, y apunta ahí los pasos de un plan que quede a medias: los planes de la conversación no se conservan entre sesiones.

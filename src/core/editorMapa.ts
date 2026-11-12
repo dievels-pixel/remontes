@@ -3,7 +3,7 @@
 // el mapa nuevo repitiendo las construcciones en su orden. Las que ya no se
 // pueden hacer (el punto se borró, el remonte ya no sube, la pista no cabe) se
 // omiten, y con ellas las que dependían de ellas.
-import type { DefinicionNodo } from './mapa';
+import type { DatosMapa, DefinicionNodo } from './mapa';
 import type { Red } from './red';
 import { distancia, type Punto } from './vector';
 
@@ -79,8 +79,11 @@ export function sitioLibre(def: readonly DefinicionNodo[], p: Punto, l: LimitesM
   return def.every((d, i) => i === ignorar || distancia(d, p) >= l.separacion);
 }
 
-/** Definición como texto TypeScript, para pegarla en src/core/mapa.ts. */
-export function textoMapa(def: readonly DefinicionNodo[]): string {
-  const filas = def.map((d) => `  { tipo: '${d.tipo}', x: ${Math.round(d.x)}, y: ${Math.round(d.y)} },`);
-  return `export const MAPA_INICIAL: readonly DefinicionNodo[] = [\n${filas.join('\n')}\n];\n`;
+/**
+ * JSON del mapa con los puntos y la cota máxima editados, listo para guardar
+ * como mapas/<nombre>/mapa.json (el PNG de alturas no cambia).
+ */
+export function textoMapa(datos: DatosMapa, nodos: readonly DefinicionNodo[], cotaMax: number): string {
+  const limpios = nodos.map((d) => ({ tipo: d.tipo, x: Math.round(d.x), y: Math.round(d.y) }));
+  return JSON.stringify({ ...datos, cotaMax, nodos: limpios }, null, 2) + '\n';
 }

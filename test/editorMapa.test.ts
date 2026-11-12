@@ -70,9 +70,9 @@ describe('Editor del mapa de pruebas', () => {
     expect(sitioLibre(def, { x: -5, y: 500 }, l)).toBe(false);
   });
 
-  it('escribe la definición lista para pegar en mapa.ts', () => {
-    expect(textoMapa([{ tipo: 'cima', x: 980.4, y: 820 }])).toBe(
-      "export const MAPA_INICIAL: readonly DefinicionNodo[] = [\n  { tipo: 'cima', x: 980, y: 820 },\n];\n",
-    );
+  it('escribe el JSON del mapa con los puntos y la cota máxima editados', () => {
+    const datos = { nombre: 'Prueba', ancho: 1000, alto: 1000, cotaMin: 1000, cotaMax: 2000, plaza: { x: 500, y: 900, radio: 50 }, nodos: [] };
+    const json = JSON.parse(textoMapa(datos, [{ tipo: 'cima', x: 980.4, y: 820 }], 2500));
+    expect(json).toEqual({ ...datos, cotaMax: 2500, nodos: [{ tipo: 'cima', x: 980, y: 820 }] });
   });
 });

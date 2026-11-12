@@ -1,12 +1,12 @@
 // Estado de la partida y reglas de los gestos. Une la lógica pura (red,
 // proyectos y simulación) con la entrada; no dibuja.
 import { CONFIG } from './config';
-import { generarMapaAlturas, MapaAlturas } from './core/alturas';
+import { MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import { copiarBandas, type ColorPista, type Factibilidad } from './core/colores';
 import type { Confluencia } from './core/confluencia';
 import { idsIguales, idsTrasBorrar, reconstruirRed, sitioLibre, type LimitesMapa } from './core/editorMapa';
-import { crearNodos, MAPA_INICIAL, PLAZA, type DefinicionNodo } from './core/mapa';
+import { crearNodos, type DefinicionNodo, type Mapa } from './core/mapa';
 import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
 import { Red, type Estacion, type Motivo, type ReglasRed, type TipoNodo } from './core/red';
 import { Simulacion, type ParametrosSimulacion } from './core/simulacion';
@@ -43,13 +43,6 @@ export interface ArrastreNodo {
   valido: boolean;
 }
 
-const LIMITES_MAPA: LimitesMapa = {
-  ancho: CONFIG.mundo.ancho,
-  alto: CONFIG.mundo.alto,
-  separacion: 80,
-  obstaculo: { ...PLAZA, radio: PLAZA.radio + 40 },
-};
-
 const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben. Las pistas se abren tocando los trazos discontinuos.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
@@ -65,7 +58,11 @@ export class Juego {
   red: Red;
   sim: Simulacion;
   /** Puntos del mapa (tipo y posición); las cotas salen del terreno. */
-  definicion: DefinicionNodo[] = MAPA_INICIAL.map((d) => ({ ...d }));
+  definicion: DefinicionNodo[];
+  /** Plaza del pie de pistas: entrada de esquiadores y obstáculo para las pistas. */
+  readonly plaza: Mapa['datos']['plaza'];
+  /** Límites del editor del mapa de pruebas. */
+  private readonly limitesMapa: LimitesMapa;
   /** Editor del mapa de pruebas: herramienta activa, o null si está cerrado. */
   herramientaMapa: HerramientaMapa | null = null;
   arrastreNodo: ArrastreNodo | null = null;
@@ -90,9 +87,18 @@ export class Juego {
   modoAjustes = false;
   infoPista: { pista: number; punto: Punto } | null = null;
 
-  constructor() {
-    const { mundo, alturas, pista, remonte } = CONFIG;
-    this.alturas = generarMapaAlturas(alturas, mundo.ancho, mundo.alto);
+  constructor(readonly mapa: Mapa) {
+    const { pista, remonte } = CONFIG;
+    const { datos } = mapa;
+    this.alturas = mapa.alturas;
+    this.definicion = datos.nodos.map((d) => ({ ...d }));
+    this.plaza = datos.plaza;
+    this.limitesMapa = {
+      ancho: datos.ancho,
+      alto: datos.alto,
+      separacion: 80,
+      obstaculo: { ...datos.plaza, radio: datos.plaza.radio + 40 },
+    };
     this.reglasRed = {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
       maxPistasPorPareja: pista.maxPorPareja,
@@ -100,7 +106,7 @@ export class Juego {
       pista: { ...pista, bandas: copiarBandas(pista.bandas) },
       maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
       // La plaza del pie de pistas es un obstáculo para las pistas.
-      obstaculos: [PLAZA],
+      obstaculos: [datos.plaza],
       // Para exigir que las pistas salgan cuesta abajo según el terreno.
       cotaTerreno: (p) => this.alturas.cotaEn(p),
     };
@@ -116,7 +122,7 @@ export class Juego {
   }
 
   private nuevaSimulacion(): Simulacion {
-    return new Simulacion(this.red, this.parametrosSim, PLAZA, crearAzar(12345));
+    return new Simulacion(this.red, this.parametrosSim, this.plaza, crearAzar(12345));
   }
 
   // ---- Editor del mapa de pruebas (?ajustes) ----
@@ -182,7 +188,7 @@ export class Juego {
       return false;
     }
     if (h) {
-      if (!sitioLibre(this.definicion, p, LIMITES_MAPA)) {
+      if (!sitioLibre(this.definicion, p, this.limitesMapa)) {
         this.avisar('Ahí no: fuera del mapa, en la plaza o pegado a otro punto.');
         return false;
       }
@@ -361,7 +367,7 @@ export class Juego {
   moverArrastre(p: Punto, radioMundo: number, sepMundo = 0): void {
     if (this.arrastreNodo) {
       this.arrastreNodo.punto = p;
-      this.arrastreNodo.valido = sitioLibre(this.definicion, p, LIMITES_MAPA, this.arrastreNodo.id);
+      this.arrastreNodo.valido = sitioLibre(this.definicion, p, this.limitesMapa, this.arrastreNodo.id);
       return;
     }
     const a = this.arrastre;

@@ -1,0 +1,49 @@
+{
+  "nombre": "Inicial",
+  "ancho": 2400,
+  "alto": 3200,
+  "cotaMin": 1400,
+  "cotaMax": 2900,
+  "plaza": {
+    "x": 1200,
+    "y": 2930,
+    "radio": 170
+  },
+  "nodos": [
+    {
+      "tipo": "base",
+      "x": 930,
+      "y": 2840
+    },
+    {
+      "tipo": "base",
+      "x": 1200,
+      "y": 2700
+    },
+    {
+      "tipo": "base",
+      "x": 1470,
+      "y": 2840
+    },
+    {
+      "tipo": "intermedio",
+      "x": 620,
+      "y": 1950
+    },
+    {
+      "tipo": "intermedio",
+      "x": 1700,
+      "y": 1800
+    },
+    {
+      "tipo": "cima",
+      "x": 980,
+      "y": 820
+    },
+    {
+      "tipo": "cima",
+      "x": 1850,
+      "y": 560
+    }
+  ]
+}

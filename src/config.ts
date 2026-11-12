@@ -5,21 +5,7 @@ import type { PendienteObjetivo } from './core/colores';
 // o a valores que solo se pueden fijar jugando.
 
 export const CONFIG = {
-  // Mundo, en metros. Vista vertical 3:4. PROVISIONAL: la orientación de
-  // pantalla es una decisión abierta.
-  mundo: { ancho: 2400, alto: 3200 },
-
-  // Mapa de alturas: rejilla de muestras y rango de cotas que representa el gris.
-  alturas: {
-    columnas: 96,
-    filas: 128,
-    cotaMin: 1400,
-    cotaMax: 2900,
-    semilla: 7,
-    // Peso del desnivel general (pie abajo, cumbres arriba) frente al ruido.
-    pesoPendienteGeneral: 0.78,
-    pesoRuido: 0.22,
-  },
+  // El tamaño del mundo, las cotas y la plaza son del mapa (mapas/<nombre>/mapa.json).
 
   // Remontes (en la etapa 1 todos son telesquí). PROVISIONAL: capacidades y
   // velocidades por tipo son decisión abierta.
