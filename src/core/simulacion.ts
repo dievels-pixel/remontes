@@ -1,5 +1,8 @@
 // Simulación de esquiadores sobre la red: entran por la plaza, hacen cola en
 // los remontes, suben en bolitas, bajan por pistas y vuelven a empezar.
+// Cada esquiador tiene un nivel (verde, azul, roja o negra) y una diversión:
+// solo baja por pistas de su nivel o más fáciles, se divierte en las de su
+// nivel y se aburre en las más fáciles; muy aburrido, se va.
 // Lógica pura: ni DOM ni canvas.
 import type { Azar } from './azar';
 import type { Hecho, Red, Remonte, Pista } from './red';
@@ -16,6 +19,14 @@ export interface ParametrosSimulacion {
   penalizacionAndar: number;
   velocidadBasePista: number;
   factorPendiente: number;
+  /** Proporción de cada nivel entre los que llegan: verde, azul, roja, negra. */
+  mezclaNiveles: readonly number[];
+  diversionInicial: number;
+  diversionSuNivel: number;
+  diversionForzada: number;
+  diversionPorNivelInferior: number;
+  umbralMarcha: number;
+  pesoSuNivel: number;
 }
 
 export type Esquiador =
@@ -24,6 +35,14 @@ export type Esquiador =
   | { id: number; estado: 'remonte'; remonte: number }
   | { id: number; estado: 'pista'; pista: number; recorrido: number };
 
+/** Lo que distingue a cada esquiador y no cambia con su estado. */
+export interface Perfil {
+  /** 0 verde, 1 azul, 2 roja, 3 negra. */
+  nivel: number;
+  /** 0 a 1: 1 = color pleno, 0 = gris. */
+  diversion: number;
+}
+
 export interface Bolita {
   recorrido: number;
   pasajeros: number[];
@@ -31,11 +50,14 @@ export interface Bolita {
 
 export class Simulacion {
   readonly esquiadores = new Map<number, Esquiador>();
+  readonly perfiles = new Map<number, Perfil>();
   /** Bolitas en movimiento por remonte (índice = id del remonte). */
   readonly bolitas: Bolita[][] = [];
   /** Cola de cada remonte, en orden de llegada. */
   readonly colas: number[][] = [];
   bajadasCompletadas = 0;
+  /** Esquiadores que se han ido: aburridos, sin pistas de su nivel o sin salida. */
+  seFueron = 0;
   tiempo = 0;
   private temporizadores: number[] = [];
   private llegadasPendientes = 0;
@@ -68,8 +90,8 @@ export class Simulacion {
     if (h.tipo === 'remonte') {
       // Quien esperaba o subía en el remonte deshecho se va de la estación.
       const id = h.remonte.id;
-      for (const e of this.colas[id] ?? []) this.esquiadores.delete(e);
-      for (const b of this.bolitas[id] ?? []) for (const e of b.pasajeros) this.esquiadores.delete(e);
+      for (const e of this.colas[id] ?? []) this.irse(e);
+      for (const b of this.bolitas[id] ?? []) for (const e of b.pasajeros) this.irse(e);
       this.colas.length = this.bolitas.length = this.temporizadores.length = id;
     } else {
       // Quien bajaba por la pista deshecha llega de golpe a su destino.
@@ -83,6 +105,11 @@ export class Simulacion {
     return this.p.velocidadBasePista + this.p.factorPendiente * pista.pendiente;
   }
 
+  private irse(id: number): void {
+    if (this.esquiadores.delete(id)) this.seFueron++;
+    this.perfiles.delete(id);
+  }
+
   private sincronizarRemontes(): void {
     while (this.bolitas.length < this.red.remontes.length) {
       this.bolitas.push([]);
@@ -91,15 +118,30 @@ export class Simulacion {
     }
   }
 
-  private basesEnServicio(): number[] {
+  /**
+   * Bases desde las que un esquiador de ese nivel puede esquiar: con algún
+   * remonte en servicio cuya llegada tenga bajada para su nivel.
+   */
+  basesPara(nivel: number): number[] {
+    const viables = this.red.viablesPorNivel()[nivel];
     return this.red.nodos
-      .filter((n) => n.tipo === 'base' && this.red.salidas(n.id).remontes.length > 0)
+      .filter((n) => n.tipo === 'base' && this.red.salidas(n.id).remontes.some((r) => viables.has(r.hasta)))
       .map((n) => n.id);
   }
 
+  private sortearNivel(): number {
+    const m = this.p.mezclaNiveles;
+    const total = m.reduce((a, b) => a + b, 0);
+    let r = this.azar() * total;
+    for (let i = 0; i < m.length; i++) {
+      r -= m[i];
+      if (r <= 0) return i;
+    }
+    return m.length - 1;
+  }
+
   private generarLlegadas(dt: number): void {
-    const bases = this.basesEnServicio();
-    if (bases.length === 0) {
+    if (!this.red.remontes.some((r) => this.red.enServicio(r))) {
       this.llegadasPendientes = 0;
       return;
     }
@@ -107,7 +149,15 @@ export class Simulacion {
     while (this.llegadasPendientes >= 1) {
       this.llegadasPendientes -= 1;
       if (this.poblacion >= this.p.poblacionMaxima) continue;
+      const nivel = this.sortearNivel();
+      const bases = this.basesPara(nivel);
+      // Si para su nivel no hay ninguna bajada, viene y se va.
+      if (bases.length === 0) {
+        this.seFueron++;
+        continue;
+      }
       const id = this.siguienteId++;
+      this.perfiles.set(id, { nivel, diversion: this.p.diversionInicial });
       this.caminarABase(id, this.entrada, bases);
     }
   }
@@ -139,36 +189,52 @@ export class Simulacion {
   }
 
   /**
-   * Decide qué hace un esquiador que acaba de llegar a un nodo. Quien llega a
-   * una base andando no vuelve a cambiar de base, para que no vaya y venga.
+   * Decide qué hace un esquiador que acaba de llegar a un nodo, según su nivel:
+   * solo remontes cuya llegada tenga bajada para él y pistas de su nivel o más
+   * fáciles. Quien llega a una base andando no vuelve a cambiar de base, para
+   * que no vaya y venga. Al llegar a una base, si está muy aburrido, se va.
    */
   private decidir(id: number, nodo: number, puedeAndar = true): void {
+    const perfil = this.perfiles.get(id);
+    if (!perfil) {
+      this.irse(id);
+      return;
+    }
+    const enBase = this.red.nodo(nodo).tipo === 'base';
+    if (enBase && perfil.diversion < this.p.umbralMarcha) {
+      this.irse(id);
+      return;
+    }
+    const viables = this.red.viablesPorNivel()[perfil.nivel];
     const { remontes, pistas } = this.red.salidas(nodo);
     type Opcion = { remonte: Remonte } | { pista: Pista } | { andar: number };
-    const opciones: Opcion[] = [...remontes.map((remonte) => ({ remonte })), ...pistas.map((pista) => ({ pista }))];
-    const enBase = this.red.nodo(nodo).tipo === 'base';
+    const opciones: Opcion[] = [
+      ...remontes.filter((r) => viables.has(r.hasta)).map((remonte) => ({ remonte })),
+      ...pistas.filter((p) => this.red.dificultad(p) <= perfil.nivel && viables.has(p.hasta)).map((pista) => ({ pista })),
+    ];
     if (enBase && puedeAndar) {
-      const enServicio = new Set(this.basesEnServicio());
-      for (const b of this.basesContiguas(nodo)) if (enServicio.has(b)) opciones.push({ andar: b });
+      const suyas = new Set(this.basesPara(perfil.nivel));
+      for (const b of this.basesContiguas(nodo)) if (suyas.has(b)) opciones.push({ andar: b });
     }
     if (opciones.length === 0) {
       if (enBase) {
-        const bases = this.basesEnServicio();
+        const bases = this.basesPara(perfil.nivel);
         if (bases.length > 0) {
           this.caminarABase(id, this.red.nodo(nodo), bases);
           return;
         }
       }
-      // Sin salida (solo tras deshacer algo, o sin ningún remonte en servicio):
-      // el esquiador se va de la estación.
-      this.esquiadores.delete(id);
+      // Sin salida para su nivel (sin pistas de su nivel, o tras deshacer
+      // algo): el esquiador se va de la estación.
+      this.irse(id);
       return;
     }
-    // Reparto por cola, no por camino más corto: las colas largas disuaden.
+    // Reparto por cola y por nivel, no por camino más corto: las colas largas
+    // disuaden y las pistas de su nivel atraen más que las fáciles.
     const o = this.elegir(opciones, (op) => {
       if ('remonte' in op) return 1 / (1 + this.colas[op.remonte.id].length);
       if ('andar' in op) return 1 / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
-      return 1;
+      return this.red.dificultad(op.pista) === perfil.nivel ? this.p.pesoSuNivel : 1;
     });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);
@@ -178,6 +244,20 @@ export class Simulacion {
     } else {
       this.caminarABase(id, this.red.nodo(nodo), [o.andar]);
     }
+  }
+
+  /**
+   * Diversión tras bajar una pista: sube si es de su nivel (poco si está
+   * forzada) y baja por cada nivel que la pista queda por debajo del suyo.
+   */
+  private divertirse(id: number, pista: Pista): void {
+    const perfil = this.perfiles.get(id);
+    if (!perfil) return;
+    const diferencia = perfil.nivel - this.red.dificultad(pista);
+    let cambio = 0;
+    if (diferencia <= 0) cambio = this.red.forzada(pista) ? this.p.diversionForzada : this.p.diversionSuNivel;
+    else cambio = -this.p.diversionPorNivelInferior * diferencia;
+    perfil.diversion = Math.min(1, Math.max(0, perfil.diversion + cambio));
   }
 
   private moverRemontes(dt: number): void {
@@ -219,6 +299,7 @@ export class Simulacion {
         e.recorrido += this.velocidadEnPista(pista) * dt;
         if (e.recorrido >= pista.trazado.longitud) {
           if (this.red.nodo(pista.hasta).tipo === 'base') this.bajadasCompletadas++;
+          this.divertirse(e.id, pista);
           this.decidir(e.id, pista.hasta);
         }
         break;

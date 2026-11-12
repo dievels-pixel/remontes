@@ -28,7 +28,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad). Capacidades exactas por ajustar.
 - Pistas: curvas sinuosas y descendentes entre un nodo alto y uno bajo. Cuatro colores de dificultad: verde, azul, roja y negra.
-- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas de su nivel o inferiores.
+- Esquiadores: puntitos del color de su nivel. Un esquiador puede usar pistas cuya dificultad efectiva no pase de su nivel (una pista unida a otra más difícil cuenta con la dificultad mayor: el tramo común manda) y solo sube por remontes cuya llegada tenga bajada para él. Si al llegar no hay ninguna bajada de su nivel en toda la estación, se va.
 
 ## Pie de pistas y crecimiento de la estación
 
@@ -111,7 +111,7 @@ Con ΔH el desnivel entre nodos, D la distancia en el mapa, L la longitud real d
 - Consecuencia: el rango de sinuosidad es estrecho, así que una pareja abarca pocos colores contiguos. Con las bandas solapadas y la pendiente objetivo «cercana», en el mapa actual casi todas las parejas admiten tres colores, y hay verdes hacia o desde el intermedio de 1904 m y entre los dos intermedios.
 - En las dos pistas laterales de T a X, s_min es algo mayor que 1 para que no se solapen con la línea del remonte.
 - Cada color es una banda de pendiente, y las bandas se solapan: con la misma pendiente, una pista más ancha es más fácil, así que el color no depende solo de la pendiente sino también del grosor (anchura) de la pista. Una pendiente que cae en el solape de dos bandas puede ser de cualquiera de los dos colores; la de color más fácil se entiende más ancha. Provisional: verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60 (calibrables con el panel de ajustes).
-- Grosor por color: como el color lleva implícita la anchura, el dibujo puede reflejarlo con un grosor de línea por color (más gruesa cuanto más fácil). Sirve además de señal secundaria para el daltonismo (ver «Movimiento y aspecto visual»). Por ahora todas se dibujan con el mismo grosor.
+- Grosor: todas las pistas se dibujan con el mismo grosor (decidido). La anchura que justifica el solape se traduce en diversión: una pista forzada (su pendiente entra en la banda del color siguiente, por ejemplo una verde más empinada que el mínimo de la azul) es de su color, pero divierte menos a los esquiadores de ese nivel. En el selector, un color forzado lleva un borde rojo suave. Con la pendiente objetivo «cercana», muchas pistas salen forzadas: para evitarlo hay que elegir el color más difícil.
 - Al elegir color se toma la pendiente de la banda más cercana a la de la recta, que es la que menos sinuosidad necesita (decidido con el panel de ajustes; la alternativa era la pendiente central de la banda). Se calcula L = ΔH / p y s = L / D, y el color es factible si s cae dentro del rango.
 - Trazado: la recta entre nodos más un desplazamiento lateral desp(t) = lado · sen(πt) · (b · D + a · (1 − cos 2πnt)). El primer término es un abombamiento en C (b = 0,1 en las dos laterales de un remonte y 0,06 en el resto) y el segundo una serpentina de n ondas (una cada 720 m de distancia) y amplitud a, con amplitud y longitud de onda algo variables a lo largo de la pista (irregularidad 0,95), para que no parezca una sinusoide perfecta. La amplitud nunca baja de un mínimo, el temblor (provisional 20 m), para que las pistas más directas (s ≈ 1) no queden como una curva lisa; la sinuosidad mínima de una pareja ya lo incluye y la bisección busca a partir de él. Valores calibrados con el panel de ajustes. Ese desplazamiento siempre va hacia el mismo lado y es nulo en los extremos, así que una pista lateral nunca corta su remonte. Se muestrea como polilínea, se mide su longitud y se ajusta a por bisección hasta alcanzar L. La forma solo depende de la pareja y del lado, así que es estable.
 - El lado de la primera pista de una pareja es el que menos remontes corta (a igualdad, por semilla); la segunda va al lado contrario.
@@ -165,8 +165,8 @@ El movimiento es lo que da la sensación Mini Metro: todo fluye de forma continu
 
 - Remontes: funcionan como un bucle continuo. Las bolitas aparecen abajo con separación fija, suben y desaparecen al entrar en la estación superior. Su tamaño depende del tipo y llevan dentro tantos puntitos como personas transportan. Un remonte inactivo se ve en gris y sin bolitas.
 - Esquiadores: puntos del color de su nivel que bajan por la curva con velocidad según la pendiente. Eligen su ruta por nivel y por cola, no por el camino más corto, para que no todos hagan lo mismo.
-- Colas: un racimo de puntos alrededor del nodo, con un anillo que se llena y se enrojece, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasa a representar varios esquiadores.
-- Aburrimiento (propuesta): el puntito pierde color y se vuelve gris si baja pistas inferiores a su nivel, y se recupera con una de su nivel. Si se vuelve muy gris, se va y no genera ingresos.
+- Colas: un racimo de puntos alrededor de la estación de salida de cada remonte, con un anillo que se llena con la cola (provisional: lleno con 15 esquiadores) y pasa del gris al rojo, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasará a representar varios esquiadores (etapa 6).
+- Diversión (hecha en la etapa 3): cada esquiador tiene una diversión de 0 a 1 y se dibuja del color de su nivel, más gris cuanto menos se divierte. Al bajar por una pista de su nivel sube (0,2; solo 0,05 si es forzada); por una más fácil baja 0,15 por cada nivel de diferencia. Al llegar a una base con menos de 0,25, se va y no genera ingresos. Valores provisionales.
 - Remontes frente a pistas negras: los remontes van en línea doble (línea gruesa negra con otra fina del color del fondo encima). Se prueba en el móvil con muchas líneas a la vez, y si ensucia se añaden marcas de pilonas.
 - Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma). El grosor encaja con las bandas solapadas: un color más fácil es una pista más ancha.
 - Símbolos de nodo: círculo para base, triángulo para cima y una forma intermedia para los intermedios, con la cota en un número pequeño.
@@ -199,7 +199,7 @@ Se construye por etapas, y cada una debe poder jugarse antes de pasar a la sigui
 
 1. (Hecha.) Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
 2. (Hecha, con añadidos: ver «Estado del desarrollo».) Proyectos de pista a trazos, selector de color con rango factible, cálculo de sinuosidad por bisección y regla de nodo viable.
-3. Niveles de esquiador, colores, aburrimiento y colas con anillo.
+3. (Hecha.) Niveles de esquiador, colores, aburrimiento (diversión) y colas con anillo.
 4. Entrada de esquiadores por la carretera, curva de afluencia creciente y aparición de edificios alrededor de la plaza.
 5. Ampliación del dominio: mapa por zonas, puntos puerta que al alcanzarse revelan una zona nueva con su base (pie de pistas secundario, con su entrada de esquiadores), y cámara que se aleja al crecer (ver «Ampliación del dominio esquiable»).
 6. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento, ya con el mapa ampliado.
@@ -257,6 +257,8 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Salidas de un punto por ángulo (45° entre ellas, siempre cuesta abajo), sin tope de número; si no cabe, la pista puede salir girada hasta 60° hacia un hueco libre.
 - Remontes y pistas pueden cruzarse (cruce visual, como un puente); lo que se limita son los cruces entre pistas, y los colores que darían una pista enmarañada no se pueden elegir.
 - Las bandas de pendiente de los colores se solapan: con la misma pendiente, una pista más ancha es más fácil.
+- Confluencias y dificultad: una pista puede unirse a otra más difícil, pero entonces su dificultad efectiva es la mayor (el tramo común manda).
+- Todas las pistas con el mismo grosor; una pista forzada (empinada para su color) divierte menos a su nivel y se marca con un borde rojo suave en el selector.
 - Los remontes no se cruzan entre sí.
 - Botón de deshacer la última construcción, repetible; la demolición selectiva queda abierta.
 - Botón de velocidad (1×, 2× y 4×) en la esquina inferior derecha.
@@ -279,8 +281,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - [ ] Capacidades y velocidades de cada tipo de remonte.
 - [ ] Contraste de las texturas del terreno: ajustar probando en el móvil.
 - [ ] Orientación de pantalla (vertical u horizontal) y cómo se publicará en Android si el juego lo merece.
-- [ ] Confluencias y dificultad (para la etapa 3): una pista unida a otra comparte su tramo, que puede ser de un color más difícil (por ejemplo, una azul que baja por el trazado de una roja). Opciones: permitir la unión solo con pistas del mismo color o más fáciles (preferida, más sencilla y como en las estaciones reales), o que el tramo compartido cuente con la dificultad mayor de las dos.
-- [ ] Grosor de línea por color (más gruesa cuanto más fácil): encaja con las bandas solapadas y sirve para el daltonismo. Documentado, sin dibujar todavía.
+- [ ] Llegadas sin bajada de su nivel: un esquiador que llega y no tiene ninguna bajada de su nivel se va (cuenta en «Se han ido»). Con el mapa actual hay pocas verdes hasta una base y muchos verdes se van; es una presión de juego razonable, pero quizá la mezcla de niveles deba adaptarse a lo que ofrece la estación (etapa 4, con los edificios).
 - [ ] ¿Deben poder cruzarse también los remontes entre sí? Hoy no pueden; los remontes y las pistas sí se cruzan.
 - [ ] Rendimiento de los proyectos: con la salida orientada, recalcular los proyectos al tocar un punto tarda en el ordenador 8 ms de media y hasta unos 70 ms; en un móvil puede notarse un tirón. Optimizar si se nota jugando (por ejemplo, calcular los giros solo para los candidatos que se van a mostrar).
 - [ ] Mapa: con 7 puntos hay poco que construir y la base de 1618 m queda muy cerca de la plaza. Se resuelve en buena parte con la ampliación del dominio (etapa 5), que necesita un mapa mayor dividido en zonas.
@@ -294,7 +295,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-12, tras la petición de fusión 17 (en pantalla, `v17`).
+Actualizado el 2026-11-12, tras la etapa 3.
 
 ### Hecho
 
@@ -307,13 +308,14 @@ Actualizado el 2026-11-12, tras la petición de fusión 17 (en pantalla, `v17`).
   - límites contra la maraña: como mucho una pista cruzada sin unirse, salidas a 45° y cuesta abajo, salida orientada con giro de hasta 60°, plaza como obstáculo y 4 llegadas por punto;
   - comprobación con la pista real de cada color;
   - pistas que salen por las estaciones laterales de un punto desdoblado.
+- **Etapa 3:** niveles de esquiador (mezcla fija provisional), dificultad efectiva de las pistas (el tramo común manda), viabilidad por nivel, diversión con pistas forzadas, colas con anillo y contador de los que se han ido.
 - **Herramienta temporal:** panel `?ajustes` para calibrar las pistas.
 
 ### Siguiente paso
 
-Etapa 3: niveles de esquiador, colores de los esquiadores, aburrimiento y colas con anillo. Antes conviene decidir lo de confluencias y dificultad, y probablemente el grosor por color (ver «Decisiones abiertas»).
+Etapa 4: entrada de esquiadores por la carretera, curva de afluencia creciente y edificios alrededor de la plaza (que podrán decidir la mezcla de niveles).
 
-Después: etapa 4 (afluencia y edificios) y etapa 5 (ampliación del dominio con zonas y bases nuevas), añadida el 2026-11-12 a petición del usuario. Las etapas siguientes se han renumerado.
+Después: etapa 5 (ampliación del dominio con zonas y bases nuevas), añadida el 2026-11-12 a petición del usuario; las etapas siguientes se han renumerado.
 
 ### Cómo se trabaja
 
