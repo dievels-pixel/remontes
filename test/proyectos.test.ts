@@ -1,40 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { proyectosDeRemonte, proyectosDesde } from '../src/core/proyectos';
-import { abrir, redPequena } from './apoyo';
+import { evaluarPista } from '../src/core/proyectos';
+import { Red } from '../src/core/red';
+import { REGLAS, redPequena } from './apoyo';
 
-describe('Proyectos de pista', () => {
-  it('al construir un remonte propone las dos laterales de vuelta y otras bajadas', () => {
-    const red = redPequena();
-    const r = red.construirRemonte(0, 3);
-    const ps = proyectosDeRemonte(red, r, 2);
-    const laterales = ps.filter((p) => p.desde === 3 && p.hasta === 0);
-    expect(laterales.map((p) => p.lado).sort()).toEqual([-1, 1]);
-    expect(ps.some((p) => p.desde === 3 && p.hasta === 1)).toBe(true);
-    for (const p of ps) expect(red.puedeAbrirPista(p.desde, p.hasta, undefined, p.lado)).toBe('ok');
-  });
-
-  it('abierta una lateral, queda propuesta solo la del otro lado', () => {
+describe('Pista elegida por el jugador (inicio y destino)', () => {
+  it('desde la llegada de un remonte a un punto más bajo con salida: cabe, con su lado y sus colores', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    const p = abrir(red, 3, 0);
-    const ps = proyectosDesde(red, 3, 2).filter((x) => x.hasta === 0);
-    expect(ps).toEqual([{ desde: 3, hasta: 0, lado: -p.lado }]);
+    const e = evaluarPista(red, 3, 0);
+    expect(e.motivo).toBe('ok');
+    if (e.motivo !== 'ok') return;
+    expect(red.ladosLibres(3, 0)).toContain(e.proyecto.lado);
+    expect(e.colores.some((c) => c.factible)).toBe(true);
+    expect(e.proyecto).toMatchObject({ desde: 3, hasta: 0 });
   });
 
-  it('no propone pistas hacia nodos no viables ni desde nodos inactivos', () => {
+  it('explica por qué no: origen sin remonte, desde la plaza o hacia un punto sin salida', () => {
+    expect(evaluarPista(redPequena(), 3, 0).motivo).toBe('origen-inactivo');
     const red = redPequena();
     red.construirRemonte(0, 2);
-    red.construirRemonte(2, 3);
-    expect(proyectosDesde(red, 3, 3).some((p) => p.hasta === 2)).toBe(false);
-    expect(proyectosDesde(redPequena(), 3, 3)).toEqual([]);
+    red.construirRemonte(2, 3); // 2 solo tiene salida por su remonte, que necesita pista en 3
+    expect(evaluarPista(red, 0, 1).motivo).toBe('pista-desde-base');
+    expect(evaluarPista(red, 3, 2).motivo).toBe('destino-no-viable');
   });
 
-  it('limita las propuestas a las más cercanas por dirección', () => {
+  it('si ningún trazado cabe, da el motivo del trazado (aquí, la plaza en medio)', () => {
+    const nodos = redPequena().nodos.map((n) => ({ ...n }));
+    const red = new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista, giroMaximo: 0 }, obstaculos: [{ x: 200, y: 1500, radio: 450 }] });
+    red.construirRemonte(0, 3);
+    expect(evaluarPista(red, 3, 0).motivo).toBe('pisa-plaza');
+  });
+
+  it('con una lateral ya abierta, la siguiente va por el otro lado', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
-    abrir(red, 3, 0);
-    abrir(red, 3, 0);
-    // Quedan 3→1 y 3→2 (si fuera viable): con máximo 1 solo se propone una.
-    expect(proyectosDesde(red, 3, 1).length).toBeLessThanOrEqual(1);
+    const e1 = evaluarPista(red, 3, 0);
+    if (e1.motivo !== 'ok') throw new Error(e1.motivo);
+    const c = e1.colores.find((x) => x.factible)!;
+    red.abrirPista(3, 0, c.color, e1.proyecto.lado, c.giro);
+    const e2 = evaluarPista(red, 3, 0);
+    if (e2.motivo === 'ok') expect(e2.proyecto.lado).toBe(-e1.proyecto.lado);
   });
 });

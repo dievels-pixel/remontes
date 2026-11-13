@@ -74,8 +74,6 @@ export const CONFIG = {
     // que se desplaza (solo al dibujar) hasta su estación.
     tramoEstacion: 120, // m
     maxPorPareja: 2, // forma de lente: una a cada lado
-    // Proyectos propuestos por dirección (desde la cima, hacia la base).
-    proyectosPorDireccion: 2,
     // Para no enmarañar: no se propone una pista cuyo trazado cruce (sin
     // unirse) más pistas que este máximo. Remontes y pistas sí pueden cruzarse:
     // es un cruce solo visual, como un puente.
@@ -140,7 +138,7 @@ export const CONFIG = {
   // Entrada: interacción táctil.
   entrada: {
     radioToque: 34, // px de pantalla para acertar un nodo con el dedo
-    toleranciaProyecto: 18, // px de pantalla para acertar un trazo de proyecto
+    toleranciaProyecto: 18, // px de pantalla para acertar una pista al tocarla (panel de ajustes)
   },
 } as const;
 

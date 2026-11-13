@@ -1,14 +1,17 @@
 // Estado de la partida y reglas de los gestos. Une la lógica pura (red,
-// proyectos y simulación) con la entrada; no dibuja.
+// pistas y simulación) con la entrada; no dibuja.
+//
+// Gestos: arrastrar desde un punto hacia otro más alto construye un remonte;
+// hacia uno más bajo, una pista (al soltar se elige el color).
 import { CONFIG } from './config';
 import { MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
-import { copiarBandas, type ColorPista, type Factibilidad } from './core/colores';
+import { copiarBandas, type ColorPista } from './core/colores';
 import type { Confluencia } from './core/confluencia';
 import { idsIguales, idsTrasBorrar, reconstruirRed, sitioLibre, type LimitesMapa } from './core/editorMapa';
 import { crearNodos, type DefinicionNodo, type Mapa } from './core/mapa';
-import { claveProyecto, proyectosDeRemonte, proyectosDesde, type Proyecto } from './core/proyectos';
-import { Red, type Estacion, type Motivo, type ReglasRed, type TipoNodo } from './core/red';
+import { claveProyecto, evaluarPista, type ColorElegible, type EvaluacionPista, type Proyecto } from './core/proyectos';
+import { Red, type Estacion, type Motivo, type MotivoTrazado, type ReglasRed, type TipoNodo } from './core/red';
 import { Simulacion, type ParametrosSimulacion } from './core/simulacion';
 import { distancia, distanciaAPolilinea, type Punto } from './core/vector';
 
@@ -17,19 +20,19 @@ export interface Arrastre {
   puntero: Punto;
   /** Se ha alejado del nodo de origen: ya no es un toque. */
   movido: boolean;
-  /** Nodo bajo el dedo (válido o no) y si se podría construir el remonte. */
-  objetivo: { nodo: number; motivo: Motivo } | null;
+  /**
+   * Nodo bajo el dedo (válido o no): si está más alto, un remonte; si está más
+   * bajo, una pista. `motivo` dice si se podría construir y, si no, por qué.
+   */
+  objetivo: { nodo: number; tipo: 'remonte' | 'pista'; motivo: Motivo | MotivoTrazado } | null;
 }
-
-/** De dónde salen los proyectos que se ven: la última obra o un nodo tocado. */
-export type Foco = { tipo: 'remonte'; id: number } | { tipo: 'nodo'; id: number } | null;
 
 export interface Selector {
   proyecto: Proyecto;
-  /** Punto del mundo donde se tocó, para colocar el selector. */
+  /** Punto del mundo junto al que se coloca el selector. */
   punto: Punto;
   /** Cada color con su propio giro de salida (ver Red.coloresElegibles). */
-  colores: (Factibilidad & { giro?: number })[];
+  colores: ColorElegible[];
 }
 
 /** Herramientas del editor del mapa de pruebas (?ajustes). */
@@ -43,14 +46,26 @@ export interface ArrastreNodo {
   valido: boolean;
 }
 
-const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
-  'destino-no-mas-alto': 'Los remontes solo suben. Las pistas se abren tocando los trazos discontinuos.',
+const TEXTO_MOTIVO: Partial<Record<Motivo | MotivoTrazado, string>> = {
+  'destino-no-mas-alto': 'Los remontes solo suben: para una pista, arrastra hacia un punto más bajo.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'origen-no-arranca': 'De una cima no arranca ningún remonte, y un punto gris solo sirve si le puede llegar una pista desde arriba.',
   'ya-existe': 'Ya está construido.',
   'cruza-remonte': 'Los remontes no pueden cruzarse.',
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
   'destino-lleno': `A este punto ya llegan todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
+  // Pistas.
+  'origen-inactivo': 'Las pistas salen de un punto al que llega o del que sale un remonte.',
+  'pista-desde-base': 'De los puntos de la plaza no salen pistas.',
+  'destino-no-viable': 'Ese punto no tiene salida: los esquiadores se quedarían atrapados. Ponle antes un remonte que funcione.',
+  'demasiado-plana': 'Demasiado llano: ni una verde recta tendría pendiente suficiente.',
+  'sin-color': 'No cabe ningún color: demasiado empinado incluso para una negra con todas las curvas posibles.',
+  'destino-saturado': `A ese punto ya llegan ${CONFIG.pista.maxPistasLlegada} pistas.`,
+  'pisa-roca': 'No cabe: pasaría por roca o por terreno más alto que su salida.',
+  'pisa-plaza': 'No cabe: pasaría por la plaza.',
+  'muy-cerca': 'No cabe: iría pegada a otra pista sin poder unirse a ella.',
+  'cruza-pistas': 'No cabe: cruzaría demasiadas pistas.',
+  'salida-ocupada': 'No cabe: no queda hueco para su salida (otras pistas salen muy cerca o sería cuesta arriba).',
 };
 
 export class Juego {
@@ -78,7 +93,6 @@ export class Juego {
    */
   readonly parametrosSim: ParametrosSimulacion;
   arrastre: Arrastre | null = null;
-  foco: Foco = null;
   selector: Selector | null = null;
   mensaje: { texto: string; hasta: number } | null = null;
   /** Multiplicador de tiempo: 1×, 2× o 4×. */
@@ -151,12 +165,11 @@ export class Juego {
   }
 
   private trasCambiarMapa(): void {
-    this.cacheProyectos = null;
+    this.cacheTrazados = null;
+    this.cacheEvaluaciones = null;
     this.selector = null;
     this.infoPista = null;
     this.arrastre = null;
-    if (this.foco?.tipo === 'remonte' && !this.red.remontes[this.foco.id]) this.foco = null;
-    if (this.foco?.tipo === 'nodo' && !this.red.nodos[this.foco.id]) this.foco = null;
     this.alCambiarMapa?.();
   }
 
@@ -175,7 +188,6 @@ export class Juego {
     this.definicion = definicion.map((d) => ({ ...d }));
     this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
     this.sim = this.nuevaSimulacion();
-    this.foco = null;
     this.trasCambiarMapa();
   }
 
@@ -228,85 +240,62 @@ export class Juego {
     this.mensaje = { texto, hasta: performance.now() + 2500 };
   }
 
-  // ---- Proyectos de pista ----
+  // ---- Pistas: el jugador elige inicio y destino ----
 
-  /**
-   * Proyectos a la vista: los de la última obra o del nodo tocado, más los
-   * que salen de la llegada de cada remonte aún parado, como recordatorio.
-   */
-  proyectosVisibles(): Proyecto[] {
-    // Se recalculan solo si cambia la red o el foco: el dibujo los pide en
-    // cada fotograma y las confluencias son caras.
-    const clave = `${this.red.version}|${JSON.stringify(this.foco)}`;
-    if (this.cacheProyectos?.clave !== clave) this.cacheProyectos = { clave, lista: this.calcularProyectos(), trazados: new Map() };
-    return this.cacheProyectos.lista;
+  private cacheEvaluaciones: { version: number; mapa: Map<string, EvaluacionPista> } | null = null;
+
+  /** Evaluación de una pista de `desde` a `hasta` (ver evaluarPista), guardada hasta que cambia la red. */
+  evaluarPista(desde: number, hasta: number): EvaluacionPista {
+    if (this.cacheEvaluaciones?.version !== this.red.version) this.cacheEvaluaciones = { version: this.red.version, mapa: new Map() };
+    const k = `${desde}>${hasta}`;
+    let e = this.cacheEvaluaciones.mapa.get(k);
+    if (!e) {
+      e = evaluarPista(this.red, desde, hasta);
+      this.cacheEvaluaciones.mapa.set(k, e);
+    }
+    return e;
   }
 
-  private cacheProyectos: { clave: string; lista: Proyecto[]; trazados: Map<string, Confluencia> } | null = null;
+  private cacheTrazados: { version: number; mapa: Map<string, Confluencia> } | null = null;
 
-  private calcularProyectos(): Proyecto[] {
-    const max = CONFIG.pista.proyectosPorDireccion;
-    const lista: Proyecto[] = [];
-    const f = this.foco;
-    if (f?.tipo === 'remonte' && this.red.remontes[f.id]) lista.push(...proyectosDeRemonte(this.red, this.red.remontes[f.id], max));
-    if (f?.tipo === 'nodo') lista.push(...proyectosDesde(this.red, f.id, max));
-    for (const r of this.red.remontes) if (!this.red.enServicio(r)) lista.push(...proyectosDesde(this.red, r.hasta, max));
-    const vistos = new Set<string>();
-    return lista.filter((p) => {
-      const k = claveProyecto(p);
-      if (vistos.has(k)) return false;
-      vistos.add(k);
-      return true;
-    });
-  }
-
-  /** Trazado a trazos de un proyecto: su sinuosidad mínima y su confluencia. */
+  /** Trazado previsto de una pista por abrir (vista previa con el selector abierto). */
   trazadoProyecto(p: Proyecto): Confluencia {
-    this.proyectosVisibles(); // asegura que la caché corresponde a la red actual
-    const cache = this.cacheProyectos!.trazados;
+    if (this.cacheTrazados?.version !== this.red.version) this.cacheTrazados = { version: this.red.version, mapa: new Map() };
     const k = claveProyecto(p);
-    let t = cache.get(k);
+    let t = this.cacheTrazados.mapa.get(k);
     if (!t) {
       t = this.red.trazadoPrevisto(p.desde, p.hasta, p.lado, p.giro);
-      cache.set(k, t);
+      this.cacheTrazados.mapa.set(k, t);
     }
     return t;
   }
 
-  /** Toque fuera de los nodos: abre el selector si cae sobre un proyecto. */
-  tocar(p: Punto, toleranciaMundo: number): void {
-    let mejor: Proyecto | null = null;
-    let dMin = toleranciaMundo;
-    for (const pr of this.proyectosVisibles()) {
-      const d = distanciaAPolilinea(p, this.trazadoProyecto(pr).trazado.puntos);
-      if (d < dMin) {
-        dMin = d;
-        mejor = pr;
-      }
-    }
-    this.infoPista = null;
-    if (mejor) {
-      // Colores apagados: los que no caben por pendiente y los que darían una
-      // pista que enmaraña (corta remontes, cruza demasiadas pistas...).
-      this.selector = { proyecto: mejor, punto: p, colores: this.red.coloresElegibles(mejor.desde, mejor.hasta, mejor.lado) };
+  /** Abre el selector de color para la pista `desde`→`hasta`, o avisa de por qué no cabe. */
+  proponerPista(desde: number, hasta: number): void {
+    const e = this.evaluarPista(desde, hasta);
+    if (e.motivo !== 'ok') {
+      this.avisar(TEXTO_MOTIVO[e.motivo] ?? 'Esa pista no se puede abrir.');
       return;
     }
-    if (this.modoAjustes) {
-      let cerca: number | null = null;
-      let d = toleranciaMundo;
-      for (const pi of this.red.pistas) {
-        const di = distanciaAPolilinea(p, pi.trazado.puntos);
-        if (di < d) {
-          d = di;
-          cerca = pi.id;
-        }
-      }
-      if (cerca !== null) {
-        this.infoPista = { pista: cerca, punto: p };
-        return;
+    // El selector se coloca a media pista: así no tapa ni el inicio ni el destino.
+    const t = this.trazadoProyecto(e.proyecto).trazado;
+    this.selector = { proyecto: e.proyecto, punto: t.puntoEn(t.longitud / 2), colores: e.colores };
+  }
+
+  /** Toque fuera de los nodos (cierra lo abierto; en ajustes, informa de la pista tocada). */
+  tocar(p: Punto, toleranciaMundo: number): void {
+    this.infoPista = null;
+    if (!this.modoAjustes) return;
+    let cerca: number | null = null;
+    let d = toleranciaMundo;
+    for (const pi of this.red.pistas) {
+      const di = distanciaAPolilinea(p, pi.trazado.puntos);
+      if (di < d) {
+        d = di;
+        cerca = pi.id;
       }
     }
-    this.foco = null;
+    if (cerca !== null) this.infoPista = { pista: cerca, punto: p };
   }
 
   elegirColor(color: ColorPista): void {
@@ -336,6 +325,16 @@ export class Juego {
   }
 
   // ---- Remontes: arrastre ----
+
+  /**
+   * Marca de un punto mientras se arrastra desde `origen`: válido si se podría
+   * construir el remonte (si sube) o si la pareja admite pista (si baja; solo
+   * las reglas de la pareja, sin trazar: el trazado se evalúa al soltar).
+   */
+  destinoValido(origen: number, destino: number): boolean {
+    if (this.red.nodo(destino).cota > this.red.nodo(origen).cota) return this.evaluar(origen, destino) === 'ok';
+    return this.red.puedeAbrirPista(origen, destino) === 'ok';
+  }
 
   /** ¿Se podría construir un remonte de `origen` a `destino`? */
   evaluar(origen: number, destino: number): Motivo {
@@ -371,9 +370,9 @@ export class Juego {
   }
 
   /**
-   * Empieza un arrastre en un punto donde puede arrancar un remonte, o en uno
-   * activo (al soltar sin moverse es un toque: muestra sus proyectos de pista;
-   * si se arrastra, el destino se marca como no válido y se explica por qué).
+   * Empieza un arrastre en un punto donde puede arrancar un remonte o del que
+   * puede salir una pista. Si se arrastra a uno no válido, se marca y, al
+   * soltar, se explica por qué.
    */
   empezarArrastre(p: Punto, radioMundo: number, sepMundo = 0): boolean {
     const n = this.nodoEn(p, radioMundo, sepMundo);
@@ -393,30 +392,43 @@ export class Juego {
     a.puntero = p;
     const n = this.nodoEn(p, radioMundo, sepMundo);
     if (n !== a.origen) a.movido = true;
-    a.objetivo = n === null || n === a.origen ? null : { nodo: n, motivo: this.evaluar(a.origen, n) };
+    if (n === null || n === a.origen) {
+      a.objetivo = null;
+      return;
+    }
+    // Más alto: remonte. Más bajo: pista.
+    const subir = this.red.nodo(n).cota > this.red.nodo(a.origen).cota;
+    a.objetivo = subir
+      ? { nodo: n, tipo: 'remonte', motivo: this.evaluar(a.origen, n) }
+      : { nodo: n, tipo: 'pista', motivo: this.evaluarPista(a.origen, n).motivo };
   }
 
-  /** Al soltar: construye el remonte o, si no se movió, es un toque al nodo. */
+  /**
+   * Al soltar sobre otro punto: construye el remonte (si sube) o abre el
+   * selector de color de la pista (si baja); si no se puede, avisa de por
+   * qué. Sin moverse, es un toque: recuerda cómo se usa.
+   */
   soltarArrastre(): void {
     if (this.arrastreNodo) return this.soltarNodo();
     const a = this.arrastre;
     this.arrastre = null;
     if (!a) return;
     if (!a.movido) {
-      this.foco = { tipo: 'nodo', id: a.origen };
-      if (proyectosDesde(this.red, a.origen, CONFIG.pista.proyectosPorDireccion).length === 0 && this.red.nodo(a.origen).tipo !== 'base') {
-        this.avisar('Desde aquí no se puede abrir ninguna pista ahora.');
-      }
+      this.avisar('Arrastra hacia un punto más alto para un remonte, o hacia uno más bajo para una pista.');
       return;
     }
-    if (!a.objetivo) return;
-    if (a.objetivo.motivo !== 'ok') {
-      const texto = TEXTO_MOTIVO[a.objetivo.motivo];
+    const o = a.objetivo;
+    if (!o) return;
+    if (o.tipo === 'pista') {
+      this.proponerPista(a.origen, o.nodo);
+      return;
+    }
+    if (o.motivo !== 'ok') {
+      const texto = TEXTO_MOTIVO[o.motivo];
       if (texto) this.avisar(texto);
       return;
     }
-    const r = this.red.construirRemonte(a.origen, a.objetivo.nodo);
-    this.foco = { tipo: 'remonte', id: r.id };
+    this.red.construirRemonte(a.origen, o.nodo);
   }
 
   cancelarArrastre(): void {
@@ -431,7 +443,6 @@ export class Juego {
     this.infoPista = null;
     const h = this.red.deshacer();
     if (h) this.sim.alDeshacer(h);
-    if (this.foco?.tipo === 'remonte' && !this.red.remontes[this.foco.id]) this.foco = null;
   }
 
   /** Indicación para el jugador según el estado de la red. */
@@ -441,9 +452,9 @@ export class Juego {
     if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
     if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
     if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte. Pellizca para acercar y arrastra el fondo para moverte.';
-    if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas.';
+    if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas; el borde rojo, forzada.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
-    if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';
+    if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
     const s = this.sim;
     return `Bajadas: ${s.bajadasCompletadas} · Cansados: ${s.cansados} · Enfadados: ${s.enfadados}`;
   }

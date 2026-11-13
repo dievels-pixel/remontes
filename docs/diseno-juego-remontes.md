@@ -143,19 +143,9 @@ Resuelve el problema de orden: un nodo desbloqueado no recibe esquiadores ni pis
 
 ## Proyectos de pista
 
-Las pistas no se generan solas: al construir un remonte aparecen proyectos de pista a trazos, y el jugador los activa tocando y eligiendo color.
+Decidido el 2026-11-13 (v31), porque los trazos propuestos liaban: el jugador elige el inicio y el destino de cada pista con el mismo gesto que un remonte. Arrastrar desde un punto hacia otro más alto construye un remonte; hacia uno más bajo, una pista. Mientras se arrastra, los destinos posibles se marcan y, sobre el punto bajo el dedo, se ve a trazos el trazado previsto. Al soltar aparece el selector de color, a media pista, con su trazado a trazos; los colores que no caben salen apagados. Si no cabe ninguna, un aviso dice por qué: el origen no tiene remonte, sale de la plaza, el destino no tiene salida, es demasiado llano o empinado, a ese punto ya llegan demasiadas pistas, o el trazado pasaría por roca, por la plaza, pegado a otra pista, cruzando demasiadas o sin hueco para salir. De los dos lados posibles (forma de lente) se elige el que deja más colores; la segunda pista a la misma pareja va por el otro. Ya no hay proyectos propuestos a trazos.
 
-Al crear un remonte de X (punto bajo) a T (punto alto) se proponen:
-
-- Hasta dos pistas de T a X, una a cada lado del remonte (forma de lente, como en los bocetos), según el terreno: con una cara de roca puede haber solo una.
-- Pistas desde T hacia otros nodos más bajos que sean viables.
-- Pistas desde otros nodos más altos hacia X.
-
-Para evitar una maraña de trazos:
-
-- Se limitan a los 2 candidatos más cercanos por dirección.
-- Los trazos solo se muestran para la última obra o al tocar un nodo.
-- Solo se proponen pistas que salgan de nodos activos.
+Propuesta original, que queda como referencia: al construir un remonte de X a T aparecían proyectos de pista a trazos (las dos laterales de T a X, de T hacia otros nodos más bajos y de otros más altos hacia X, los 2 más cercanos por dirección), y el jugador los activaba tocándolos.
 
 Límites del trazado (decididos y calibrados jugando). Cada color se comprueba con su trazado real, y los que no cumplen salen apagados en el selector:
 

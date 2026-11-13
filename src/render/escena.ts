@@ -100,14 +100,12 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.setLineDash([]);
   }
 
-  // Proyectos de pista a trazos; el que tiene el selector abierto, más grueso.
-  const elegido = juego.selector?.proyecto;
-  ctx.setLineDash([6, 6]);
-  for (const pr of juego.proyectosVisibles()) {
-    const activo = elegido && elegido.desde === pr.desde && elegido.hasta === pr.hasta && elegido.lado === pr.lado;
-    dibujarTrazado(ctx, juego.trazadoProyecto(pr).trazado, P, COLOR.proyecto, activo ? 4 : 2);
+  // Pista por abrir con el selector de color abierto: su trazado previsto, a trazos.
+  if (juego.selector) {
+    ctx.setLineDash([6, 6]);
+    dibujarTrazado(ctx, juego.trazadoProyecto(juego.selector.proyecto).trazado, P, COLOR.proyecto, 4);
+    ctx.setLineDash([]);
   }
-  ctx.setLineDash([]);
 
   // Remontes con sus bolitas.
   for (const r of red.remontes) {
@@ -140,7 +138,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   // Emplazamientos: sus estaciones en fila y la cota a la derecha de la fila.
   for (const n of red.nodos) {
     let marca: 'valido' | 'invalido' | null = null;
-    if (arr?.movido && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id) === 'ok' ? 'valido' : 'invalido';
+    if (arr?.movido && n.id !== arr.origen) marca = juego.destinoValido(arr.origen, n.id) ? 'valido' : 'invalido';
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
     // Un punto con estaciones está en uso (también una base nueva en media
     // ladera, a la que aún no llega ningún remonte): se dibuja pleno.
@@ -414,7 +412,16 @@ function dibujarArrastre(
   if (!arr.movido) return;
   const red = juego.red;
   const obj = arr.objetivo;
-  if (obj && obj.motivo === 'ok') {
+  if (obj && obj.tipo === 'pista') {
+    // Pista: su trazado previsto a trazos si cabe; si no, una recta roja.
+    const e = juego.evaluarPista(arr.origen, obj.nodo);
+    if (e.motivo === 'ok') {
+      ctx.setLineDash([6, 6]);
+      dibujarTrazado(ctx, juego.trazadoProyecto(e.proyecto).trazado, P, COLOR.proyecto, 3);
+      ctx.setLineDash([]);
+      return;
+    }
+  } else if (obj && obj.motivo === 'ok') {
     // Estaciones que usaría el remonte; las nuevas se ven ya en su sitio.
     const ed = red.planearEstacion(arr.origen, 'salida', obj.nodo)!;
     const eh = red.planearEstacion(obj.nodo, 'llegada', arr.origen)!;

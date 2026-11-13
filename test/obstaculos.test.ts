@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { Polilinea } from '../src/core/polilinea';
-import { proyectosDesde } from '../src/core/proyectos';
+import { evaluarPista } from '../src/core/proyectos';
 import { Red } from '../src/core/red';
 import { Juego } from '../src/juego';
 import { mapaInicial, REGLAS, redPequena } from './apoyo';
@@ -20,7 +20,7 @@ describe('La plaza como obstáculo para las pistas', () => {
     red.reglas.pista.giroMaximo = 0;
     red.construirRemonte(0, 3);
     for (const lado of [1, -1] as const) expect(red.trazadoLimpio(3, 0, lado)).toBe(false);
-    expect(proyectosDesde(red, 3, 3).some((p) => p.hasta === 0)).toBe(false);
+    expect(evaluarPista(red, 3, 0).motivo).toBe('pisa-plaza');
   });
 
   it('el margen cuenta: justo fuera del círculo pero dentro del margen, tampoco', () => {
@@ -40,20 +40,21 @@ describe('La plaza como obstáculo para las pistas', () => {
     const red = conObstaculo({ x: -50, y: 3250, radio: 170 });
     red.construirRemonte(0, 3);
     expect(Math.hypot(50, 250)).toBeGreaterThan(170 + red.reglas.pista.margenObstaculo);
-    expect(proyectosDesde(red, 3, 3).some((p) => p.hasta === 0)).toBe(true);
+    expect(evaluarPista(red, 3, 0).motivo).toBe('ok');
   });
 
-  it('en el mapa real, ningún proyecto propuesto entra en la plaza', () => {
+  it('en el mapa real, ninguna pista que cabe entra en la plaza', () => {
     const j = new Juego(mapaInicial());
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     const altos = j.red.nodos.filter((n) => n.tipo !== 'base');
     for (const b of bases) for (const a of altos) if (j.red.puedeConstruirRemonte(b.id, a.id) === 'ok') j.red.construirRemonte(b.id, a.id);
     expect(j.red.reglas.obstaculos).toHaveLength(1);
     const plaza = j.red.reglas.obstaculos![0];
-    for (const n of j.red.nodos) {
-      j.foco = { tipo: 'nodo', id: n.id };
-      for (const p of j.proyectosVisibles()) {
-        const d = Math.min(...j.trazadoProyecto(p).trazado.puntos.map((q) => Math.hypot(q.x - plaza.x, q.y - plaza.y)));
+    for (const a of j.red.nodos) {
+      for (const b of j.red.nodos) {
+        const e = j.evaluarPista(a.id, b.id);
+        if (e.motivo !== 'ok') continue;
+        const d = Math.min(...j.trazadoProyecto(e.proyecto).trazado.puntos.map((q) => Math.hypot(q.x - plaza.x, q.y - plaza.y)));
         expect(d).toBeGreaterThanOrEqual(plaza.radio + CONFIG.pista.margenObstaculo);
       }
     }

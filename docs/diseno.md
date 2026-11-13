@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v30: mapa «Gran dominio», zoom y desplazamiento). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v31: pistas eligiendo inicio y destino). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -322,6 +322,7 @@ Actualizado el 2026-11-13 (v30: mapa «Gran dominio», zoom y desplazamiento). L
 - **Desdoble desde cualquier punto que no sea cima (v26):** de un cuadrado (tras su continuación) o de un triángulo de un intermedio arranca un remonte nuevo, desdoblando un círculo: una base. Las cimas son puntos finales.
 - **Pistas desde bases de media ladera y puntos de arriba accesibles (v28):** un punto del que sale un remonte cuenta como activo, así que de él salen pistas hacia puntos más bajos viables (también a la llegada de un remonte inferior). El mapa se encaja dejando 64 px arriba para el texto de ayuda y 72 px abajo para los botones: los puntos del borde superior quedaban bajo el texto y la zona de gestos del navegador.
 - **Mapa grande y cámara (v30):** «Gran dominio» por defecto, con todos los colores en muchos sitios; zoom con dos dedos (o rueda) y desplazamiento arrastrando el fondo (`src/render/camara.ts`, gestos en `src/input/puntero.ts`).
+- **Pistas eligiendo inicio y destino (v31):** arrastrar hacia abajo desde un punto activo abre el selector de color de esa pista (`evaluarPista` en `src/core/proyectos.ts`: lado con más colores limpios y, si no cabe, el motivo más repetido de `Red.motivoTrazado`). Ya no hay proyectos propuestos a trazos ni foco.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

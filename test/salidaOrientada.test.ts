@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { copiarBandas } from '../src/core/colores';
 import { Polilinea } from '../src/core/polilinea';
-import { proyectosDesde } from '../src/core/proyectos';
+import { evaluarPista, type Proyecto } from '../src/core/proyectos';
 import { Red, type Pista } from '../src/core/red';
 import type { Punto } from '../src/core/vector';
 
@@ -64,16 +64,24 @@ const direccion = (l: Polilinea) => {
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 };
 
+/** La pista 1 → 0 que cabe, con el menor giro de sus colores limpios. */
+function proyecto(red: Red): Proyecto | undefined {
+  const e = evaluarPista(red, 1, 0);
+  if (e.motivo !== 'ok') return undefined;
+  const giro = Math.min(...e.colores.filter((c) => c.factible).map((c) => c.giro ?? 0));
+  return { ...e.proyecto, giro: giro || undefined };
+}
+
 describe('Salida orientada', () => {
   it('sin giro de salida, la pista a la base no cabe por ningún lado', () => {
     const red = escenario(0);
     for (const lado of [1, -1] as const) expect(red.giroLimpio(1, 0, lado)).toBeNull();
-    expect(proyectosDesde(red, 1, 3).some((p) => p.hasta === 0)).toBe(false);
+    expect(evaluarPista(red, 1, 0).motivo).not.toBe('ok');
   });
 
   it('saliendo girada, ocupa el hueco libre y se propone', () => {
     const red = escenario(60);
-    const p = proyectosDesde(red, 1, 3).find((x) => x.hasta === 0);
+    const p = proyecto(red);
     expect(p).toBeDefined();
     expect(p!.giro).toBeGreaterThan(0);
     const t = red.trazadoPrevisto(1, 0, p!.lado, p!.giro).trazado;
@@ -84,13 +92,13 @@ describe('Salida orientada', () => {
 
   it('elige el menor giro que vale', () => {
     const red = escenario(60);
-    const p = proyectosDesde(red, 1, 3).find((x) => x.hasta === 0)!;
+    const p = proyecto(red)!;
     for (let g = 10; g < p.giro!; g += 10) expect(red.coloresLimpios(1, 0, p.lado, g).some((c) => c.factible)).toBe(false);
   });
 
   it('la pista abierta conserva su giro al recalcular', () => {
     const red = escenario(60);
-    const p = proyectosDesde(red, 1, 3).find((x) => x.hasta === 0)!;
+    const p = proyecto(red)!;
     const c = red.coloresLimpios(1, 0, p.lado, p.giro).find((x) => x.factible)!;
     const abierta = red.abrirPista(1, 0, c.color, p.lado, p.giro);
     expect(abierta.giro).toBe(p.giro);

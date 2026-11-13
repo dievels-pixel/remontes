@@ -147,6 +147,9 @@ export type Motivo =
   | 'color-imposible'
   | 'destino-saturado';
 
+/** Por qué un trazado concreto de pista no vale (ver Red.motivoTrazado). */
+export type MotivoTrazado = 'pisa-plaza' | 'pisa-roca' | 'muy-cerca' | 'cruza-pistas' | 'salida-ocupada';
+
 /** Construcción registrada en el historial. */
 export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
 
@@ -702,10 +705,19 @@ export class Red {
    * permite: es un cruce solo visual, como un puente.
    */
   trazadoLimpioDe(desde: number, hasta: number, conf: Confluencia): boolean {
+    return this.motivoTrazado(desde, hasta, conf) === 'ok';
+  }
+
+  /**
+   * Por qué un trazado real no vale (el primero que falle), o 'ok': plaza,
+   * roca o terreno más alto que la salida, pegado a otra pista sin poder
+   * unirse, demasiadas pistas cruzadas o salida sin hueco (ángulo o cuesta).
+   */
+  motivoTrazado(desde: number, hasta: number, conf: Confluencia): MotivoTrazado | 'ok' {
     const rp = this.reglas.pista;
     // Ni el tramo propio ni el compartido ni el ramal pueden entrar en la plaza.
-    if (this.pisaObstaculo(conf.trazado)) return false;
-    if (this.pisaTerrenoProhibido(desde, conf.trazado)) return false;
+    if (this.pisaObstaculo(conf.trazado)) return 'pisa-plaza';
+    if (this.pisaTerrenoProhibido(desde, conf.trazado)) return 'pisa-roca';
     const existentes = this.pistas.map((p) => ({
       id: p.id,
       hasta: p.hasta,
@@ -716,9 +728,9 @@ export class Red {
     }));
     // Si se acerca a otra a menos de la distancia mínima y no ha podido unirse,
     // iría casi pegada a ella.
-    if (demasiadoCerca(conf, existentes, rp.distanciaMinimaPistas, rp.margenConfluencia, rp.radioAcuerdo)) return false;
-    if (pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) > rp.maxCrucesPistas) return false;
-    return this.salidaSeparada(desde, hasta, conf.trazado);
+    if (demasiadoCerca(conf, existentes, rp.distanciaMinimaPistas, rp.margenConfluencia, rp.radioAcuerdo)) return 'muy-cerca';
+    if (pistasCruzadas(conf, existentes, rp.margenConfluencia, rp.radioAcuerdo) > rp.maxCrucesPistas) return 'cruza-pistas';
+    return this.salidaSeparada(desde, hasta, conf.trazado) ? 'ok' : 'salida-ocupada';
   }
 
   private cacheLimpios = new Map<string, Factibilidad[]>();
