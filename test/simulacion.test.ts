@@ -9,6 +9,8 @@ const P: ParametrosSimulacion = {
   intervaloBolitas: CONFIG.remonte.intervaloBolitas,
   capacidadBolita: CONFIG.remonte.capacidad,
   ...CONFIG.esquiador,
+  aforoCola: CONFIG.colas.aforo,
+  tiempoAnillo: CONFIG.colas.tiempoAnillo,
 };
 const ENTRADA = { x: 150, y: 3100 };
 const DT = 1 / 60;
@@ -38,7 +40,6 @@ describe('Simulación', () => {
     const vistos = new Set<string>();
     correr(sim, 60, () => sim.esquiadores.forEach((e) => vistos.add(e.estado)));
     expect(sim.poblacion).toBeGreaterThan(0);
-    expect(sim.poblacion).toBeLessThanOrEqual(P.poblacionMaxima);
     expect(sim.bajadasCompletadas).toBeGreaterThan(0);
     expect(vistos).toEqual(new Set(['andando', 'cola', 'remonte', 'pista']));
   });

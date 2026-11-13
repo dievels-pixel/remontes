@@ -127,6 +127,9 @@ Todos los nodos existen desde el principio, pero solo se activan al ser alcanzad
 
 ### Abrir un valle (gratis)
 
+Implementado de forma más sencilla (decidido jugando, 2026-11-13): no hay desbloqueo por cercanía. Cualquier punto gris al que podría llegar una pista limpia desde un triángulo o cuadrado más alto se ve con el borde oscuro y se puede usar para arrancar un remonte, que lo convierte en base. El límite natural es que quepa una pista (sin roca, sin cruzar un cordal, sin pasar por terreno más alto que su salida). Lo que sigue es la propuesta original, que queda como referencia:
+
+
 Crecer hacia otra vertiente o valle no cuesta nada por sí mismo: el único coste es el remonte que sube desde allí.
 
 - Al activarse una cima (un remonte llega a ella), se desbloquean los nodos bajos cercanos que aún no están activos (hipótesis: los 2 o 3 más próximos y más bajos que ella, con la misma limitación que los proyectos de pista, y solo aquellos a los que pueda bajar una pista factible, es decir, sin roca por medio). Se ven resaltados. Cuáles son depende del relieve (ver "Relieve y terreno esquiable").
@@ -409,7 +412,9 @@ Para que no se reintroduzca por error:
 - [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales.
 - [ ] Contraste de las texturas del terreno y de la legibilidad de puntos y pistas: ajustar probando en el móvil.
 - [ ] Orientación de pantalla.
-- [ ] Esquiador sin ninguna pista de su nivel o inferior en la estación (un verde sin verdes no puede bajar por nada). Propuesta: se va enfadado al llegar (queja).
-- [ ] Cuándo se va un esquiador cuyo contento llega a 0. Propuesta: al terminar la bajada, no a media pista.
+- [ ] Esquiador sin ninguna pista de su nivel o inferior en la estación (un verde sin verdes no puede bajar por nada). Provisional, implementado (v29): llega igual (la afluencia no depende de lo construido) y se va enfadado al llegar, con queja «sin pistas de su nivel».
+- [ ] Cuándo se va un esquiador cuyo contento llega a 0. Provisional, implementado (v29): al terminar la bajada, en el punto al que llega.
+- [ ] Dónde se va un esquiador cansado. Provisional (v29): en el primer punto al que llega tras agotar su aguante, sin bajar a la plaza.
+- [ ] Anillo de cola por debajo del aforo. Provisional (v29): se vacía al mismo ritmo que se llena.
 - [ ] Color natural con bandas solapadas: es ambiguo. Como el grado de forzado se mide solo con s / s_min, se puede prescindir del término o definirlo como el color más difícil que admite la recta.
 - [ ] Recolorear sin coste y "muy forzada" (s / s_min por encima de un umbral): pendiente de decidir por el usuario antes de implementarlo. Hasta entonces, el prototipo marca como forzada la pista cuya pendiente entra en el solape con la banda siguiente.

@@ -84,7 +84,7 @@ interface DeslizadorSim {
   escribir: (p: ParametrosSim, v: number) => void;
 }
 
-type ClaveSim = 'diversionSuNivel' | 'diversionForzada' | 'diversionPorNivelInferior' | 'umbralMarcha' | 'pesoSuNivel';
+type ClaveSim = 'llegadasPorMinuto' | 'aguanteMinimo' | 'aguanteMaximo' | 'memoriaVariedad' | 'aforoCola' | 'tiempoAnillo';
 
 const sim = (clave: ClaveSim, nombre: string, min: number, max: number, paso: number, decimales: number): DeslizadorSim => ({
   nombre,
@@ -112,11 +112,12 @@ const DESLIZADORES_SIM: DeslizadorSim[] = [
   peso(1, 'Peso azules'),
   peso(2, 'Peso rojos'),
   peso(3, 'Peso negros'),
-  sim('diversionSuNivel', 'Div. su nivel', 0, 0.5, 0.01, 2),
-  sim('diversionForzada', 'Div. forzada', 0, 0.3, 0.01, 2),
-  sim('diversionPorNivelInferior', 'Div. − por nivel', 0, 0.5, 0.01, 2),
-  sim('umbralMarcha', 'Umbral marcha', 0, 1, 0.05, 2),
-  sim('pesoSuNivel', 'Pref. su nivel', 1, 10, 0.5, 1),
+  sim('llegadasPorMinuto', 'Llegadas/min', 5, 120, 5, 0),
+  sim('aguanteMinimo', 'Aguante mín. (s)', 30, 600, 10, 0),
+  sim('aguanteMaximo', 'Aguante máx. (s)', 30, 900, 10, 0),
+  sim('memoriaVariedad', 'Memoria variedad', 1, 4, 1, 0),
+  sim('aforoCola', 'Aforo cola', 1, 20, 1, 0),
+  sim('tiempoAnillo', 'Anillo (s)', 5, 60, 1, 0),
 ];
 
 // Franja compacta arriba, a todo lo ancho: en vertical, la parte alta del
@@ -246,13 +247,38 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
     cuerpo.append(fila);
   }
 
+  // Desglose en vivo: de dónde vienen las quejas (los enfadados) y cómo está
+  // el contento de cada nivel. Sirve para ver qué parámetro tocar.
+  const desglose = document.createElement('div');
+  desglose.className = 'nota';
+  cuerpo.append(desglose);
+  const NIVELES = ['verde', 'azul', 'rojo', 'negro'];
+  const pintarDesglose = () => {
+    const s = juego.sim;
+    const suma = [0, 0, 0, 0];
+    const n = [0, 0, 0, 0];
+    for (const id of s.esquiadores.keys()) {
+      const p = s.perfiles.get(id);
+      if (!p) continue;
+      suma[p.nivel] += p.contento;
+      n[p.nivel]++;
+    }
+    const medio = NIVELES.map((nombre, i) => `${nombre} ${n[i] ? coma(suma[i] / n[i], 1) : '–'}`).join(', ');
+    desglose.textContent =
+      `Quejas: ${s.enfadados} (aburrimiento ${s.quejas.aburrimiento}, cola ${s.quejas.cola}, sin pistas de su nivel ${s.quejas.sinPistas}). ` +
+      `Cansados: ${s.cansados}. Contento medio (de ${parametros.contentoInicial}): ${medio}.`;
+  };
+  setInterval(pintarDesglose, 500);
+  pintarDesglose();
+
   const botones = document.createElement('div');
   botones.className = 'botones';
   const copiar = document.createElement('button');
   copiar.textContent = 'Copiar valores';
   copiar.addEventListener('click', async () => {
     const claves = Object.keys(CONFIG.esquiador);
-    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + textoConfigEsquiador({ ...parametros }, claves));
+    const colas = `  colas: {\n    aforo: ${parametros.aforoCola},\n    tiempoAnillo: ${parametros.tiempoAnillo},\n  },`;
+    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + textoConfigEsquiador({ ...parametros }, claves) + '\n\n' + colas);
     copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
     setTimeout(() => (copiar.textContent = 'Copiar valores'), 1500);
   });
@@ -268,7 +294,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   const nota = document.createElement('div');
   nota.className = 'nota';
-  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista y esquiador. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
+  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista, esquiador y colas. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
   cuerpo.append(botones, nota);
   montarEditorMapa(juego, cuerpo);
 

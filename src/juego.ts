@@ -123,6 +123,8 @@ export class Juego {
       capacidadBolita: remonte.capacidad,
       ...CONFIG.esquiador,
       mezclaNiveles: [...CONFIG.esquiador.mezclaNiveles],
+      aforoCola: CONFIG.colas.aforo,
+      tiempoAnillo: CONFIG.colas.tiempoAnillo,
     };
     this.sim = this.nuevaSimulacion();
   }
@@ -443,7 +445,6 @@ export class Juego {
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';
     const s = this.sim;
-    const noVienen = s.noVinieron > 0 ? ` · No vienen: ${s.noVinieron}` : '';
-    return `Esquiadores: ${s.poblacion} · Bajadas: ${s.bajadasCompletadas} · Se han ido: ${s.seFueron}${noVienen}`;
+    return `Bajadas: ${s.bajadasCompletadas} · Cansados: ${s.cansados} · Enfadados: ${s.enfadados}`;
   }
 }

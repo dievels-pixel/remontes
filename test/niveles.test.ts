@@ -12,12 +12,12 @@ const P: ParametrosSimulacion = {
   capacidadBolita: CONFIG.remonte.capacidad,
   ...CONFIG.esquiador,
   // Valores fijos para la prueba, no los provisionales de config.ts.
-  diversionInicial: 1,
-  diversionSuNivel: 0.2,
-  diversionForzada: 0.05,
-  diversionPorNivelInferior: 0.15,
-  umbralMarcha: 0.25,
-  pesoSuNivel: 3,
+  aguanteMinimo: 180,
+  aguanteMaximo: 360,
+  contentoInicial: 3,
+  memoriaVariedad: 2,
+  aforoCola: 6,
+  tiempoAnillo: 20,
 };
 const ENTRADA = { x: 150, y: 3100 };
 const DT = 1 / 60;
@@ -78,7 +78,7 @@ describe('Dificultad efectiva y viabilidad por nivel', () => {
 describe('Esquiadores con nivel', () => {
   it('llegan en la proporción de la mezcla', () => {
     const red = redAzul();
-    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 0.5, 0, 0.5], poblacionMaxima: 1000, llegadasPorMinuto: 600 }, ENTRADA, crearAzar(3));
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 0.5, 0, 0.5], llegadasPorMinuto: 600, aforoCola: 1000 }, ENTRADA, crearAzar(3));
     correr(sim, 30);
     const niveles = [...sim.perfiles.values()].map((p) => p.nivel);
     expect(niveles.length).toBeGreaterThan(100);
@@ -88,23 +88,13 @@ describe('Esquiadores con nivel', () => {
     expect(azules).toBeLessThan(0.6);
   });
 
-  it('un verde sin bajadas de su nivel no viene: la afluencia es menor, pero no cuenta como ido', () => {
+  it('un verde sin bajadas de su nivel viene igual (afluencia exógena) y se va enfadado al llegar', () => {
     const red = redAzul();
     const sim = new Simulacion(red, { ...P, mezclaNiveles: [1, 0, 0, 0] }, ENTRADA, crearAzar(1));
     correr(sim, 30);
     expect(sim.poblacion).toBe(0);
-    expect(sim.seFueron).toBe(0);
-    expect(sim.noVinieron).toBeGreaterThan(0);
-  });
-
-  it('con una mezcla de verdes y azules sin bajada verde, solo vienen los azules', () => {
-    const red = redAzul();
-    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0.5, 0.5, 0, 0], poblacionMaxima: 1000, llegadasPorMinuto: 600 }, ENTRADA, crearAzar(4));
-    correr(sim, 20);
-    const niveles = [...sim.perfiles.values()].map((p) => p.nivel);
-    expect(niveles.length).toBeGreaterThan(50);
-    expect(niveles.every((n) => n === 1)).toBe(true);
-    expect(sim.noVinieron / (sim.noVinieron + niveles.length)).toBeGreaterThan(0.35);
+    expect(sim.quejas.sinPistas).toBeGreaterThan(0);
+    expect(sim.marchasEnfadadas.length).toBeGreaterThan(0);
   });
 
   it('nadie baja por una pista más difícil que su nivel', () => {
@@ -121,17 +111,91 @@ describe('Esquiadores con nivel', () => {
     });
   });
 
-  it('en pistas de su nivel se mantienen; en pistas fáciles se aburren y acaban yéndose', () => {
-    const azules = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 1, 0, 0] }, ENTRADA, crearAzar(2));
-    correr(azules, 120);
-    expect(azules.seFueron).toBe(0);
-    for (const p of azules.perfiles.values()) expect(p.diversion).toBe(1);
-
+  it('tabla de aburrimiento: una pista un nivel por debajo no aburre; dos niveles, un punto por bajada', () => {
+    // Rojos en una azul (un nivel por debajo): nadie se aburre.
+    const rojos = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 0, 1, 0] }, ENTRADA, crearAzar(2));
+    correr(rojos, 150);
+    expect(rojos.quejas.aburrimiento).toBe(0);
+    for (const p of rojos.perfiles.values()) expect(p.contento).toBe(3);
+    // Negros en una azul (dos niveles): −1 por bajada; a la tercera se van enfadados.
     const negros = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 0, 0, 1] }, ENTRADA, crearAzar(2));
-    let minimo = 1;
-    // Cada vuelta dura unos 45 s y hacen falta tres bajadas para bajar del umbral.
-    correr(negros, 240, () => negros.perfiles.forEach((p) => (minimo = Math.min(minimo, p.diversion))));
-    expect(minimo).toBeLessThan(1); // dos niveles por debajo: −0,3 por bajada
-    expect(negros.seFueron).toBeGreaterThan(0);
+    let minimo = 3;
+    correr(negros, 170, () => negros.perfiles.forEach((p) => (minimo = Math.min(minimo, p.contento))));
+    expect(minimo).toBeLessThan(3);
+    expect(negros.quejas.aburrimiento).toBeGreaterThan(0);
+  });
+
+  it('se van cansados al agotar el aguante, sin queja', () => {
+    const sim = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 1, 0, 0], aguanteMinimo: 40, aguanteMaximo: 60 }, ENTRADA, crearAzar(3));
+    correr(sim, 150);
+    expect(sim.cansados).toBeGreaterThan(0);
+    expect(sim.enfadados).toBe(0);
+  });
+});
+
+describe('Contento y variedad', () => {
+  it('una pista de su nivel recupera un punto solo si no está entre las últimas', () => {
+    // Red con dos azules desde la cima: 3 → 0 por los dos lados.
+    const red = conValoresClasicos(redPequena());
+    red.construirRemonte(0, 3);
+    const a = red.abrirPista(3, 0, 'azul', 1);
+    red.abrirPista(3, 0, 'azul', -1);
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], memoriaVariedad: 1 }, ENTRADA, crearAzar(5));
+    const contentar = (sim as unknown as { contentar: (id: number, p: unknown) => boolean }).contentar.bind(sim);
+    sim.perfiles.set(99, { nivel: 1, contento: 2, cansadoEn: 1e9, recientes: [] });
+    contentar(99, a);
+    expect(sim.perfiles.get(99)!.contento).toBe(3); // variedad: +1
+    sim.perfiles.get(99)!.contento = 2;
+    contentar(99, a);
+    expect(sim.perfiles.get(99)!.contento).toBe(2); // la repite: no recupera
+  });
+
+  it('entre las pistas válidas prefiere la que no ha usado hace poco', () => {
+    const red = conValoresClasicos(redPequena());
+    red.construirRemonte(0, 3);
+    const a = red.abrirPista(3, 0, 'azul', 1);
+    const b = red.abrirPista(3, 0, 'azul', -1);
+    // Con memoria de 1, dos pistas bastan para variar siempre (con 2, las dos
+    // serían «recientes» y elegiría cualquiera).
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], memoriaVariedad: 1, aguanteMinimo: 1e6, aguanteMaximo: 1e6 }, ENTRADA, crearAzar(6));
+    // Cada esquiador alterna: tras bajar por una, la siguiente es la otra.
+    const ultima = new Map<number, number>();
+    let repeticiones = 0;
+    let bajadas = 0;
+    const enPista = new Map<number, number | null>();
+    correr(sim, 200, () => {
+      for (const e of sim.esquiadores.values()) {
+        const ahora = e.estado === 'pista' ? e.pista : null;
+        if (ahora !== null && enPista.get(e.id) == null) {
+          // Empieza una bajada.
+          if (ultima.get(e.id) === ahora) repeticiones++;
+          if (ultima.has(e.id)) bajadas++;
+          ultima.set(e.id, ahora);
+        }
+        enPista.set(e.id, ahora);
+      }
+    });
+    expect(bajadas).toBeGreaterThan(20);
+    expect(repeticiones).toBe(0);
+    expect([a.id, b.id].every((id) => [...ultima.values()].includes(id))).toBe(true);
+  });
+});
+
+describe('Cola saturada', () => {
+  it('por encima del aforo el anillo se llena, echa enfadado al último y baja a la mitad', () => {
+    const red = redAzul();
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], llegadasPorMinuto: 600, aforoCola: 3, tiempoAnillo: 5, aguanteMinimo: 1e6, aguanteMaximo: 1e6 }, ENTRADA, crearAzar(8));
+    let maximo = 0;
+    correr(sim, 30, () => (maximo = Math.max(maximo, sim.anillos[0] ?? 0)));
+    expect(sim.quejas.cola).toBeGreaterThan(0);
+    expect(maximo).toBeLessThan(1); // al llenarse baja a la mitad en el mismo paso
+    expect(sim.anillos[0]).toBeGreaterThanOrEqual(0);
+  });
+
+  it('con la cola por debajo del aforo el anillo no se llena', () => {
+    const sim = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 1, 0, 0], llegadasPorMinuto: 10, aforoCola: 50 }, ENTRADA, crearAzar(9));
+    correr(sim, 60);
+    expect(sim.anillos[0]).toBe(0);
+    expect(sim.quejas.cola).toBe(0);
   });
 });

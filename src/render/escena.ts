@@ -21,7 +21,6 @@ const COLOR = {
   valido: '#2f9e6a',
   invalido: '#b9473b',
   forzada: '#e8908a', // borde rojo suave del selector: color empinado para su nivel
-  aburrido: '#a3a8ad', // gris al que tiende un esquiador aburrido
   colaVacia: '#8b9298',
   colaLlena: '#d0453a',
   vacio: '#8b9298', // punto aún sin usar
@@ -37,6 +36,8 @@ export const COLOR_PISTA: Record<ColorPista, string> = {
 const RADIO_NODO = 9;
 /** Radio de un punto aún sin usar: más pequeño que una estación. */
 const RADIO_VACIO = 5.5;
+/** Segundos que dura el destello rojo de un esquiador que se va enfadado. */
+const DURACION_DESTELLO = 0.8;
 const RADIO_PUNTO = 2.2;
 
 export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number): void {
@@ -190,17 +191,31 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.restore();
   }
 
-  // Anillo de cola en cada estación de salida: se llena con la cola y pasa del
-  // gris al rojo, como el temporizador de las estaciones de Mini Metro.
-  const colaPorEstacion = new Map<number, number>();
+  // Anillo de cola en la estación de salida de cada remonte: se llena cuando
+  // la cola pasa del aforo y pasa del gris al rojo, como el temporizador de
+  // las estaciones de Mini Metro. Lleno, echa al último de la cola.
   for (const r of red.remontes) {
-    const n = sim.colas[r.id]?.length ?? 0;
-    if (n > 0) colaPorEstacion.set(r.estacionDesde, (colaPorEstacion.get(r.estacionDesde) ?? 0) + n);
+    const f = sim.anillos[r.id] ?? 0;
+    if (f > 0 || (sim.colas[r.id]?.length ?? 0) > sim.p.aforoCola) dibujarAnilloCola(ctx, PE(red.estaciones[r.estacionDesde]), f);
   }
-  for (const [est, n] of colaPorEstacion) dibujarAnilloCola(ctx, PE(red.estaciones[est]), n / CONFIG.colas.umbralAnillo);
+
+  // Destello rojo donde se acaba de ir un esquiador enfadado.
+  for (const m of sim.marchasEnfadadas) {
+    const t = (sim.tiempo - m.tiempo) / DURACION_DESTELLO;
+    if (t < 0 || t > 1) continue;
+    const c = P(m.nodo >= 0 ? red.nodo(m.nodo) : juego.plaza);
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.strokeStyle = COLOR.colaLlena;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, RADIO_NODO + 4 + t * 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Esquiadores: en cola alrededor del nodo, andando por la plaza y bajando.
-  // Del color de su nivel, más gris cuanto más aburridos.
+  // Siempre del color de su nivel (el contento no cambia el color).
   // Cada cola se agrupa alrededor de la estación de salida de su remonte.
   const porEstacion = new Map<number, number>();
   const puntoEnRacimo = (estacion: number) => {
@@ -244,6 +259,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   if (juego.selector) dibujarSelector(ctx, juego, P(juego.selector.punto), ancho, alto);
   if (juego.infoPista && red.pistas[juego.infoPista.pista]) dibujarInfoPista(ctx, juego, P(juego.infoPista.punto), ancho);
   dibujarTextos(ctx, juego, ancho);
+  dibujarContadores(ctx, juego, ancho, alto);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
   dibujarBotonDeshacer(ctx, juego, alto);
 
@@ -621,10 +637,38 @@ function mezclar(a: string, b: string, t: number): string {
   return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`;
 }
 
-/** Color de un esquiador: el de su nivel, hacia el gris cuanto menos se divierte. */
+/** Color de un esquiador: el de su nivel (la especificación descarta cambiarlo con el contento). */
 function colorEsquiador(perfil: Perfil | undefined): string {
-  if (!perfil) return COLOR.esquiador;
-  return mezclar(COLOR_PISTA[COLORES[perfil.nivel]], COLOR.aburrido, 1 - perfil.diversion);
+  return perfil ? COLOR_PISTA[COLORES[perfil.nivel]] : COLOR.esquiador;
+}
+
+/**
+ * Contadores de esquiadores por nivel, abajo en el centro, en una fila justo
+ * encima de los botones (entre ellos no caben en un móvil estrecho): un punto
+ * de cada color y cuántos hay en la estación.
+ */
+function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
+  const n = juego.sim.porNivel();
+  const paso = 48;
+  const x0 = ancho / 2 - (paso * (n.length - 1)) / 2 - 8;
+  const y = alto - 72;
+  ctx.save();
+  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  n.forEach((v, i) => {
+    const x = x0 + i * paso;
+    ctx.fillStyle = COLOR_PISTA[COLORES[i]];
+    ctx.strokeStyle = COLOR.hueco;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = COLOR.tinta;
+    ctx.fillText(String(v), x + 9, y + 1);
+  });
+  ctx.restore();
 }
 
 /** Anillo de cola alrededor de una estación: arco lleno en la fracción dada. */

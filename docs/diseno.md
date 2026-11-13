@@ -170,7 +170,7 @@ El movimiento es lo que da la sensación Mini Metro: todo fluye de forma continu
 - Remontes: funcionan como un bucle continuo. Las bolitas aparecen abajo con separación fija, suben y desaparecen al entrar en la estación superior. Su tamaño depende del tipo y llevan dentro tantos puntitos como personas transportan. Un remonte inactivo se ve en gris y sin bolitas.
 - Esquiadores: puntos del color de su nivel que bajan por la curva con velocidad según la pendiente. Eligen su ruta por nivel y por cola, no por el camino más corto, para que no todos hagan lo mismo.
 - Colas: un racimo de puntos alrededor de la estación de salida de cada remonte, con un anillo que se llena con la cola (provisional: lleno con 15 esquiadores) y pasa del gris al rojo, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasará a representar varios esquiadores (etapa 6).
-- Diversión (hecha en la etapa 3): cada esquiador tiene una diversión de 0 a 1 y se dibuja del color de su nivel, más gris cuanto menos se divierte. Al bajar por una pista de su nivel sube (0,2; solo 0,05 si es forzada); por una más fácil baja 0,15 por cada nivel de diferencia. Al llegar a una base con menos de 0,25, se va y no genera ingresos. Valores provisionales.
+- Contento y aguante (v29, según la especificación; sustituye a la diversión de v20 a v28): ver «Esquiadores: aguante, contento y pago» en la especificación. Implementación en `src/core/simulacion.ts`: el contento se evalúa al terminar cada bajada (`contentar`), la variedad con las últimas `memoriaVariedad` pistas, el aguante al llegar a cada punto (`decidir`) y el anillo de cada remonte en `llenarAnillos`.
 - Remontes frente a pistas negras: los remontes van en línea doble (línea gruesa negra con otra fina del color del fondo encima). Se prueba en el móvil con muchas líneas a la vez, y si ensucia se añaden marcas de pilonas.
 - Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma). El grosor encaja con las bandas solapadas: un color más fácil es una pista más ancha.
 - Símbolos de nodo: círculo para base, triángulo para cima y una forma intermedia para los intermedios, con la cota en un número pequeño.
@@ -238,7 +238,7 @@ Parámetros nuevos que el panel expone (en `src/config.ts`):
 - Margen de la plaza (0 a 100 m).
 - Distancia mínima entre pistas (0 a 150 m), ángulo mínimo entre salidas (0 a 90°) y giro máximo de la salida orientada (0 a 80°).
 
-Esquiadores (en el mismo panel, desde v22): peso de cada nivel en la mezcla de llegadas (se normaliza al sortear), subida de diversión por una pista de su nivel y por una forzada, bajada por cada nivel de diferencia, umbral de marcha y preferencia por las pistas de su nivel. Se aplican al momento. «Copiar valores» copia los bloques `pista` y `esquiador`.
+Esquiadores (en el mismo panel, desde v29): peso de cada nivel en la mezcla de llegadas (se normaliza al sortear), llegadas por minuto, aguante mínimo y máximo, memoria de variedad, aforo de cola y tiempo del anillo. Se aplican al momento. Debajo, el desglose en vivo de las quejas por causa (aburrimiento, cola, sin pistas de su nivel), los cansados y el contento medio de cada nivel. «Copiar valores» copia los bloques `pista`, `esquiador` y `colas`.
 
 Mapa de pruebas (en el mismo panel), para probar otras pendientes y disposiciones:
 
@@ -308,13 +308,13 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v28: pistas desde bases de media ladera). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v29: etapa 3 según la especificación). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
 - **Etapa 1 de la especificación:** hecha (remontes arrastrando, estaciones que se desdoblan, bolitas, esquiadores, deshacer, velocidad y versión en pantalla).
 - **Etapa 2, en parte:** proyectos de pista a trazos, selector de color con rango factible, sinuosidad por bisección y nodo viable. Con los añadidos pedidos jugando: forma de pista calibrada, bandas solapadas y pendiente «cercana», confluencias, límites contra la maraña (una pista cruzada, unión a 40 m, salidas a 30° con giro propio de cada color, 4 llegadas, plaza como obstáculo).
-- **Etapa 3, con otro modelo:** niveles de esquiador, dificultad efectiva (el tramo común manda), colas con anillo. La diversión continua (0 a 1) que hay hoy no es la de la especificación (ver «Pendiente»).
+- **Etapa 3 (v29, según la especificación):** niveles de esquiador, dificultad efectiva (el tramo común manda), aguante, contento de 3 puntos con la tabla de aburrimiento, variedad, colas con aforo y anillo que expulsa, destello al irse enfadado, contadores por nivel.
 - **Mapas como datos (v23):** `mapas/inicial/alturas.png` y `mapa.json`, cargados por el juego; el editor de `?ajustes` copia el JSON.
 - **Mapa «Dos valles» y roca (v23):** mapa de pruebas por defecto (`?mapa=inicial` para el anterior) y máscara de terreno esquiable: la roca se pinta y ninguna pista la cruza, ni pasa por terreno más alto que su salida, ni se sale del mapa. Umbral de roca provisional 0,9 en `config.ts` y en el panel.
 - **Puntos grises y un intermedio por línea (v24):** todos los puntos empiezan como círculos grises pequeños, sin estación; toman su símbolo al usarse (las estaciones se crean al construir). Un remonte arranca en una base o sigue una vez desde un cuadrado, y ese tramo acaba en triángulo. En `?ajustes`, junto a la cota de cada punto gris se ve su tipo oculto (B, I o C).
@@ -330,15 +330,13 @@ Pasos, cada uno jugable antes del siguiente:
 1. Mapas como datos. Hecho (v23).
 2. Recolorear sin coste y «muy forzada» (s / s_min). Aplazado: el usuario aún no lo tiene claro; no hacerlo hasta que lo pida.
 3. Mapa nuevo con dos valles y roca, generado por script como datos; máscara de terreno esquiable. Hecho (v23).
-4. Abrir un valle: desbloqueo de nodos bajos al activarse una cima. Con esto se cierra la etapa 2. Siguiente. En «Dos valles», los nodos del valle B son de tipo intermedio de momento; al hacerlo habrá que decidir si son un tipo propio.
-5. Etapa 3 rehecha según la especificación: aguante, contento de 3 puntos con la tabla, variedad, aforo de cola 6 con anillo de 20 s que expulsa al último, destello al irse enfadado, puntos sin gris, quitar «No vienen» y el tope de población; contadores por color (puntito y número) y «Enfadados: N»; en `?ajustes`, desglose de quejas por causa.
-6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo, edificios decorativos (el nivel nuevo se aplica 15 s después).
+4. Abrir un valle. Cubierto (v25 a v28) con la regla de las bases nuevas: cualquier punto gris al que pueda llegar una pista se puede usar para arrancar. Sin desbloqueo por cercanía. Con esto se cierra la etapa 2 (salvo recolorear, aplazado).
+5. Etapa 3 rehecha según la especificación. Hecho (v29): aguante, contento de 3 puntos con la tabla, variedad, aforo de cola 6 con anillo de 20 s que expulsa al último, destello al irse enfadado, puntos siempre del color de su nivel, sin «No vienen» ni tope de población; contadores por nivel encima de los botones y «Cansados / Enfadados» arriba; en `?ajustes`, desglose de quejas por causa y contento medio por nivel. La penalización de «muy forzada» sigue aplazada con el paso 2.
+6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo, edificios decorativos (el nivel nuevo se aplica 15 s después). Siguiente.
 
-### Pendiente que contradice la especificación (se arregla en el paso 5)
+### Pendiente que contradice la especificación
 
-- Los puntos se vuelven grises con la diversión (descartado).
-- «No vienen» hace depender la afluencia de lo construido (descartado).
-- Diversión continua en vez de contento de 3 puntos; marcha por aburrimiento sin queja; sin aguante; tope de 90 esquiadores; anillo de 15 sin consecuencia.
+- Nada conocido desde v29, salvo lo aplazado (recolorear y «muy forzada»: el borde rojo del selector sigue marcando la pista que entra en el solape de bandas, sin efecto en el contento).
 
 ### Cómo se trabaja
 

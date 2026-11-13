@@ -104,8 +104,9 @@ export const CONFIG = {
   // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí
   // entra un caudal constante hasta un tope.
   esquiador: {
-    llegadasPorMinuto: 40,
-    poblacionMaxima: 90,
+    // Afluencia constante hasta la etapa 4 (curva en función del tiempo).
+    // PROVISIONAL.
+    llegadasPorMinuto: 30,
     velocidadAndando: 60, // m/s de juego en la plaza
     // Al llegar a una base se puede ir andando a una base contigua si su cola
     // compensa. PROVISIONAL.
@@ -114,27 +115,26 @@ export const CONFIG = {
     // v = base + factor · pendiente
     velocidadBasePista: 70,
     factorPendiente: 380,
-    // Niveles (etapa 3). PROVISIONAL: la mezcla será de los edificios en la
-    // etapa 4; aquí, fija. Proporción de verdes, azules, rojos y negros.
+    // Proporción de verdes, azules, rojos y negros entre los que llegan.
+    // PROVISIONAL: en la etapa 4 la fija la curva del tiempo.
     mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
-    // Diversión (0 a 1; 1 = color pleno, 0 = gris). Sube al bajar por una pista
-    // de su nivel (poco si es forzada: empinada para su color), baja por cada
-    // nivel que la pista queda por debajo del suyo. Por debajo del umbral, al
-    // llegar a una base el esquiador se va. PROVISIONAL.
-    diversionInicial: 1,
-    diversionSuNivel: 0.2,
-    diversionForzada: 0.05,
-    diversionPorNivelInferior: 0.15,
-    umbralMarcha: 0.25,
-    // Preferencia por las pistas de su nivel frente a las más fáciles.
-    pesoSuNivel: 3,
+    // Aguante (s de juego), al azar entre los dos valores: al agotarlo el
+    // esquiador se va cansado, sin queja. Hipótesis de la especificación: de
+    // 3 a 6 minutos. PROVISIONAL.
+    aguanteMinimo: 180,
+    aguanteMaximo: 360,
+    // Contento al entrar (y tope). A 0 se va enfadado. Especificación: 3.
+    contentoInicial: 3,
+    // Pistas que recuerda para la variedad. Especificación: 2. PROVISIONAL.
+    memoriaVariedad: 2,
   },
 
-  // Colas (etapa 3): el anillo de una estación se llena con este número de
-  // esquiadores esperando y pasa del gris al rojo. PROVISIONAL: va ligado al
-  // umbral de saturación de la derrota, una decisión abierta.
+  // Colas: con más gente que el aforo, el anillo del remonte se llena en
+  // `tiempoAnillo` s; lleno, el último se va enfadado y el anillo baja a la
+  // mitad. Hipótesis de la especificación: 6 y 20 s. PROVISIONAL.
   colas: {
-    umbralAnillo: 15,
+    aforo: 6,
+    tiempoAnillo: 20,
   },
 
   // Entrada: interacción táctil.

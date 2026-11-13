@@ -138,8 +138,11 @@ describe('Pistas que nacen en una base de media ladera', () => {
       capacidadBolita: 1,
       ...CONFIG.esquiador,
       mezclaNiveles: [0, 0, 0.5, 0.5],
-      diversionPorNivelInferior: 0,
-      umbralMarcha: 0,
+      aguanteMinimo: 1e6,
+      aguanteMaximo: 1e6,
+      contentoInicial: 1000, // que nadie se vaya aburrido: aquí solo se mira el recorrido
+      aforoCola: 1000,
+      tiempoAnillo: 20,
     };
     const sim = new Simulacion(red, P, { x: 0, y: 3100 }, crearAzar(5));
     let porLaNueva = 0;

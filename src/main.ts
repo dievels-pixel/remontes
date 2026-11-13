@@ -30,7 +30,7 @@ function iniciar(mapa: Mapa): void {
    * de ajustes abierto, la de arriba crece hasta el panel.
    */
   const RESERVA_ARRIBA = 64; // dos líneas de texto de ayuda
-  const RESERVA_ABAJO = 72; // botones de deshacer y velocidad
+  const RESERVA_ABAJO = 88; // botones de deshacer y velocidad, y encima los contadores por nivel
   const reserva = { arriba: RESERVA_ARRIBA, abajo: RESERVA_ABAJO };
 
   function redimensionar(): void {
