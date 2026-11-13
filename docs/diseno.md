@@ -21,7 +21,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 
 - Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados.
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
-- Estaciones y desdoble: cada emplazamiento (base, intermedio o cima) es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones. Al principio cada emplazamiento tiene una: círculo en las bases (de ella sale un remonte), triángulo en las cimas (a ella llega uno) y cuadrado en los intermedios (punto de paso: llega uno y sale otro). Si se construye otro remonte desde o hacia un emplazamiento con su estación ocupada, se desdobla: aparece una estación nueva pegada a las demás (a pocos píxeles), por el lado del que viene la nueva línea. Los desdobles son siempre de salida (círculo) o de llegada (triángulo), nunca de paso. Como mucho 3 estaciones por emplazamiento (parámetro).
+- Estaciones y desdoble: cada emplazamiento (base, intermedio o cima) es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones. Desde v24 ninguno tiene estación al principio (círculo gris pequeño): la primera se crea en el centro del punto al usarlo: círculo si arranca un remonte, triángulo si llega a una cima o si el remonte sigue de un cuadrado, y cuadrado si llega a un intermedio desde una base (punto de paso: llega uno y sale otro). Si se construye otro remonte desde o hacia un emplazamiento con su estación ocupada, se desdobla: aparece una estación nueva pegada a las demás (a pocos píxeles), por el lado del que viene la nueva línea. Los desdobles son siempre de salida (círculo) o de llegada (triángulo), nunca de paso. Como mucho 3 estaciones por emplazamiento (parámetro).
 - Los remontes no pueden cruzarse entre sí (en planta). Sí pueden compartir emplazamiento. Remontes y pistas sí pueden cruzarse (cruce solo visual). Los cruces entre pistas están limitados (ver «Proyectos de pista»).
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de ese mismo cuadrado forman una sola línea. Basta una pista desde la llegada de arriba para que funcionen los dos tramos. No se aplica a los desdobles (un triángulo o un círculo nuevo del intermedio): esos tramos empiezan o acaban allí.
@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-12, al pasar a la especificación nueva (`docs/diseno-juego-remontes.md`). Las etapas siguen su «Plan de desarrollo».
+Actualizado el 2026-11-13 (v24: puntos grises y un intermedio por línea). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -317,6 +317,7 @@ Actualizado el 2026-11-12, al pasar a la especificación nueva (`docs/diseno-jue
 - **Etapa 3, con otro modelo:** niveles de esquiador, dificultad efectiva (el tramo común manda), colas con anillo. La diversión continua (0 a 1) que hay hoy no es la de la especificación (ver «Pendiente»).
 - **Mapas como datos (v23):** `mapas/inicial/alturas.png` y `mapa.json`, cargados por el juego; el editor de `?ajustes` copia el JSON.
 - **Mapa «Dos valles» y roca (v23):** mapa de pruebas por defecto (`?mapa=inicial` para el anterior) y máscara de terreno esquiable: la roca se pinta y ninguna pista la cruza, ni pasa por terreno más alto que su salida, ni se sale del mapa. Umbral de roca provisional 0,9 en `config.ts` y en el panel.
+- **Puntos grises y un intermedio por línea (v24):** todos los puntos empiezan como círculos grises pequeños, sin estación; toman su símbolo al usarse (las estaciones se crean al construir). Un remonte arranca en una base o sigue una vez desde un cuadrado, y ese tramo acaba en triángulo. En `?ajustes`, junto a la cota de cada punto gris se ve su tipo oculto (B, I o C).
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

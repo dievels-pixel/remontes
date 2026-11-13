@@ -10,9 +10,9 @@ describe('Red: activación y reglas de construcción', () => {
     expect([0, 1, 2, 3].map((i) => red.activo(i))).toEqual([true, true, false, false]);
   });
 
-  it('los remontes solo salen de nodos activos y siempre suben', () => {
+  it('los remontes solo arrancan en puntos de inicio y siempre suben', () => {
     const red = redPequena();
-    expect(red.puedeConstruirRemonte(2, 3)).toBe('origen-inactivo');
+    expect(red.puedeConstruirRemonte(2, 3)).toBe('origen-no-arranca');
     expect(red.puedeConstruirRemonte(0, 1)).toBe('destino-base'); // entre bases no hay remontes
     expect(red.puedeConstruirRemonte(0, 0)).toBe('mismo-nodo');
     expect(red.puedeConstruirRemonte(0, 2)).toBe('ok');
@@ -23,14 +23,47 @@ describe('Red: activación y reglas de construcción', () => {
     red.construirRemonte(0, 2);
     expect(red.activo(2)).toBe(true);
     expect(red.puedeConstruirRemonte(0, 2)).toBe('ya-existe');
-    expect(red.puedeConstruirRemonte(2, 3)).toBe('ok');
+    expect(red.puedeConstruirRemonte(2, 3)).toBe('ok'); // sigue desde el cuadrado
     red.construirRemonte(2, 3);
-    expect(red.puedeConstruirRemonte(3, 2)).toBe('destino-no-mas-alto');
+    expect(red.puedeConstruirRemonte(3, 2)).toBe('origen-no-arranca'); // de un triángulo no arranca nada
   });
 
-  it('cada emplazamiento empieza con una estación según su tipo', () => {
+  it('al empezar ningún punto tiene estación: los círculos grises toman su símbolo al usarse', () => {
     const red = redPequena();
-    expect(red.estaciones.map((e) => e.tipo)).toEqual(['salida', 'salida', 'paso', 'llegada']);
+    expect(red.estaciones).toEqual([]);
+    red.construirRemonte(0, 2); // la base pasa a círculo y el intermedio a cuadrado
+    expect(red.estacionesDe(0).map((e) => e.tipo)).toEqual(['salida']);
+    expect(red.estacionesDe(2).map((e) => e.tipo)).toEqual(['paso']);
+    red.construirRemonte(1, 3); // a una cima se llega en triángulo
+    expect(red.estacionesDe(3).map((e) => e.tipo)).toEqual(['llegada']);
+    expect(red.estacionesDe(0)[0]).toMatchObject({ ox: 0, oy: 0 });
+  });
+
+  it('una línea tiene como mucho un punto intermedio: el tramo que sigue de un cuadrado acaba en triángulo', () => {
+    // Base 0, intermedios 1 y 2 escalonados y cima 3.
+    const red = new Red(
+      [
+        { id: 0, tipo: 'base', x: 0, y: 3000, cota: 1500 },
+        { id: 1, tipo: 'intermedio', x: 0, y: 2000, cota: 1800 },
+        { id: 2, tipo: 'intermedio', x: 0, y: 1000, cota: 2100 },
+        { id: 3, tipo: 'cima', x: 0, y: 0, cota: 2400 },
+      ],
+      REGLAS,
+    );
+    red.construirRemonte(0, 1);
+    red.construirRemonte(1, 2); // sigue desde el cuadrado
+    expect(red.estacionesDe(2).map((e) => e.tipo)).toEqual(['llegada']); // triángulo, no cuadrado
+    expect(red.puedeConstruirRemonte(2, 3)).toBe('origen-no-arranca'); // no hay tercer tramo
+    expect(red.puedeConstruirRemonte(1, 3)).toBe('origen-no-arranca'); // el cuadrado ya siguió una vez
+  });
+
+  it('de un intermedio no arranca un remonte salvo como continuación de su cuadrado', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 2); // cuadrado en 2
+    expect(red.puedeArrancar(2)).toBe(true);
+    expect(red.puedeArrancar(3)).toBe(false); // triángulo
+    expect(red.puedeArrancar(0)).toBe(true); // las bases siempre (desdoblándose)
   });
 
   it('una base se desdobla en nuevas salidas, una por remonte', () => {
@@ -86,7 +119,7 @@ describe('Red: activación y reglas de construcción', () => {
     red.construirRemonte(0, 3);
     expect(red.planearEstacion(1, 'llegada', 3)).not.toBeNull();
     red.puedeConstruirRemonte(1, 3);
-    expect(red.estaciones.length).toBe(4);
+    expect(red.estaciones.length).toBe(2);
   });
 
   it('el remonte nace inactivo y entra en servicio con cualquier pista desde su cima', () => {
@@ -179,10 +212,10 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.puedeDeshacer).toBe(false);
     const r = red.construirRemonte(0, 3);
     abrir(red, 3, 0);
-    red.construirRemonte(1, 3); // desdobla la cima
-    expect(red.estaciones.length).toBe(5);
-    expect(red.deshacer()).toMatchObject({ tipo: 'remonte' });
+    red.construirRemonte(1, 3); // estrena la base 1 y desdobla la cima
     expect(red.estaciones.length).toBe(4);
+    expect(red.deshacer()).toMatchObject({ tipo: 'remonte' });
+    expect(red.estaciones.length).toBe(2);
     expect(red.remontes.length).toBe(1);
     expect(red.deshacer()).toMatchObject({ tipo: 'pista' });
     expect(red.enServicio(r)).toBe(false);

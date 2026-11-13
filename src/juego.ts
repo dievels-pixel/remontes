@@ -46,6 +46,7 @@ export interface ArrastreNodo {
 const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben. Las pistas se abren tocando los trazos discontinuos.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
+  'origen-no-arranca': 'Los remontes arrancan en un punto de inicio, o siguen desde un cuadrado una sola vez.',
   'ya-existe': 'Ya está construido.',
   'cruza-remonte': 'Los remontes no pueden cruzarse.',
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
@@ -348,23 +349,33 @@ export class Juego {
     return { x: n.x + e.ox * sepMundo, y: n.y + e.oy * sepMundo };
   }
 
-  /** Nodo con alguna estación más cerca del punto que el radio dado. */
+  /**
+   * Nodo más cerca del punto que el radio dado, contando cada una de sus
+   * estaciones o, si aún no tiene (círculo gris), su centro.
+   */
   nodoEn(p: Punto, radioMundo: number, sepMundo = 0): number | null {
     let mejor: number | null = null;
     let dMin = radioMundo;
-    for (const e of this.red.estaciones) {
-      const d = distancia(p, this.posicionEstacion(e, sepMundo));
+    const probar = (nodo: number, q: Punto) => {
+      const d = distancia(p, q);
       if (d <= dMin) {
         dMin = d;
-        mejor = e.nodo;
+        mejor = nodo;
       }
-    }
+    };
+    for (const e of this.red.estaciones) probar(e.nodo, this.posicionEstacion(e, sepMundo));
+    for (const n of this.red.nodos) if (this.red.estacionesDe(n.id).length === 0) probar(n.id, n);
     return mejor;
   }
 
+  /**
+   * Empieza un arrastre en un punto donde puede arrancar un remonte, o en uno
+   * activo (al soltar sin moverse es un toque: muestra sus proyectos de pista;
+   * si se arrastra, el destino se marca como no válido y se explica por qué).
+   */
   empezarArrastre(p: Punto, radioMundo: number, sepMundo = 0): boolean {
     const n = this.nodoEn(p, radioMundo, sepMundo);
-    if (n === null || !this.red.activo(n)) return false;
+    if (n === null || !(this.red.activo(n) || this.red.puedeArrancar(n))) return false;
     this.arrastre = { origen: n, puntero: p, movido: false, objetivo: null };
     return true;
   }
@@ -427,7 +438,7 @@ export class Juego {
     if (h === 'mover') return 'Editor: arrastra un punto para moverlo. Su cota sale del terreno.';
     if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
     if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
-    if (this.red.remontes.length === 0) return 'Arrastra desde un punto de inicio hasta un punto más alto para construir un remonte.';
+    if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte.';
     if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';

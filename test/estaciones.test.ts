@@ -10,12 +10,13 @@ function red5(): Red {
 }
 
 describe('Estación de salida y llegada de cada pista', () => {
-  it('en un punto sin desdoblar, la única estación', () => {
+  it('en un punto sin desdoblar, la única estación; en uno sin estaciones, su centro', () => {
     const red = red5();
-    red.construirRemonte(0, 3);
+    const r = red.construirRemonte(0, 3);
     const p = abrir(red, 3, 4);
-    expect(red.estacionDePista(p, 'salida').id).toBe(3);
-    expect(red.estacionDePista(p, 'llegada').id).toBe(4);
+    expect(red.estacionDePista(p, 'salida').id).toBe(r.estacionHasta);
+    // La base 4 no tiene remonte: es un círculo gris y la pista llega a su centro.
+    expect(red.estacionDePista(p, 'llegada')).toMatchObject({ nodo: 4, ox: 0, oy: 0 });
   });
 
   it('las laterales salen de la estación donde llega su remonte y llegan a la de donde sale', () => {
@@ -52,9 +53,9 @@ describe('Estación de salida y llegada de cada pista', () => {
 
   it('si el punto se desdobla después de abrir la pista, la pista cambia de estación', () => {
     const red = red5();
-    red.construirRemonte(0, 3);
+    const r = red.construirRemonte(0, 3);
     const p = abrir(red, 3, 4);
-    expect(red.estacionDePista(p, 'salida').id).toBe(3);
+    expect(red.estacionDePista(p, 'salida').id).toBe(r.estacionHasta);
     red.construirRemonte(1, 3);
     expect(red.estacionDePista(p, 'salida').ox).toBeGreaterThan(0);
   });

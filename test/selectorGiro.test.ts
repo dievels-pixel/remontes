@@ -8,7 +8,9 @@ import { mapaInicial } from './apoyo';
 /**
  * Estación del mapa del juego parecida a la de la captura del fallo (v21):
  * cima de 2443 m (5) con una roja lateral a 1618 m (1) y otra roja a 1964 m
- * (4). Parámetros de pista fijados aquí (los de v21, con 45° entre salidas),
+ * (4). Desde v24 ya no se puede construir el remonte 4→5 de la captura (de
+ * un cuadrado solo sigue un tramo, y el 4→6 ya lo es); la roja 5→4 se abre
+ * igual porque 4 es viable. Parámetros de pista fijados aquí (los de v21, con 45° entre salidas),
  * para no depender de la calibración.
  */
 function estacion(): Red {
@@ -45,7 +47,6 @@ function estacion(): Red {
   red.construirRemonte(2, 4);
   red.construirRemonte(4, 6);
   pista(6, 2, 'negra');
-  red.construirRemonte(4, 5);
   pista(5, 4, 'roja');
   return red;
 }

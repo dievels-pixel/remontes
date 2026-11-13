@@ -33,7 +33,7 @@ Juego minimalista de gestión en tiempo real: el jugador construye remontes entr
 
 El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 
-- Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados, salvo los desbloqueados (nodos bajos cercanos a una cima activa), que se ven resaltados (ver "Abrir un valle").
+- Nodos: puntos fijos, todos presentes en el mapa desde el inicio, cada uno con su cota. Tres tipos: base (cota baja; es un sumidero, los esquiadores terminan ahí y vuelven a la cola; las bases son los puntos de inicio agrupados alrededor de la plaza del pie de pistas), intermedio y cima. Solo están activos los nodos alcanzados por la red de remontes; los demás se ven atenuados, salvo los desbloqueados (nodos bajos cercanos a una cima activa), que se ven resaltados (ver "Abrir un valle"). El tipo es un dato del mapa que no se ve al empezar: todos los puntos se dibujan como círculos grises pequeños y toman su símbolo al usarse (ver "Estaciones y desdoble").
 - Remontes: los traza el jugador entre dos nodos, siempre de abajo hacia arriba. Se dibujan como línea doble para no confundirlos con las pistas negras. Los esquiadores suben en bolitas que desaparecen al llegar arriba, como si la estación las tragara.
 - Estados del remonte: activo o inactivo (en gris, sin subir a nadie). Un remonte recién construido está inactivo hasta que el jugador active al menos una pista desde su cima. Este mismo estado servirá más adelante para averías y mal tiempo.
 - Tipos de remonte: telesquí (bolita pequeña, 1 persona, muy frecuente), telesilla (tamaño medio, varias personas) y telecabina (la más grande, más capacidad y más velocidad).
@@ -42,6 +42,7 @@ El juego se compone de cuatro piezas: nodos, remontes, pistas y esquiadores.
 
 Detalles ya implementados y decididos jugando (etapas 1 a 3 del prototipo):
 
+- Puntos sin usar (decidido el 2026-11-13): al empezar, todos los puntos son círculos grises pequeños, sin estación. Un punto toma su símbolo cuando un remonte arranca en él (círculo de salida), llega a él (triángulo si es un punto alto, es decir, una cima; cuadrado si se puede seguir subiendo, es decir, un intermedio) o pasa por él. Un remonte solo arranca en un punto de inicio (base) o, una sola vez, como continuación desde un cuadrado; de un triángulo no arranca ninguno. Una línea tiene como mucho un punto intermedio, así que el tramo que sigue de un cuadrado acaba siempre en triángulo, aunque llegue a un intermedio.
 - Estaciones y desdoble: cada emplazamiento es un solo nodo para los esquiadores, pero los remontes empiezan y acaban en estaciones (círculo de salida, triángulo de llegada, cuadrado de paso en los intermedios). Si llega o sale otro remonte, el emplazamiento se desdobla en otra estación pegada, por el lado del que viene la línea nueva, hasta 3 por emplazamiento. Las pistas salen del emplazamiento (cualquiera vale para quien llega por cualquier triángulo), aunque se dibujan saliendo por la estación del lado hacia el que van.
 - Línea que pasa por un intermedio: un remonte que llega al cuadrado de un intermedio y otro que sale de él forman una sola línea; basta una pista desde la llegada de arriba para que funcionen los dos tramos.
 - Los remontes no se cruzan entre sí en planta. Remontes y pistas sí pueden cruzarse (cruce solo visual, como un puente).
@@ -114,7 +115,7 @@ El juego empieza en el pie de pistas: una plaza con varios puntos de inicio (bas
 Todos los nodos existen desde el principio, pero solo se activan al ser alcanzados por un remonte. Al empezar, solo están activas las bases (los puntos de inicio del pie de pistas).
 
 - Recursos: monedas (ingresos por bajada, se gastan en remontes) y quejas (medidor de derrota). No hay categoría de estación, estrellas ni reputación que suba.
-- Construir un remonte: se pulsa un nodo activo y se arrastra hasta un nodo más alto (o, desde un nodo desbloqueado, hasta una cima activa; ver "Abrir un valle"). La línea sigue al dedo y el precio se actualiza en directo. Si no llega el dinero, la línea se pone roja y no se puede soltar. Al soltar sobre un nodo válido se construye y el nodo de destino se activa. Los nodos que no son válidos (más bajos que el origen) se atenúan durante el arrastre.
+- Construir un remonte: se pulsa un punto de inicio (o un cuadrado que aún no sigue) y se arrastra hasta un nodo más alto (o, desde un nodo desbloqueado, hasta una cima activa; ver "Abrir un valle"). La línea sigue al dedo y el precio se actualiza en directo. Si no llega el dinero, la línea se pone roja y no se puede soltar. Al soltar sobre un nodo válido se construye y el nodo de destino se activa. Los nodos que no son válidos (más bajos que el origen) se atenúan durante el arrastre.
 - El remonte recién construido aparece en gris y no funciona hasta que el jugador activa una pista desde su cima. El dinero ya está pagado desde el momento de construirlo.
 - Precio del remonte = longitud × factor del tipo (hipótesis: telesquí ×1, telesilla ×2,5, telecabina ×5). Siempre se construye un telesquí y se mejora tocándolo, pagando solo la diferencia. Capacidades de ejemplo: 1, 4 y unas 8 personas, con la telecabina más rápida.
 - Mejorar un remonte solo compensa cuando se forma cola: la capacidad se convierte en el cuello de botella que el jugador va resolviendo.
@@ -227,7 +228,7 @@ Ningún esquiador puede quedar atrapado en un nodo sin salida. La garantía sale
 - Un nodo es viable como destino de una pista si es una base o tiene alguna salida operativa: una pista activa que salga de él o un remonte en servicio que salga de él.
 - Un nodo está desbloqueado si es uno de los nodos bajos cercanos a una cima activa, con una pista factible desde ella, y todavía no está activo. Desde él solo se puede construir un remonte hacia una cima activa. No recibe pistas ni esquiadores hasta activarse.
 
-1. Los remontes salen de nodos activos y, además, de nodos desbloqueados con destino en una cima activa.
+1. Los remontes salen de los puntos de inicio, como continuación de un cuadrado (una vez) y, además, de nodos desbloqueados con destino en una cima activa.
 2. Un remonte solo funciona cuando hay al menos una pista activa desde su cima. Así nadie llega a una cima por remonte sin tener bajada.
 3. Solo se proponen pistas que terminen en un nodo viable. Un nodo activo cuya cima aún no tiene salida operativa no recibe pistas hasta que la tenga.
 
@@ -265,7 +266,7 @@ El movimiento es lo que da la sensación Mini Metro: todo fluye de forma continu
 - Colas: un racimo de puntos alrededor del nodo, con un anillo que se llena y se enrojece, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasa a representar varios esquiadores.
 - Remontes frente a pistas negras: los remontes van en línea doble (línea gruesa negra con otra fina del color del fondo encima). Se prueba en el móvil con muchas líneas a la vez, y si ensucia se añaden marcas de pilonas.
 - Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma).
-- Símbolos de nodo: círculo para base, triángulo para cima y una forma intermedia para los intermedios, con la cota en un número pequeño.
+- Símbolos de nodo: círculo gris pequeño mientras no se usa; círculo de salida, triángulo de llegada o cuadrado de paso cuando un remonte arranca, llega o pasa por él. Siempre con la cota en un número pequeño.
 
 ### Legibilidad de puntos y pistas
 
@@ -372,7 +373,7 @@ Notas técnicas:
 - Calibrado jugando (se mantiene): bandas de color solapadas (verde 0,05–0,20, azul 0,13–0,30, roja 0,22–0,42, negra 0,35–0,60), pendiente más cercana a la recta dentro de la banda, s_max 1,55, forma de pista (abombamientos 0,1 y 0,06, onda 720 m, irregularidad 0,95, temblor 20 m).
 - Límites del trazado: una pista cruzada sin unirse como mucho, unión a menos de 40 m, salidas separadas 30° y cuesta abajo con giro de hasta 60° propio de cada color, 4 llegadas por punto y la plaza como obstáculo.
 - Confluencias: una pista que toca a otra se une a ella con acuerdo tangente; en el tramo común manda la dificultad mayor.
-- Estaciones que se desdoblan (hasta 3 por emplazamiento), línea que pasa por un intermedio, remontes que no se cruzan, cambio de base andando, deshacer y velocidad 1×/2×/4×.
+- Puntos que empiezan como círculos grises y toman su símbolo al usarse; remontes que arrancan solo en puntos de inicio o siguen una vez desde un cuadrado (como mucho un intermedio por línea). Estaciones que se desdoblan (hasta 3 por emplazamiento), línea que pasa por un intermedio, remontes que no se cruzan, cambio de base andando, deshacer y velocidad 1×/2×/4×.
 - Mapas en `mapas/<nombre>/` (PNG de alturas de 8 bits y JSON); el inicial lo genera un script, no el juego.
 
 ## Descartado

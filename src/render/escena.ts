@@ -24,6 +24,7 @@ const COLOR = {
   aburrido: '#a3a8ad', // gris al que tiende un esquiador aburrido
   colaVacia: '#8b9298',
   colaLlena: '#d0453a',
+  vacio: '#8b9298', // punto aún sin usar
 };
 
 export const COLOR_PISTA: Record<ColorPista, string> = {
@@ -34,6 +35,8 @@ export const COLOR_PISTA: Record<ColorPista, string> = {
 };
 
 const RADIO_NODO = 9;
+/** Radio de un punto aún sin usar: más pequeño que una estación. */
+const RADIO_VACIO = 5.5;
 const RADIO_PUNTO = 2.2;
 
 export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number): void {
@@ -139,15 +142,22 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     if (arr?.movido && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id) === 'ok' ? 'valido' : 'invalido';
     const activo = red.activo(n.id);
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
+    // Sin estaciones: círculo gris pequeño. Toma su símbolo cuando un remonte
+    // arranca, llega o pasa por él.
+    const vacio = posiciones.length === 0;
+    if (vacio) dibujarPuntoVacio(ctx, P(n), marca);
     for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
-    const derecha = posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
+    const derecha = vacio ? { c: P(n) } : posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
+    const radio = vacio ? RADIO_VACIO : RADIO_NODO;
     ctx.save();
-    ctx.globalAlpha = opacidad(activo, marca);
-    ctx.fillStyle = COLOR.tinta;
+    ctx.globalAlpha = vacio ? 1 : opacidad(activo, marca);
+    ctx.fillStyle = vacio ? COLOR.vacio : COLOR.tinta;
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(n.cota), derecha.c.x + RADIO_NODO + 4, derecha.c.y - RADIO_NODO - 2);
+    // En el modo de ajustes, el tipo oculto del punto (para el editor de mapas).
+    const tipo = juego.modoAjustes && vacio ? ` ${n.tipo === 'base' ? 'B' : n.tipo === 'cima' ? 'C' : 'I'}` : '';
+    ctx.fillText(`${n.cota}${tipo}`, derecha.c.x + radio + 4, derecha.c.y - radio - 2);
     ctx.restore();
   }
 
@@ -412,6 +422,27 @@ function opacidad(activo: boolean, marca: 'valido' | 'invalido' | null): number 
 }
 
 /** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
+/** Punto aún sin usar: círculo gris pequeño. */
+function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'valido' | 'invalido' | null): void {
+  ctx.save();
+  if (marca === 'valido') {
+    ctx.strokeStyle = COLOR.valido;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, RADIO_VACIO + 7, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = marca === 'invalido' ? 0.4 : 1;
+  ctx.fillStyle = COLOR.hueco;
+  ctx.strokeStyle = COLOR.vacio;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, RADIO_VACIO, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null): void {
   ctx.save();
   ctx.globalAlpha = opacidad(activo, marca);

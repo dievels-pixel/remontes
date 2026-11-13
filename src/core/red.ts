@@ -130,6 +130,7 @@ export interface ReglasRed {
 
 export type Motivo =
   | 'ok'
+  | 'origen-no-arranca'
   | 'mismo-nodo'
   | 'origen-inactivo'
   | 'destino-no-mas-alto'
@@ -167,9 +168,8 @@ export class Red {
       if (n.id !== i) throw new Error('Los id de nodo deben coincidir con su índice');
     });
     this.nodos = nodos;
-    // Estación principal de cada emplazamiento, según su tipo.
-    const principal: Record<TipoNodo, TipoEstacion> = { base: 'salida', cima: 'llegada', intermedio: 'paso' };
-    for (const n of nodos) this.estaciones.push({ id: this.estaciones.length, nodo: n.id, tipo: principal[n.tipo], ox: 0, oy: 0 });
+    // Sin estaciones al empezar: cada punto es un círculo gris hasta que un
+    // remonte arranca, llega o pasa por él (ver planearEstacion).
   }
 
   estacionesDe(nodo: number): Estacion[] {
@@ -183,6 +183,14 @@ export class Red {
    */
   planearEstacion(nodo: number, sentido: 'salida' | 'llegada', otro: number): EstacionPlaneada | null {
     const propias = this.estacionesDe(nodo);
+    // Primera estación del punto, en su centro. Un remonte que llega a un
+    // intermedio lo convierte en punto de paso (cuadrado), desde el que puede
+    // seguir otro tramo, salvo que ya venga de un punto de paso: una línea
+    // tiene como mucho un punto intermedio, así que ese llega a un triángulo.
+    if (propias.length === 0) {
+      const paso = sentido === 'llegada' && this.nodos[nodo].tipo === 'intermedio' && this.nodos[otro].tipo === 'base';
+      return { nueva: { nodo, tipo: paso ? 'paso' : sentido, ox: 0, oy: 0 } };
+    }
     const libre = propias.find((e) => {
       if (e.tipo !== 'paso' && e.tipo !== sentido) return false;
       return sentido === 'salida'
@@ -234,6 +242,8 @@ export class Red {
     const nodo = extremo === 'salida' ? p.desde : p.hasta;
     const otro = extremo === 'salida' ? p.hasta : p.desde;
     const propias = this.estacionesDe(nodo);
+    // Punto sin estaciones (una base a la que llegan pistas sin remonte): su centro.
+    if (propias.length === 0) return { id: -1, nodo, tipo: 'salida', ox: 0, oy: 0 };
     if (propias.length === 1) return propias[0];
     const remonte = this.remontes.find((r) => r.desde === p.hasta && r.hasta === p.desde);
     if (p.lateral && remonte) return this.estaciones[extremo === 'salida' ? remonte.estacionHasta : remonte.estacionDesde];
@@ -252,6 +262,16 @@ export class Red {
       }
     }
     return mejor;
+  }
+
+  /**
+   * ¿Puede arrancar un remonte en este punto? En un punto de inicio (base)
+   * siempre, desdoblándose si hace falta. En cualquier otro, solo como
+   * continuación desde un punto de paso (cuadrado) que aún no la tiene.
+   */
+  puedeArrancar(id: number): boolean {
+    if (this.nodos[id].tipo === 'base') return true;
+    return this.estacionesDe(id).some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
   }
 
   /** Activo: es una base o lo alcanza algún remonte. */
@@ -441,7 +461,7 @@ export class Red {
 
   puedeConstruirRemonte(desde: number, hasta: number): Motivo {
     if (desde === hasta) return 'mismo-nodo';
-    if (!this.activo(desde)) return 'origen-inactivo';
+    if (!this.puedeArrancar(desde)) return 'origen-no-arranca';
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
     if (this.nodos[hasta].cota < this.nodos[desde].cota + this.reglas.desnivelMinimoRemonte) return 'destino-no-mas-alto';
     if (this.remontes.some((r) => r.desde === desde && r.hasta === hasta)) return 'ya-existe';
