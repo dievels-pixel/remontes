@@ -140,12 +140,14 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   for (const n of red.nodos) {
     let marca: 'valido' | 'invalido' | null = null;
     if (arr?.movido && n.id !== arr.origen) marca = juego.evaluar(arr.origen, n.id) === 'ok' ? 'valido' : 'invalido';
-    const activo = red.activo(n.id);
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
+    // Un punto con estaciones está en uso (también una base nueva en media
+    // ladera, a la que aún no llega ningún remonte): se dibuja pleno.
+    const activo = red.activo(n.id) || posiciones.length > 0;
     // Sin estaciones: círculo gris pequeño. Toma su símbolo cuando un remonte
     // arranca, llega o pasa por él.
     const vacio = posiciones.length === 0;
-    if (vacio) dibujarPuntoVacio(ctx, P(n), marca);
+    if (vacio) dibujarPuntoVacio(ctx, P(n), marca, red.puedeArrancar(n.id));
     for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
     const derecha = vacio ? { c: P(n) } : posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
     const radio = vacio ? RADIO_VACIO : RADIO_NODO;
@@ -422,8 +424,12 @@ function opacidad(activo: boolean, marca: 'valido' | 'invalido' | null): number 
 }
 
 /** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
-/** Punto aún sin usar: círculo gris pequeño. */
-function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'valido' | 'invalido' | null): void {
+/**
+ * Punto aún sin usar: círculo gris pequeño. Si ya se puede arrancar un
+ * remonte en él (los de la plaza, o uno al que llegaría una pista), el borde
+ * es oscuro.
+ */
+function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'valido' | 'invalido' | null, arrancable: boolean): void {
   ctx.save();
   if (marca === 'valido') {
     ctx.strokeStyle = COLOR.valido;
@@ -434,7 +440,7 @@ function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'vali
   }
   ctx.globalAlpha = marca === 'invalido' ? 0.4 : 1;
   ctx.fillStyle = COLOR.hueco;
-  ctx.strokeStyle = COLOR.vacio;
+  ctx.strokeStyle = arrancable ? COLOR.tinta : COLOR.vacio;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(c.x, c.y, RADIO_VACIO, 0, Math.PI * 2);

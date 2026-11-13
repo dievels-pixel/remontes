@@ -188,7 +188,8 @@ export class Red {
     // seguir otro tramo, salvo que ya venga de un punto de paso: una línea
     // tiene como mucho un punto intermedio, así que ese llega a un triángulo.
     if (propias.length === 0) {
-      const paso = sentido === 'llegada' && this.nodos[nodo].tipo === 'intermedio' && this.nodos[otro].tipo === 'base';
+      const continuacion = this.estacionesDe(otro).some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
+      const paso = sentido === 'llegada' && this.nodos[nodo].tipo === 'intermedio' && !continuacion;
       return { nueva: { nodo, tipo: paso ? 'paso' : sentido, ox: 0, oy: 0 } };
     }
     const libre = propias.find((e) => {
@@ -265,13 +266,50 @@ export class Red {
   }
 
   /**
-   * ¿Puede arrancar un remonte en este punto? En un punto de inicio (base)
-   * siempre, desdoblándose si hace falta. En cualquier otro, solo como
-   * continuación desde un punto de paso (cuadrado) que aún no la tiene.
+   * ¿Puede arrancar un remonte en este punto?
+   * - En un punto de inicio de la plaza (base), siempre, desdoblándose.
+   * - En un punto que ya es base (tiene un círculo de salida), también.
+   * - En un punto gris al que podría llegar una pista desde un punto más alto
+   *   al que ya llega un remonte: arrancar ahí lo convierte en base. Así se
+   *   abren pistas desde media ladera y se coloniza otro valle.
+   * - En un cuadrado, una sola vez, como continuación de su línea.
+   * De un triángulo no arranca ninguno.
    */
   puedeArrancar(id: number): boolean {
     if (this.nodos[id].tipo === 'base') return true;
-    return this.estacionesDe(id).some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
+    const propias = this.estacionesDe(id);
+    if (propias.some((e) => e.tipo === 'salida')) return true;
+    if (propias.length === 0) return this.alcanzablePorPista(id);
+    return propias.some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
+  }
+
+  private cacheAlcanzables: { version: number; clave: string; valores: Map<number, boolean> } | null = null;
+
+  /**
+   * ¿Podría llegar una pista a este punto desde otro más alto al que ya llega
+   * un remonte? Se mira si cabe alguna con trazado limpio, sin exigir que el
+   * punto sea viable (aún no tiene salida: la tendrá con su remonte). Se
+   * guarda hasta que cambia la red o los parámetros de pista.
+   */
+  alcanzablePorPista(id: number): boolean {
+    const clave = JSON.stringify(this.reglas.pista);
+    if (this.cacheAlcanzables?.version !== this.version || this.cacheAlcanzables.clave !== clave) {
+      this.cacheAlcanzables = { version: this.version, clave, valores: new Map() };
+    }
+    const cache = this.cacheAlcanzables.valores;
+    let r = cache.get(id);
+    if (r === undefined) {
+      const llegadas = new Set(this.remontes.map((x) => x.hasta));
+      r = [...llegadas].some((a) => this.nodos[a].cota > this.nodos[id].cota && this.pistaPosible(a, id));
+      cache.set(id, r);
+    }
+    return r;
+  }
+
+  /** ¿Cabe alguna pista limpia de `desde` a `hasta`, aunque `hasta` aún no sea viable? */
+  pistaPosible(desde: number, hasta: number): boolean {
+    if (this.motivoPista(desde, hasta, undefined, undefined, undefined, false) !== 'ok') return false;
+    return this.ladosLibres(desde, hasta).some((l) => this.giroLimpio(desde, hasta, l) !== null);
   }
 
   /** Activo: es una base o lo alcanza algún remonte. */
@@ -475,6 +513,11 @@ export class Red {
 
   /** Sin color, comprueba si hay alguno posible; con color, ese en concreto. */
   puedeAbrirPista(desde: number, hasta: number, color?: ColorPista, lado?: 1 | -1, giro?: number): Motivo {
+    return this.motivoPista(desde, hasta, color, lado, giro, true);
+  }
+
+  /** Como puedeAbrirPista; con `exigirViable` false no mira si el destino tiene salida. */
+  private motivoPista(desde: number, hasta: number, color: ColorPista | undefined, lado: 1 | -1 | undefined, giro: number | undefined, exigirViable: boolean): Motivo {
     if (desde === hasta) return 'mismo-nodo';
     if (!this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
@@ -490,7 +533,7 @@ export class Red {
     const colores = this.colores(desde, hasta, lado ?? libres[0], undefined, giro);
     if (!colores.some((c) => c.factible)) return 'sin-color';
     if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
-    if (!this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
+    if (exigirViable && !this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
     return 'ok';
   }
 
