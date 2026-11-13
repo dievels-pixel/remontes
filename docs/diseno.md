@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v33: mapa limpio en reposo y pistas en espera para colonizar). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v34: sin paradas intermedias y pistas provisionales encadenadas). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -325,6 +325,7 @@ Actualizado el 2026-11-13 (v33: mapa limpio en reposo y pistas en espera para co
 - **Pistas eligiendo inicio y destino (v31):** arrastrar hacia abajo desde un punto activo abre el selector de color de esa pista (`evaluarPista` en `src/core/proyectos.ts`: lado con más colores limpios y, si no cabe, el motivo más repetido de `Red.motivoTrazado`). Ya no hay proyectos propuestos a trazos ni foco.
 - **Mapa más limpio y remontes que siempre pueden arrancar (v32):** qué se ve de cada punto en `src/core/visibilidad.ts` (con pruebas); regla `llegada-sin-bajada` en `Red.puedeConstruirRemonte` con `Red.llegadaConBajada` (caché por versión; candidatos viables, del más cercano al más lejano). Durante el arrastre la marca de cada destino es barata (sin esa regla) y solo el punto bajo el dedo se evalúa entero. Los puntos grises discretos usan `Red.tieneDestinoDeRemonte` (caché por versión): unos 75 ms en el ordenador tras cada construcción en «Gran dominio». Cima de (3500, 2350) movida a (3582, 2217) por el usuario.
 - **Mapa limpio en reposo y pistas en espera (v33):** en reposo solo lo construido (sin los puntitos grises de v32). Pistas hacia un punto sin salida: se abren en espera (`Red.pistasActivas`, punto fijo con caché por versión; `enServicio`, `viable`, `viablesPorNivel`, `salidas` y `llegadaConBajada` cuentan solo las activas) y se activan solas al tener salida su destino. `evaluarPista` devuelve `espera`; durante el arrastre, aro discontinuo; en la escena, a trazos con su color.
+- **Sin paradas intermedias y pistas provisionales encadenadas (v34):** solo estaciones de salida y de llegada (fuera el cuadrado de paso y el tope de un intermedio por línea). Un remonte está en servicio si de su llegada sale una pista activa o un remonte en servicio (encadenados). Un punto es activo también si es el final de una pista (aunque esté en espera): de él salen pistas y puede arrancar un remonte; la cadena se activa sola al enlazar el final con algo conectado.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

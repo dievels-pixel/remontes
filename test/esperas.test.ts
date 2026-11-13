@@ -7,7 +7,7 @@ import { evaluarPista } from '../src/core/proyectos';
 import { Red } from '../src/core/red';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
 import { vistaPunto } from '../src/core/visibilidad';
-import { abrir, cargarMapaPrueba, redPequena } from './apoyo';
+import { abrir, cargarMapaPrueba, REGLAS, redPequena } from './apoyo';
 
 /** Abre la pista que evalúa evaluarPista, con su primer color posible. */
 function abrirEvaluada(red: Red, desde: number, hasta: number) {
@@ -96,6 +96,40 @@ describe('Pistas en espera', () => {
     expect(red.pistaActiva(pista)).toBe(false);
     expect(red.deshacer()).toMatchObject({ tipo: 'pista', pista: { id: pista.id } });
     expect(red.pistas).toHaveLength(1);
+  });
+});
+
+describe('Pistas provisionales encadenadas', () => {
+  /** Plaza 0, cima 1 (A), y dos puntos grises: G a media ladera y H más abajo, a un lado. */
+  function ladera(): Red {
+    const r = new Red(
+      [
+        { id: 0, tipo: 'base', x: 0, y: 3000, cota: 1500 },
+        { id: 1, tipo: 'cima', x: 0, y: 0, cota: 2400 },
+        { id: 2, tipo: 'intermedio', x: 700, y: 1000, cota: 2100 },
+        { id: 3, tipo: 'intermedio', x: 1100, y: 2000, cota: 1800 },
+      ],
+      { ...REGLAS, pista: { ...REGLAS.pista } },
+    );
+    r.construirRemonte(0, 1);
+    abrir(r, 1, 0);
+    return r;
+  }
+
+  it('desde el final de una pista en espera sale otra; al enlazar el final con un remonte conectado, funcionan todas', () => {
+    const red = ladera();
+    const { pista: aG } = abrirEvaluada(red, 1, 2); // A → G, en espera
+    expect(red.activo(2)).toBe(true); // de G pueden salir pistas aunque solo le llegue una en espera
+    const { pista: gH, espera } = abrirEvaluada(red, 2, 3); // G → H, también en espera
+    expect(espera).toBe(true);
+    expect([red.pistaActiva(aG), red.pistaActiva(gH)]).toEqual([false, false]);
+    expect(red.puedeArrancar(3)).toBe(true); // el final de la cadena puede enlazarse
+    red.construirRemonte(3, 1); // H → A, que tiene bajada a la plaza
+    expect([red.pistaActiva(aG), red.pistaActiva(gH)]).toEqual([true, true]);
+    const sim = new Simulacion(red, P, { x: 0, y: 3100 }, crearAzar(4));
+    const usadas = new Set<number>();
+    correr(sim, 300, () => sim.esquiadores.forEach((e) => e.estado === 'pista' && usadas.add(e.pista)));
+    expect(usadas.has(aG.id) && usadas.has(gH.id)).toBe(true);
   });
 });
 

@@ -497,7 +497,7 @@ function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: Marca
   ctx.restore();
 }
 
-/** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
+/** Símbolo según el tipo de estación: círculo sale, triángulo llega. */
 function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: Marca): void {
   ctx.save();
   ctx.globalAlpha = opacidad(activo, marca);
@@ -508,13 +508,11 @@ function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: P
   ctx.beginPath();
   const r = RADIO_NODO;
   if (tipo === 'salida') ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-  else if (tipo === 'llegada') {
+  else {
     ctx.moveTo(c.x, c.y - r * 1.15);
     ctx.lineTo(c.x + r * 1.05, c.y + r * 0.7);
     ctx.lineTo(c.x - r * 1.05, c.y + r * 0.7);
     ctx.closePath();
-  } else {
-    ctx.rect(c.x - r * 0.8, c.y - r * 0.8, r * 1.6, r * 1.6);
   }
   ctx.fill();
   ctx.stroke();

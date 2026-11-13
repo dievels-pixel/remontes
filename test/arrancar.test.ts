@@ -38,12 +38,12 @@ describe('Arrancar un remonte en un punto gris al que puede llegar una pista', (
     expect(red.puedeConstruirRemonte(1, 3)).toBe('ok');
   });
 
-  it('el punto convertido es base: círculo de salida, su remonte hace cuadrado en un intermedio y admite más remontes', () => {
+  it('el punto convertido es base: círculo de salida, su remonte llega en triángulo y admite más remontes', () => {
     const red = ladera();
     red.construirRemonte(0, 2);
     red.construirRemonte(1, 3);
     expect(red.estacionesDe(1).map((e) => e.tipo)).toEqual(['salida']);
-    expect(red.estacionesDe(3).map((e) => e.tipo)).toEqual(['paso']);
+    expect(red.estacionesDe(3).map((e) => e.tipo)).toEqual(['llegada']);
     expect(red.puedeArrancar(1)).toBe(true); // ya es base: puede desdoblarse
   });
 

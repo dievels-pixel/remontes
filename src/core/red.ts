@@ -19,15 +19,17 @@ export interface Nodo {
 
 /**
  * Estación: punto concreto de un emplazamiento (nodo) donde empieza o acaba
- * un remonte. 'salida' admite un remonte que sale (círculo), 'llegada' uno
- * que llega (triángulo) y 'paso' uno de cada (cuadrado).
+ * un remonte. 'salida' admite un remonte que sale (círculo) y 'llegada' uno
+ * que llega (triángulo). No hay paradas intermedias (decidido el 2026-11-13,
+ * v34): para encadenar, de una llegada sale otro remonte desde un círculo
+ * nuevo pegado a ella.
  *
  * Las estaciones de un emplazamiento van en fila, pegadas: (ox, oy) es el
  * desplazamiento respecto al nodo en "huecos" (vector unitario × posición en
  * la fila). El dibujo lo multiplica por una separación en píxeles, para que
  * queden pegadas en cualquier pantalla.
  */
-export type TipoEstacion = 'salida' | 'llegada' | 'paso';
+export type TipoEstacion = 'salida' | 'llegada';
 
 export interface Estacion {
   id: number;
@@ -187,17 +189,10 @@ export class Red {
    */
   planearEstacion(nodo: number, sentido: 'salida' | 'llegada', otro: number): EstacionPlaneada | null {
     const propias = this.estacionesDe(nodo);
-    // Primera estación del punto, en su centro. Un remonte que llega a un
-    // intermedio lo convierte en punto de paso (cuadrado), desde el que puede
-    // seguir otro tramo, salvo que ya venga de un punto de paso: una línea
-    // tiene como mucho un punto intermedio, así que ese llega a un triángulo.
-    if (propias.length === 0) {
-      const continuacion = this.estacionesDe(otro).some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
-      const paso = sentido === 'llegada' && this.nodos[nodo].tipo === 'intermedio' && !continuacion;
-      return { nueva: { nodo, tipo: paso ? 'paso' : sentido, ox: 0, oy: 0 } };
-    }
+    // Primera estación del punto, en su centro: círculo si sale, triángulo si llega.
+    if (propias.length === 0) return { nueva: { nodo, tipo: sentido, ox: 0, oy: 0 } };
     const libre = propias.find((e) => {
-      if (e.tipo !== 'paso' && e.tipo !== sentido) return false;
+      if (e.tipo !== sentido) return false;
       return sentido === 'salida'
         ? !this.remontes.some((r) => r.estacionDesde === e.id)
         : !this.remontes.some((r) => r.estacionHasta === e.id);
@@ -287,6 +282,8 @@ export class Red {
     if (tipo === 'cima') return false;
     if (tipo === 'base') return true;
     if (this.estacionesDe(id).length > 0) return true;
+    // Final de una pista (también en espera): enlazarlo con un remonte la activa.
+    if (this.pistas.some((p) => p.hasta === id)) return true;
     return this.alcanzablePorPista(id);
   }
 
@@ -333,6 +330,8 @@ export class Red {
   llegadaConBajada(id: number): boolean {
     const activas = this.pistasActivas();
     if (this.pistas.some((p) => p.desde === id && activas.has(p.id))) return true;
+    // De ese punto ya sube un remonte en servicio: se sigue hacia arriba.
+    if (this.remontes.some((s) => s.desde === id && this.enServicio(s))) return true;
     const clave = JSON.stringify(this.reglas.pista);
     if (this.cacheBajadas?.version !== this.version || this.cacheBajadas.clave !== clave) {
       this.cacheBajadas = { version: this.version, clave, valores: new Map() };
@@ -373,13 +372,16 @@ export class Red {
    * hacia la llegada de un remonte más bajo: así la red queda más conectada.
    */
   activo(id: number): boolean {
-    return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id || r.desde === id);
+    // También el destino de una pista, aunque esté en espera: de él pueden
+    // salir pistas provisionales que se encadenan y funcionan cuando el final
+    // enlaza con un remonte conectado (ver pistasActivas).
+    return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id || r.desde === id) || this.pistas.some((p) => p.hasta === id);
   }
 
   /**
-   * Un remonte funciona si hay al menos una pista activa desde su llegada. Si
-   * llega a un punto de paso y sigue desde ahí, los dos tramos son la misma
-   * línea: el de abajo funciona en cuanto funciona el de arriba.
+   * Un remonte funciona si de su llegada sale una pista activa o un remonte
+   * en servicio (remontes encadenados: el de abajo funciona en cuanto funciona
+   * el de arriba; no hay bucles porque los remontes siempre suben).
    * `extra` es el origen de una pista hipotética, para evaluar antes de abrirla.
    */
   enServicio(r: Remonte, extra?: number): boolean {
@@ -388,9 +390,7 @@ export class Red {
 
   private enServicioCon(r: Remonte, activas: Set<number>, extra?: number): boolean {
     if (r.hasta === extra || this.pistas.some((p) => p.desde === r.hasta && activas.has(p.id))) return true;
-    if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
-    const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
-    return sigue !== undefined && this.enServicioCon(sigue, activas, extra);
+    return this.remontes.some((s) => s.desde === r.hasta && this.enServicioCon(s, activas, extra));
   }
 
   private cacheActivas: { version: number; activas: Set<number> } | null = null;
