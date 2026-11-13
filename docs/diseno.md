@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v24: puntos grises y un intermedio por línea). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v25: bases nuevas donde puede llegar una pista). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -318,6 +318,7 @@ Actualizado el 2026-11-13 (v24: puntos grises y un intermedio por línea). Las e
 - **Mapas como datos (v23):** `mapas/inicial/alturas.png` y `mapa.json`, cargados por el juego; el editor de `?ajustes` copia el JSON.
 - **Mapa «Dos valles» y roca (v23):** mapa de pruebas por defecto (`?mapa=inicial` para el anterior) y máscara de terreno esquiable: la roca se pinta y ninguna pista la cruza, ni pasa por terreno más alto que su salida, ni se sale del mapa. Umbral de roca provisional 0,9 en `config.ts` y en el panel.
 - **Puntos grises y un intermedio por línea (v24):** todos los puntos empiezan como círculos grises pequeños, sin estación; toman su símbolo al usarse (las estaciones se crean al construir). Un remonte arranca en una base o sigue una vez desde un cuadrado, y ese tramo acaba en triángulo. En `?ajustes`, junto a la cota de cada punto gris se ve su tipo oculto (B, I o C).
+- **Bases nuevas (v25):** un punto gris al que podría llegar una pista limpia desde un triángulo o cuadrado más alto se puede usar para arrancar un remonte, y se convierte en base (admite más remontes). Se calcula una vez por cambio de la red (unos 15 a 30 ms en el ordenador). Los puntos grises arrancables llevan borde oscuro. Esto cubre buena parte del paso 4 («Abrir un valle»): falta decidir si sigue haciendo falta el desbloqueo por cercanía de la especificación o basta con esta regla.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

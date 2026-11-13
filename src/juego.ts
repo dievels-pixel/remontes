@@ -46,7 +46,7 @@ export interface ArrastreNodo {
 const TEXTO_MOTIVO: Partial<Record<Motivo, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben. Las pistas se abren tocando los trazos discontinuos.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
-  'origen-no-arranca': 'Los remontes arrancan en un punto de inicio, o siguen desde un cuadrado una sola vez.',
+  'origen-no-arranca': 'Un remonte arranca en un punto de la plaza, en uno al que pueda llegar una pista desde arriba o, una vez, siguiendo desde un cuadrado.',
   'ya-existe': 'Ya está construido.',
   'cruza-remonte': 'Los remontes no pueden cruzarse.',
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
