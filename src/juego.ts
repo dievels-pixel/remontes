@@ -440,7 +440,7 @@ export class Juego {
     if (h === 'mover') return 'Editor: arrastra un punto para moverlo. Su cota sale del terreno.';
     if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
     if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
-    if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte.';
+    if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte. Pellizca para acercar y arrastra el fondo para moverte.';
     if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: toca un trazo discontinuo y elige color.';

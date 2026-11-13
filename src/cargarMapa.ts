@@ -7,7 +7,7 @@ const JSONS = import.meta.glob<unknown>('../mapas/*/mapa.json', { eager: true, i
 const PNGS = import.meta.glob<string>('../mapas/*/alturas.png', { eager: true, query: '?url', import: 'default' });
 
 /** Mapa que se carga si la dirección no pide otro. */
-export const MAPA_POR_DEFECTO = 'dos-valles';
+export const MAPA_POR_DEFECTO = 'gran-dominio';
 
 /** Nombres de carpeta de los mapas disponibles. */
 export const MAPAS = Object.keys(JSONS).map((r) => r.split('/')[2]);
