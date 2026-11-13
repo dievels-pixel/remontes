@@ -24,7 +24,7 @@ export interface Arrastre {
    * Nodo bajo el dedo (válido o no): si está más alto, un remonte; si está más
    * bajo, una pista. `motivo` dice si se podría construir y, si no, por qué.
    */
-  objetivo: { nodo: number; tipo: 'remonte' | 'pista'; motivo: Motivo | MotivoTrazado } | null;
+  objetivo: { nodo: number; tipo: 'remonte' | 'pista'; motivo: Motivo | MotivoTrazado; espera?: boolean } | null;
 }
 
 export interface Selector {
@@ -33,6 +33,8 @@ export interface Selector {
   punto: Punto;
   /** Cada color con su propio giro de salida (ver Red.coloresElegibles). */
   colores: ColorElegible[];
+  /** El destino aún no tiene salida: la pista quedará en espera. */
+  espera: boolean;
 }
 
 /** Herramientas del editor del mapa de pruebas (?ajustes). */
@@ -280,7 +282,7 @@ export class Juego {
     }
     // El selector se coloca a media pista: así no tapa ni el inicio ni el destino.
     const t = this.trazadoProyecto(e.proyecto).trazado;
-    this.selector = { proyecto: e.proyecto, punto: t.puntoEn(t.longitud / 2), colores: e.colores };
+    this.selector = { proyecto: e.proyecto, punto: t.puntoEn(t.longitud / 2), colores: e.colores, espera: e.espera };
   }
 
   /** Toque fuera de los nodos (cierra lo abierto; en ajustes, informa de la pista tocada). */
@@ -391,7 +393,10 @@ export class Juego {
     const subir = this.red.nodo(n).cota > this.red.nodo(a.origen).cota;
     a.objetivo = subir
       ? { nodo: n, tipo: 'remonte', motivo: this.evaluar(a.origen, n) }
-      : { nodo: n, tipo: 'pista', motivo: this.evaluarPista(a.origen, n).motivo };
+      : (() => {
+          const e = this.evaluarPista(a.origen, n);
+          return { nodo: n, tipo: 'pista' as const, motivo: e.motivo, espera: e.motivo === 'ok' && e.espera };
+        })();
   }
 
   /**
@@ -443,6 +448,7 @@ export class Juego {
     if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
     if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
     if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte. Pellizca para acercar y arrastra el fondo para moverte.';
+    if (this.selector?.espera) return 'Pista en espera: ese punto aún no tiene salida. Elige el color; se activará sola cuando construyas desde él un remonte que funcione.';
     if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas; el borde rojo, forzada.';
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';

@@ -13,12 +13,12 @@ describe('Qué puntos se ven', () => {
     expect([0, 1, 2, 3].map((i) => vistaPunto(red, i, null, false).tipo)).toEqual(['completo', 'completo', 'oculto', 'oculto']);
   });
 
-  it('con un remonte en servicio: la llegada se ve con cota; el gris al que llega una pista, discreto', () => {
+  it('con un remonte en servicio: la llegada se ve con cota; los puntos sin usar no se ven', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     abrir(red, 3, 0);
     expect(vistaPunto(red, 3, null, false).tipo).toBe('completo');
-    expect(vistaPunto(red, 2, null, false).tipo).toBe('discreto'); // 3 → 2 cabe, y de 2 se sube a 3
+    expect(vistaPunto(red, 2, null, false).tipo).toBe('oculto');
   });
 
   it('arrastrando hacia arriba: los más altos aparecen, los válidos marcados y el resto atenuados', () => {
@@ -33,7 +33,7 @@ describe('Qué puntos se ven', () => {
     red.construirRemonte(0, 3);
     const arr = { origen: 3, objetivo: null };
     expect(vistaPunto(red, 0, arr, false)).toEqual({ tipo: 'completo', marca: 'valido' });
-    expect(vistaPunto(red, 2, arr, false)).toEqual({ tipo: 'completo', marca: 'invalido' }); // sin salida
+    expect(vistaPunto(red, 2, arr, false)).toEqual({ tipo: 'completo', marca: 'espera' }); // sin salida: pista en espera
     const bajoElDedo = { origen: 3, objetivo: { nodo: 0, motivo: 'pisa-roca' as const } };
     expect(vistaPunto(red, 0, bajoElDedo, false)).toEqual({ tipo: 'completo', marca: 'invalido' });
   });

@@ -331,7 +331,8 @@ export class Red {
    * más cercanos y se guarda hasta que cambia la red.
    */
   llegadaConBajada(id: number): boolean {
-    if (this.pistas.some((p) => p.desde === id)) return true;
+    const activas = this.pistasActivas();
+    if (this.pistas.some((p) => p.desde === id && activas.has(p.id))) return true;
     const clave = JSON.stringify(this.reglas.pista);
     if (this.cacheBajadas?.version !== this.version || this.cacheBajadas.clave !== clave) {
       this.cacheBajadas = { version: this.version, clave, valores: new Map() };
@@ -382,10 +383,62 @@ export class Red {
    * `extra` es el origen de una pista hipotética, para evaluar antes de abrirla.
    */
   enServicio(r: Remonte, extra?: number): boolean {
-    if (r.hasta === extra || this.pistas.some((p) => p.desde === r.hasta)) return true;
+    return this.enServicioCon(r, this.pistasActivas(), extra);
+  }
+
+  private enServicioCon(r: Remonte, activas: Set<number>, extra?: number): boolean {
+    if (r.hasta === extra || this.pistas.some((p) => p.desde === r.hasta && activas.has(p.id))) return true;
     if (this.estaciones[r.estacionHasta].tipo !== 'paso') return false;
     const sigue = this.remontes.find((s) => s.estacionDesde === r.estacionHasta);
-    return sigue !== undefined && this.enServicio(sigue, extra);
+    return sigue !== undefined && this.enServicioCon(sigue, activas, extra);
+  }
+
+  private cacheActivas: { version: number; activas: Set<number> } | null = null;
+
+  /**
+   * Pistas activas: las que llevan a un punto con salida hasta la plaza. Una
+   * pista hacia un punto sin salida queda en espera (se dibuja a trazos, nadie
+   * la usa, no cuenta para la viabilidad ni pone en servicio el remonte de
+   * arriba) hasta que su destino la tenga: entonces se activa sola, y vuelve
+   * a espera si se deshace lo que la activó. Se calcula por punto fijo:
+   * partiendo de todas, se quitan las que llevan a un punto no viable con las
+   * que quedan, hasta que no cambia. Se guarda hasta que cambia la red.
+   */
+  pistasActivas(): Set<number> {
+    if (this.cacheActivas?.version === this.version) return this.cacheActivas.activas;
+    let activas = new Set(this.pistas.map((p) => p.id));
+    for (;;) {
+      const alcanza = this.alcanzablesCon(activas);
+      const siguen = new Set([...activas].filter((id) => alcanza.has(this.pistas[id].hasta)));
+      if (siguen.size === activas.size) break;
+      activas = siguen;
+    }
+    this.cacheActivas = { version: this.version, activas };
+    return activas;
+  }
+
+  pistaActiva(p: Pista): boolean {
+    return this.pistasActivas().has(p.id);
+  }
+
+  /** Puntos desde los que se llega a una base, con esas pistas activas y los remontes en servicio. */
+  private alcanzablesCon(activas: Set<number>, extra?: { desde: number; hasta: number }): Set<number> {
+    const aristas: [number, number][] = this.pistas.filter((p) => activas.has(p.id)).map((p) => [p.desde, p.hasta]);
+    if (extra) aristas.push([extra.desde, extra.hasta]);
+    for (const r of this.remontes) if (this.enServicioCon(r, activas, extra?.desde)) aristas.push([r.desde, r.hasta]);
+    // Búsqueda hacia atrás desde las bases.
+    const alcanza = new Set(this.nodos.filter((n) => n.tipo === 'base').map((n) => n.id));
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      for (const [a, b] of aristas) {
+        if (alcanza.has(b) && !alcanza.has(a)) {
+          alcanza.add(a);
+          cambio = true;
+        }
+      }
+    }
+    return alcanza;
   }
 
   /**
@@ -414,7 +467,8 @@ export class Red {
   viablesPorNivel(): Set<number>[] {
     if (this.cacheViables?.version === this.version) return this.cacheViables.porNivel;
     const porNivel = [0, 1, 2, 3].map((nivel) => {
-      const aristas: [number, number][] = this.pistas.filter((p) => this.dificultad(p) <= nivel).map((p) => [p.desde, p.hasta]);
+      const activas = this.pistasActivas();
+      const aristas: [number, number][] = this.pistas.filter((p) => activas.has(p.id) && this.dificultad(p) <= nivel).map((p) => [p.desde, p.hasta]);
       for (const r of this.remontes) if (this.enServicio(r)) aristas.push([r.desde, r.hasta]);
       const alcanza = new Set(this.nodos.filter((n) => n.tipo === 'base').map((n) => n.id));
       let cambio = true;
@@ -439,22 +493,7 @@ export class Red {
    * que no se vuelve. `extra` es una pista hipotética que se cuenta como abierta.
    */
   viable(id: number, extra?: { desde: number; hasta: number }): boolean {
-    const aristas: [number, number][] = this.pistas.map((p) => [p.desde, p.hasta]);
-    if (extra) aristas.push([extra.desde, extra.hasta]);
-    for (const r of this.remontes) if (this.enServicio(r, extra?.desde)) aristas.push([r.desde, r.hasta]);
-    // Búsqueda hacia atrás desde las bases.
-    const alcanza = new Set(this.nodos.filter((n) => n.tipo === 'base').map((n) => n.id));
-    let cambio = true;
-    while (cambio) {
-      cambio = false;
-      for (const [a, b] of aristas) {
-        if (alcanza.has(b) && !alcanza.has(a)) {
-          alcanza.add(a);
-          cambio = true;
-        }
-      }
-    }
-    return alcanza.has(id);
+    return this.alcanzablesCon(this.pistasActivas(), extra).has(id);
   }
 
   /** Forma de la pista desde→hasta por el lado dado (estable por pareja). */
@@ -578,7 +617,7 @@ export class Red {
 
   /** Sin color, comprueba si hay alguno posible; con color, ese en concreto. */
   puedeAbrirPista(desde: number, hasta: number, color?: ColorPista, lado?: 1 | -1, giro?: number): Motivo {
-    return this.motivoPista(desde, hasta, color, lado, giro, true);
+    return this.motivoPista(desde, hasta, color, lado, giro, false);
   }
 
   /** Como puedeAbrirPista; con `exigirViable` false no mira si el destino tiene salida. */
@@ -606,6 +645,8 @@ export class Red {
     const colores = this.colores(desde, hasta, lado ?? libres[0], undefined, giro);
     if (!colores.some((c) => c.factible)) return 'sin-color';
     if (color && !colores.find((c) => c.color === color)!.factible) return 'color-imposible';
+    // Un destino sin salida ya no impide abrirla: la pista queda en espera
+    // (ver pistasActivas) hasta que lo tenga.
     if (exigirViable && !this.viable(hasta, { desde, hasta })) return 'destino-no-viable';
     return 'ok';
   }
@@ -921,7 +962,8 @@ export class Red {
   salidas(id: number): { remontes: Remonte[]; pistas: Pista[] } {
     return {
       remontes: this.remontes.filter((r) => r.desde === id && this.enServicio(r)),
-      pistas: this.pistas.filter((p) => p.desde === id),
+      // Las pistas en espera no son salida: nadie entra en ellas.
+      pistas: this.pistas.filter((p) => p.desde === id && this.pistaActiva(p)),
     };
   }
 }

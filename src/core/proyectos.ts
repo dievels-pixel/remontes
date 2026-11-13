@@ -22,12 +22,14 @@ export function claveProyecto(p: Proyecto): string {
 export type ColorElegible = Factibilidad & { giro?: number };
 
 export type EvaluacionPista =
-  | { motivo: 'ok'; proyecto: Proyecto; colores: ColorElegible[] }
+  /** `espera`: el destino aún no tiene salida, así que la pista quedaría en espera. */
+  | { motivo: 'ok'; proyecto: Proyecto; colores: ColorElegible[]; espera: boolean }
   | { motivo: Exclude<Motivo, 'ok'> | MotivoTrazado };
 
 /**
  * ¿Se puede abrir una pista de `desde` a `hasta`? Primero las reglas de la
- * pareja (origen activo, destino más bajo y con salida, pendiente…). Después,
+ * pareja (origen activo, destino más bajo, pendiente…). Un destino sin salida
+ * no lo impide: la pista quedaría en espera (`espera`). Después,
  * de los lados libres se elige el que deja más colores limpios. Si ninguno
  * deja ninguno, el motivo es el fallo más repetido entre los trazados reales
  * de los colores que caben por pendiente (roca, plaza, cruces…).
@@ -44,7 +46,7 @@ export function evaluarPista(red: Red, desde: number, hasta: number): Evaluacion
   if (mejor && mejor.n > 0) {
     // La vista previa, con el giro del color limpio que menos serpentea.
     const limpio = mejor.colores.filter((c) => c.factible).reduce((m, c) => (c.s < m.s ? c : m));
-    return { motivo: 'ok', proyecto: { desde, hasta, lado: mejor.lado, giro: limpio.giro }, colores: mejor.colores };
+    return { motivo: 'ok', proyecto: { desde, hasta, lado: mejor.lado, giro: limpio.giro }, colores: mejor.colores, espera: !red.viable(hasta) };
   }
   const cuenta = new Map<MotivoTrazado, number>();
   for (const lado of red.ladosLibres(desde, hasta)) {

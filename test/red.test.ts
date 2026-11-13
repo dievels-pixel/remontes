@@ -169,16 +169,17 @@ describe('Red: activación y reglas de construcción', () => {
     expect(red.puedeAbrirPista(2, 0)).toBe('ok');
   });
 
-  it('solo se abren pistas hacia nodos viables (sin puntos ciegos)', () => {
+  it('una pista hacia un punto sin salida queda en espera hasta que lo tenga (sin puntos ciegos)', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2);
-    // El intermedio está activo pero su único remonte saliente no existe: no es viable.
+    // El intermedio está activo pero no tiene salida: no es viable.
     expect(red.viable(2)).toBe(false);
-    expect(red.puedeAbrirPista(3, 2)).toBe('destino-no-viable');
+    const p = abrir(red, 3, 2);
+    expect(red.pistaActiva(p)).toBe(false); // en espera
     abrir(red, 2, 0);
     expect(red.viable(2)).toBe(true);
-    expect(red.puedeAbrirPista(3, 2)).toBe('ok');
+    expect(red.pistaActiva(p)).toBe(true); // se activa sola
   });
 
   it('admite dos pistas por pareja, a lados opuestos (lente)', () => {
@@ -275,14 +276,17 @@ describe('Red: activación y reglas de construcción', () => {
     expect(llana.puedeAbrirPista(4, 1)).toBe('demasiado-plana');
   });
 
-  it('no se abren pistas hacia un bucle del que no se vuelve a una base', () => {
+  it('una pista hacia un bucle del que no se vuelve a una base queda en espera y no pone el bucle en servicio', () => {
     const red = redPequena();
     red.construirRemonte(0, 2);
-    red.construirRemonte(2, 3);
-    // 3→2 dejaría el bucle 2→3→2 en servicio sin bajada a ninguna base.
-    expect(red.puedeAbrirPista(3, 2)).toBe('destino-no-viable');
+    const arriba = red.construirRemonte(2, 3);
+    // 3→2 cerraría el bucle 2→3→2 sin bajada a ninguna base: queda en espera.
+    const p = abrir(red, 3, 2);
+    expect(red.pistaActiva(p)).toBe(false);
+    expect(red.enServicio(arriba)).toBe(false);
     abrir(red, 2, 1);
-    expect(red.puedeAbrirPista(3, 2)).toBe('ok');
+    expect(red.pistaActiva(p)).toBe(true);
+    expect(red.enServicio(arriba)).toBe(true);
   });
 
   it('una pista hacia la base de su propio remonte es viable aunque lo ponga en servicio', () => {

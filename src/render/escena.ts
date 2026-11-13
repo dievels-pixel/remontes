@@ -93,11 +93,17 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // El tramo compartido de una confluencia lo dibuja la pista a la que se une.
-  // Una pista cuyo color ya no cabe con los parámetros del panel de ajustes
-  // se ve a trazos cortos.
+  // Una pista en espera (su destino aún no tiene salida) se ve a trazos, con
+  // su color y más tenue; una cuyo color ya no cabe con los parámetros del
+  // panel de ajustes, a trazos cortos.
+  const activas = red.pistasActivas();
   for (const p of red.pistas) {
-    if (p.fueraDeRango) ctx.setLineDash([3, 4]);
+    const espera = !activas.has(p.id);
+    if (espera) ctx.setLineDash([9, 7]);
+    else if (p.fueraDeRango) ctx.setLineDash([3, 4]);
+    ctx.globalAlpha = espera ? 0.7 : 1;
     dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido, desplazamientoPista(p));
+    ctx.globalAlpha = 1;
     ctx.setLineDash([]);
   }
 
@@ -147,10 +153,6 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   for (const n of red.nodos) {
     const vista = vistaPunto(red, n.id, arr?.movido ? arr : null, juego.modoAjustes);
     if (vista.tipo === 'oculto') continue;
-    if (vista.tipo === 'discreto') {
-      dibujarPuntoDiscreto(ctx, P(n));
-      continue;
-    }
     const marca = vista.marca;
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
     const vacio = posiciones.length === 0;
@@ -454,36 +456,36 @@ function dibujarArrastre(
   ctx.setLineDash([]);
 }
 
-function opacidad(activo: boolean, marca: 'valido' | 'invalido' | null): number {
-  return activo || marca === 'valido' ? 1 : marca === 'invalido' ? 0.2 : 0.4;
+type Marca = 'valido' | 'espera' | 'invalido' | null;
+
+function opacidad(activo: boolean, marca: Marca): number {
+  return activo || marca === 'valido' || marca === 'espera' ? 1 : marca === 'invalido' ? 0.2 : 0.4;
 }
 
-/** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
-/** Punto gris donde ya se puede arrancar un remonte: un puntito discreto, sin cota. */
-function dibujarPuntoDiscreto(ctx: CanvasRenderingContext2D, c: Punto): void {
+/**
+ * Aro de destino durante el arrastre: continuo si es un destino normal,
+ * discontinuo si la pista quedaría en espera (el destino aún no tiene salida).
+ */
+function dibujarAroDestino(ctx: CanvasRenderingContext2D, c: Punto, radio: number, marca: Marca): void {
+  if (marca !== 'valido' && marca !== 'espera') return;
   ctx.save();
-  ctx.fillStyle = COLOR.vacio;
-  ctx.globalAlpha = 0.8;
+  ctx.strokeStyle = COLOR.valido;
+  ctx.lineWidth = 2.5;
+  if (marca === 'espera') ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(c.x, c.y, radio, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
 /**
  * Punto aún sin usar: círculo gris pequeño. Si ya se puede arrancar un
- * remonte en él (los de la plaza, o uno al que llegaría una pista), el borde
- * es oscuro.
+ * remonte en él (los de la plaza, o una futura base con una pista en espera),
+ * el borde es oscuro.
  */
-function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'valido' | 'invalido' | null, arrancable: boolean): void {
+function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: Marca, arrancable: boolean): void {
   ctx.save();
-  if (marca === 'valido') {
-    ctx.strokeStyle = COLOR.valido;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, RADIO_VACIO + 7, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  dibujarAroDestino(ctx, c, RADIO_VACIO + 7, marca);
   ctx.globalAlpha = marca === 'invalido' ? 0.4 : 1;
   ctx.fillStyle = COLOR.hueco;
   ctx.strokeStyle = arrancable ? COLOR.tinta : COLOR.vacio;
@@ -495,16 +497,11 @@ function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: 'vali
   ctx.restore();
 }
 
-function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: 'valido' | 'invalido' | null): void {
+/** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
+function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: Marca): void {
   ctx.save();
   ctx.globalAlpha = opacidad(activo, marca);
-  if (marca === 'valido') {
-    ctx.strokeStyle = COLOR.valido;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, RADIO_NODO + 7, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  dibujarAroDestino(ctx, c, RADIO_NODO + 7, marca);
   ctx.fillStyle = COLOR.hueco;
   ctx.strokeStyle = COLOR.tinta;
   ctx.lineWidth = 2.5;

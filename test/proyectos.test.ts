@@ -15,13 +15,14 @@ describe('Pista elegida por el jugador (inicio y destino)', () => {
     expect(e.proyecto).toMatchObject({ desde: 3, hasta: 0 });
   });
 
-  it('explica por qué no: origen sin remonte, desde la plaza o hacia un punto sin salida', () => {
+  it('explica por qué no: origen sin remonte o desde la plaza; hacia un punto sin salida, cabe en espera', () => {
     expect(evaluarPista(redPequena(), 3, 0).motivo).toBe('origen-inactivo');
     const red = redPequena();
     red.construirRemonte(0, 2);
     red.construirRemonte(2, 3); // 2 solo tiene salida por su remonte, que necesita pista en 3
     expect(evaluarPista(red, 0, 1).motivo).toBe('pista-desde-base');
-    expect(evaluarPista(red, 3, 2).motivo).toBe('destino-no-viable');
+    const e = evaluarPista(red, 3, 2);
+    expect(e.motivo === 'ok' && e.espera).toBe(true);
   });
 
   it('si ningún trazado cabe, da el motivo del trazado (aquí, la plaza en medio)', () => {
