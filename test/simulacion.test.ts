@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
-import { abrir, redPequena } from './apoyo';
+import { abrir, conValoresClasicos, redPequena } from './apoyo';
 
 const P: ParametrosSimulacion = {
   velocidadRemonte: CONFIG.remonte.velocidad,
@@ -166,5 +166,33 @@ describe('Simulación', () => {
       correr(sim, 20, coherente);
     }
     expect(sim.poblacion).toBe(0);
+  });
+});
+
+describe('Punto desdoblado: un solo lugar para los esquiadores', () => {
+  it('quien llega por cualquier triángulo de una cima baja también por las pistas dibujadas desde el otro', () => {
+    const red = conValoresClasicos(redPequena()); // 0 y 1 bases, 3 cima
+    red.construirRemonte(0, 3);
+    red.construirRemonte(1, 3); // desdobla la cima en dos triángulos
+    const pA = red.abrirPista(3, 0, 'azul');
+    const pB = red.abrirPista(3, 1, 'azul');
+    // Cada pista sale (en el dibujo) de un triángulo distinto.
+    expect(red.estacionDePista(pA, 'salida').id).not.toBe(red.estacionDePista(pB, 'salida').id);
+    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], aguanteMinimo: 1e6, aguanteMaximo: 1e6, aforoCola: 1000 }, ENTRADA, crearAzar(3));
+    const ultimoRemonte = new Map<number, number>();
+    const cruces = new Set<string>();
+    const antes = new Map<number, string>();
+    correr(sim, 300, () => {
+      for (const e of sim.esquiadores.values()) {
+        const ahora = e.estado === 'pista' ? `p${e.pista}` : e.estado === 'remonte' ? `r${e.remonte}` : e.estado;
+        if (ahora !== antes.get(e.id)) {
+          if (e.estado === 'remonte') ultimoRemonte.set(e.id, e.remonte);
+          if (e.estado === 'pista' && ultimoRemonte.has(e.id)) cruces.add(`${ultimoRemonte.get(e.id)}>${e.pista}`);
+        }
+        antes.set(e.id, ahora);
+      }
+    });
+    // Las cuatro combinaciones: por cada remonte, las dos pistas.
+    expect(cruces).toEqual(new Set([`0>${pA.id}`, `0>${pB.id}`, `1>${pA.id}`, `1>${pB.id}`]));
   });
 });

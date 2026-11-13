@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v36: elección de ruta por nivel, variedad y cola). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-14 (v37: cápsula en los puntos desdoblados). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -334,6 +334,7 @@ Actualizado el 2026-11-13 (v36: elección de ruta por nivel, variedad y cola). L
   - visitas a puntos a 2 pasos de la plaza 1 % → 3 %; bajadas 953 → 1078;
   - quejas por aburrimiento 44 → 34; por cola 0; cansados 26 → 26.
   Pendiente: recalibrar afluencia, aguante y tarifas con la simulación, porque cambia el balance.
+- **Cápsula en los puntos desdoblados (v37):** el usuario veía que en una cima desdoblada los esquiadores solo bajaban por las pistas de su triángulo. La lógica no lo hacía (prueba en `test/simulacion.test.ts`: quien llega por cualquier remonte usa las pistas de los dos triángulos, casi a partes iguales); era el dibujo, porque cada pista sale de un triángulo y los triángulos se veían sueltos. Ahora las estaciones de un punto van dentro de una cápsula.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

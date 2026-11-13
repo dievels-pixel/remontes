@@ -160,6 +160,10 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     // ladera, a la que aún no llega ningún remonte): se dibuja pleno.
     const activo = red.activo(n.id) || !vacio;
     if (vacio) dibujarPuntoVacio(ctx, P(n), marca, red.puedeArrancar(n.id));
+    // Un punto desdoblado es un solo lugar para los esquiadores (quien llega
+    // por cualquier triángulo baja por cualquier pista): sus estaciones van
+    // dentro de una misma cápsula para que se lea así.
+    if (posiciones.length > 1) dibujarCapsula(ctx, posiciones.map((p) => p.c), opacidad(activo, marca));
     for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
     const derecha = vacio ? { c: P(n) } : posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
     const radio = vacio ? RADIO_VACIO : RADIO_NODO;
@@ -493,6 +497,36 @@ function dibujarPuntoVacio(ctx: CanvasRenderingContext2D, c: Punto, marca: Marca
   ctx.beginPath();
   ctx.arc(c.x, c.y, RADIO_VACIO, 0, Math.PI * 2);
   ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Cápsula que une las estaciones de un punto desdoblado (están en fila): un
+ * trazo grueso entre las dos de los extremos, con borde, detrás de los símbolos.
+ */
+function dibujarCapsula(ctx: CanvasRenderingContext2D, centros: Punto[], alfa: number): void {
+  let a = centros[0];
+  let b = centros[1];
+  for (const p of centros) {
+    for (const q of centros) {
+      if (Math.hypot(p.x - q.x, p.y - q.y) > Math.hypot(a.x - b.x, a.y - b.y)) {
+        a = p;
+        b = q;
+      }
+    }
+  }
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.lineWidth = 2 * RADIO_NODO + 10;
+  ctx.stroke();
+  ctx.strokeStyle = COLOR.hueco;
+  ctx.lineWidth = 2 * RADIO_NODO + 6;
   ctx.stroke();
   ctx.restore();
 }
