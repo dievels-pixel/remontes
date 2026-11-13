@@ -27,7 +27,7 @@ describe('Pista elegida por el jugador (inicio y destino)', () => {
   it('si ningún trazado cabe, da el motivo del trazado (aquí, la plaza en medio)', () => {
     const nodos = redPequena().nodos.map((n) => ({ ...n }));
     const red = new Red(nodos, { ...REGLAS, pista: { ...REGLAS.pista, giroMaximo: 0 }, obstaculos: [{ x: 200, y: 1500, radio: 450 }] });
-    red.construirRemonte(0, 3);
+    red.construirRemonte(0, 3, false); // a propósito: desde 3 no cabe ninguna bajada
     expect(evaluarPista(red, 3, 0).motivo).toBe('pisa-plaza');
   });
 

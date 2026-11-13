@@ -130,6 +130,7 @@ export interface ReglasRed {
 
 export type Motivo =
   | 'ok'
+  | 'llegada-sin-bajada'
   | 'origen-no-arranca'
   | 'mismo-nodo'
   | 'origen-inactivo'
@@ -313,10 +314,56 @@ export class Red {
   }
 
   /** ¿Cabe alguna pista limpia de `desde` a `hasta`, aunque `hasta` aún no sea viable? */
-  pistaPosible(desde: number, hasta: number): boolean {
-    if (this.motivoPista(desde, hasta, undefined, undefined, undefined, false) !== 'ok') return false;
+  pistaPosible(desde: number, hasta: number, exigirOrigen = true): boolean {
+    if (this.motivoPista(desde, hasta, undefined, undefined, undefined, false, exigirOrigen) !== 'ok') return false;
     return this.ladosLibres(desde, hasta).some((l) => this.giroLimpio(desde, hasta, l) !== null);
   }
+
+  private cacheBajadas: { version: number; clave: string; valores: Map<number, boolean> } | null = null;
+
+  /**
+   * ¿Podría bajar ya alguien desde `id` a un punto con salida hasta la plaza?
+   * Sí si ya salen pistas de él, o si cabe una pista limpia desde él hacia un
+   * punto viable (sin exigir que `id` tenga ya remonte ni sea viable). Es la
+   * condición para construir un remonte que llegue a `id`: si no, el remonte
+   * no entraría nunca en servicio (no tendría pistas) y a su base no se
+   * podría abrir pista (no tendría salida). Se prueba primero con los puntos
+   * más cercanos y se guarda hasta que cambia la red.
+   */
+  llegadaConBajada(id: number): boolean {
+    if (this.pistas.some((p) => p.desde === id)) return true;
+    const clave = JSON.stringify(this.reglas.pista);
+    if (this.cacheBajadas?.version !== this.version || this.cacheBajadas.clave !== clave) {
+      this.cacheBajadas = { version: this.version, clave, valores: new Map() };
+    }
+    const cache = this.cacheBajadas.valores;
+    let r = cache.get(id);
+    if (r === undefined) {
+      const n = this.nodos[id];
+      const candidatos = this.nodos
+        .filter((b) => b.id !== id && b.cota < n.cota && this.viable(b.id))
+        .sort((a, b) => distancia(a, n) - distancia(b, n));
+      r = candidatos.some((b) => this.pistaPosible(id, b.id, false));
+      cache.set(id, r);
+    }
+    return r;
+  }
+
+  /**
+   * Para mostrar un punto gris como arrancable: ¿tendría su remonte algún
+   * destino válido (más alto, sin cruces y con bajada desde la llegada)?
+   */
+  tieneDestinoDeRemonte(id: number): boolean {
+    if (this.cacheDestinos?.version !== this.version) this.cacheDestinos = { version: this.version, valores: new Map() };
+    let r = this.cacheDestinos.valores.get(id);
+    if (r === undefined) {
+      r = this.puedeArrancar(id) && this.nodos.some((h) => h.cota > this.nodos[id].cota && this.puedeConstruirRemonte(id, h.id) === 'ok');
+      this.cacheDestinos.valores.set(id, r);
+    }
+    return r;
+  }
+
+  private cacheDestinos: { version: number; valores: Map<number, boolean> } | null = null;
 
   /**
    * Activo: es un punto de la plaza, lo alcanza algún remonte o sale alguno
@@ -508,7 +555,13 @@ export class Red {
     return evaluarColores(a.cota - b.cota, distancia(a, b), sMin, rp.sinuosidadMaxima, rp.bandas, rp.pendienteObjetivo);
   }
 
-  puedeConstruirRemonte(desde: number, hasta: number): Motivo {
+  /**
+   * `comprobarBajada` false se salta la última regla (que desde la llegada se
+   * pueda bajar ya a algo conectado con la plaza), que es cara: sirve para
+   * marcar destinos durante el arrastre; el que está bajo el dedo se evalúa
+   * entero.
+   */
+  puedeConstruirRemonte(desde: number, hasta: number, comprobarBajada = true): Motivo {
     if (desde === hasta) return 'mismo-nodo';
     if (!this.puedeArrancar(desde)) return 'origen-no-arranca';
     if (this.nodos[hasta].tipo === 'base') return 'destino-base';
@@ -519,6 +572,7 @@ export class Red {
     // hasta el máximo de estaciones.
     if (!this.planearEstacion(desde, 'salida', hasta)) return 'origen-lleno';
     if (!this.planearEstacion(hasta, 'llegada', desde)) return 'destino-lleno';
+    if (comprobarBajada && !this.llegadaConBajada(hasta)) return 'llegada-sin-bajada';
     return 'ok';
   }
 
@@ -528,9 +582,17 @@ export class Red {
   }
 
   /** Como puedeAbrirPista; con `exigirViable` false no mira si el destino tiene salida. */
-  private motivoPista(desde: number, hasta: number, color: ColorPista | undefined, lado: 1 | -1 | undefined, giro: number | undefined, exigirViable: boolean): Motivo {
+  private motivoPista(
+    desde: number,
+    hasta: number,
+    color: ColorPista | undefined,
+    lado: 1 | -1 | undefined,
+    giro: number | undefined,
+    exigirViable: boolean,
+    exigirOrigen = true,
+  ): Motivo {
     if (desde === hasta) return 'mismo-nodo';
-    if (!this.activo(desde)) return 'origen-inactivo';
+    if (exigirOrigen && !this.activo(desde)) return 'origen-inactivo';
     if (this.nodos[desde].tipo === 'base') return 'pista-desde-base';
     if (this.nodos[hasta].cota >= this.nodos[desde].cota) return 'destino-no-mas-bajo';
     const libres = this.ladosLibres(desde, hasta);
@@ -596,8 +658,9 @@ export class Red {
     });
   }
 
-  construirRemonte(desde: number, hasta: number): Remonte {
-    const motivo = this.puedeConstruirRemonte(desde, hasta);
+  /** `comprobarBajada` false solo para pruebas que montan a propósito una llegada sin bajada. */
+  construirRemonte(desde: number, hasta: number, comprobarBajada = true): Remonte {
+    const motivo = this.puedeConstruirRemonte(desde, hasta, comprobarBajada);
     if (motivo !== 'ok') throw new Error(`No se puede construir el remonte: ${motivo}`);
     const antes = this.estaciones.length;
     const estacionDesde = this.materializar(this.planearEstacion(desde, 'salida', hasta)!);

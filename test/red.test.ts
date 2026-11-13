@@ -270,7 +270,8 @@ describe('Red: activación y reglas de construcción', () => {
     const nodos = redPequena().nodos.map((n) => ({ ...n }));
     nodos.push({ id: 4, tipo: 'intermedio', x: 2000, y: 3000, cota: 1540 }); // casi llano respecto a la base
     const llana = new Red(nodos, REGLAS);
-    llana.construirRemonte(0, 4);
+    expect(llana.puedeConstruirRemonte(0, 4)).toBe('llegada-sin-bajada'); // tampoco se baja de 4 a ningún sitio
+    llana.construirRemonte(0, 4, false);
     expect(llana.puedeAbrirPista(4, 1)).toBe('demasiado-plana');
   });
 

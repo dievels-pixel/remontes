@@ -50,6 +50,7 @@ const TEXTO_MOTIVO: Partial<Record<Motivo | MotivoTrazado, string>> = {
   'destino-no-mas-alto': 'Los remontes solo suben: para una pista, arrastra hacia un punto más bajo.',
   'destino-base': 'Los remontes no terminan en un punto de inicio.',
   'origen-no-arranca': 'De una cima no arranca ningún remonte, y un punto gris solo sirve si le puede llegar una pista desde arriba.',
+  'llegada-sin-bajada': 'Desde ese punto no se podría bajar a ningún sitio conectado: el remonte no llegaría a funcionar.',
   'ya-existe': 'Ya está construido.',
   'cruza-remonte': 'Los remontes no pueden cruzarse.',
   'origen-lleno': `De este punto ya salen todos los remontes posibles (${CONFIG.estaciones.maxPorEmplazamiento} estaciones).`,
@@ -325,16 +326,6 @@ export class Juego {
   }
 
   // ---- Remontes: arrastre ----
-
-  /**
-   * Marca de un punto mientras se arrastra desde `origen`: válido si se podría
-   * construir el remonte (si sube) o si la pareja admite pista (si baja; solo
-   * las reglas de la pareja, sin trazar: el trazado se evalúa al soltar).
-   */
-  destinoValido(origen: number, destino: number): boolean {
-    if (this.red.nodo(destino).cota > this.red.nodo(origen).cota) return this.evaluar(origen, destino) === 'ok';
-    return this.red.puedeAbrirPista(origen, destino) === 'ok';
-  }
 
   /** ¿Se podría construir un remonte de `origen` a `destino`? */
   evaluar(origen: number, destino: number): Motivo {

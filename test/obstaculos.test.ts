@@ -18,7 +18,7 @@ describe('La plaza como obstáculo para las pistas', () => {
     const red = conObstaculo({ x: 200, y: 1500, radio: 450 }); // tapa las dos laterales (se abomban ~300 m)
     // Sin salida orientada: saliendo girada, la pista podría rodear la plaza.
     red.reglas.pista.giroMaximo = 0;
-    red.construirRemonte(0, 3);
+    red.construirRemonte(0, 3, false); // a propósito: desde 3 no cabe ninguna bajada
     for (const lado of [1, -1] as const) expect(red.trazadoLimpio(3, 0, lado)).toBe(false);
     expect(evaluarPista(red, 3, 0).motivo).toBe('pisa-plaza');
   });

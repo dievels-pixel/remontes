@@ -9,6 +9,7 @@ import type { Estacion, Pista, TipoEstacion } from '../core/red';
 import { interpolar, type Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from './camara';
+import { vistaPunto } from '../core/visibilidad';
 import { COLOR_FONDO } from './terreno';
 
 const COLOR = {
@@ -135,23 +136,33 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   const arr = juego.arrastre;
   if (arr) dibujarArrastre(ctx, juego, P, PE);
 
-  // Emplazamientos: sus estaciones en fila y la cota a la derecha de la fila.
+  // Puntos. Solo se ve lo útil en cada momento (las reglas no cambian):
+  // - siempre, con su cota: los puntos en uso (con estaciones) y los de la plaza;
+  // - un puntito gris, sin cota: donde ya se puede arrancar un remonte con
+  //   algún destino válido;
+  // - mientras se arrastra, con su cota: los destinos posibles (más altos para
+  //   un remonte, más bajos para una pista), válidos marcados y el resto
+  //   atenuados. El que está bajo el dedo, con su evaluación completa;
+  // - el resto, nada. En ?ajustes (editor de mapas) se ven todos, con su tipo.
   for (const n of red.nodos) {
-    let marca: 'valido' | 'invalido' | null = null;
-    if (arr?.movido && n.id !== arr.origen) marca = juego.destinoValido(arr.origen, n.id) ? 'valido' : 'invalido';
+    const vista = vistaPunto(red, n.id, arr?.movido ? arr : null, juego.modoAjustes);
+    if (vista.tipo === 'oculto') continue;
+    if (vista.tipo === 'discreto') {
+      dibujarPuntoDiscreto(ctx, P(n));
+      continue;
+    }
+    const marca = vista.marca;
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
+    const vacio = posiciones.length === 0;
     // Un punto con estaciones está en uso (también una base nueva en media
     // ladera, a la que aún no llega ningún remonte): se dibuja pleno.
-    const activo = red.activo(n.id) || posiciones.length > 0;
-    // Sin estaciones: círculo gris pequeño. Toma su símbolo cuando un remonte
-    // arranca, llega o pasa por él.
-    const vacio = posiciones.length === 0;
+    const activo = red.activo(n.id) || !vacio;
     if (vacio) dibujarPuntoVacio(ctx, P(n), marca, red.puedeArrancar(n.id));
     for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
     const derecha = vacio ? { c: P(n) } : posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
     const radio = vacio ? RADIO_VACIO : RADIO_NODO;
     ctx.save();
-    ctx.globalAlpha = vacio ? 1 : opacidad(activo, marca);
+    ctx.globalAlpha = vacio ? (marca === 'invalido' ? 0.45 : 1) : opacidad(activo, marca);
     ctx.fillStyle = vacio ? COLOR.vacio : COLOR.tinta;
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
@@ -161,6 +172,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.fillText(`${n.cota}${tipo}`, derecha.c.x + radio + 4, derecha.c.y - radio - 2);
     ctx.restore();
   }
+
 
   // Editor del mapa de pruebas: el punto que se arrastra, con la cota que
   // tendría ahí, en verde si se puede soltar y en rojo si no.
@@ -447,6 +459,17 @@ function opacidad(activo: boolean, marca: 'valido' | 'invalido' | null): number 
 }
 
 /** Símbolo según el tipo de estación: círculo sale, triángulo llega, cuadrado de paso. */
+/** Punto gris donde ya se puede arrancar un remonte: un puntito discreto, sin cota. */
+function dibujarPuntoDiscreto(ctx: CanvasRenderingContext2D, c: Punto): void {
+  ctx.save();
+  ctx.fillStyle = COLOR.vacio;
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 /**
  * Punto aún sin usar: círculo gris pequeño. Si ya se puede arrancar un
  * remonte en él (los de la plaza, o uno al que llegaría una pista), el borde

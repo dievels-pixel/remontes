@@ -186,7 +186,7 @@ const mapa = {
     n('cima', 1300, 2300),
     n('cima', 2100, 2300),
     n('cima', 2900, 2300),
-    n('cima', 3500, 2350),
+    n('cima', 3582, 2217), // movida por el usuario con el editor: así se baja por los dos lados
     // Valle norte.
     n('intermedio', 900, 1500),
     n('intermedio', 2000, 1500),
