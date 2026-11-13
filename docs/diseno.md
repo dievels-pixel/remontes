@@ -1,4 +1,6 @@
-# Diseño del juego de remontes y pistas de esquí
+# Notas técnicas y estado del desarrollo
+
+> La especificación de diseño que manda es `docs/diseno-juego-remontes.md` (desde el 2026-11-12). Este documento queda como notas técnicas de lo implementado (cómo funciona por dentro lo ya hecho) y, al final, el estado del desarrollo. Si algo de aquí discrepa de la especificación, manda la especificación: en particular, el plan por etapas, la «Ampliación del dominio esquiable» (sustituida por «Abrir un valle»), la diversión (sustituida por aguante y contento) y los edificios (solo decoración) de este documento ya no valen.
 
 Actualizado: 2026-11-12
 
@@ -306,31 +308,33 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-12, al cerrar la etapa 3 (v22).
+Actualizado el 2026-11-12, al pasar a la especificación nueva (`docs/diseno-juego-remontes.md`). Las etapas siguen su «Plan de desarrollo».
 
 ### Hecho
 
-- **Etapa 1:** remontes arrastrando, estaciones que se desdoblan (hasta 3 por punto), bolitas, esquiadores que suben, bajan, hacen cola y cambian de base andando, deshacer, velocidad 1×/2×/4× y versión en pantalla.
-- **Etapa 2:** proyectos de pista a trazos, selector de color, sinuosidad por bisección y nodo viable como alcanzabilidad de una base.
-- **Añadidos sobre la etapa 2, pedidos jugando:**
-  - forma de pista calibrada (abombamiento, serpentina irregular y temblor);
-  - bandas de color solapadas y pendiente objetivo «cercana»;
-  - confluencias con acuerdo tangente y unión por cercanía (40 m desde v22);
-  - límites contra la maraña: como mucho una pista cruzada sin unirse, salidas a 30° (desde v22) y cuesta abajo, salida orientada con giro de hasta 60° y propio de cada color, plaza como obstáculo y 4 llegadas por punto;
-  - comprobación con la pista real de cada color;
-  - pistas que salen por las estaciones laterales de un punto desdoblado.
-- **Etapa 3:** niveles de esquiador (mezcla fija provisional), dificultad efectiva de las pistas (el tramo común manda), viabilidad por nivel, diversión con pistas forzadas, colas con anillo y contador de los que se han ido.
-- **Tras la etapa 3 (v21):** cada color busca primero la parte limpia de su banda, así que ya no queda solo la negra limpia en las laderas empinadas.
-- **Cierre de la etapa 3 (v22):** cada color con su propio giro de salida en el selector; los esquiadores sin bajada de su nivel no vienen (contador «No vienen»); ángulo entre salidas 30° y distancia mínima entre pistas 40 m; panel de diversión y mezcla en `?ajustes`.
-- **Herramienta temporal:** panel `?ajustes` para calibrar las pistas y los esquiadores (mezcla de niveles y diversión), con un mapa de pruebas editable (mover, añadir y borrar puntos y cambiar el desnivel).
+- **Etapa 1 de la especificación:** hecha (remontes arrastrando, estaciones que se desdoblan, bolitas, esquiadores, deshacer, velocidad y versión en pantalla).
+- **Etapa 2, en parte:** proyectos de pista a trazos, selector de color con rango factible, sinuosidad por bisección y nodo viable. Con los añadidos pedidos jugando: forma de pista calibrada, bandas solapadas y pendiente «cercana», confluencias, límites contra la maraña (una pista cruzada, unión a 40 m, salidas a 30° con giro propio de cada color, 4 llegadas, plaza como obstáculo).
+- **Etapa 3, con otro modelo:** niveles de esquiador, dificultad efectiva (el tramo común manda), colas con anillo. La diversión continua (0 a 1) que hay hoy no es la de la especificación (ver «Pendiente»).
+- **Mapas como datos (v23):** `mapas/inicial/alturas.png` y `mapa.json`, cargados por el juego; el editor de `?ajustes` copia el JSON.
+- **Mapa «Dos valles» y roca (v23):** mapa de pruebas por defecto (`?mapa=inicial` para el anterior) y máscara de terreno esquiable: la roca se pinta y ninguna pista la cruza, ni pasa por terreno más alto que su salida, ni se sale del mapa. Umbral de roca provisional 0,9 en `config.ts` y en el panel.
+- **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
-### Siguiente paso
+### Plan acordado (2026-11-12)
 
-Antes de la etapa 4, jugar con el panel para fijar la mezcla y la diversión (siguen provisionales).
+Pasos, cada uno jugable antes del siguiente:
 
-Etapa 4: entrada de esquiadores por la carretera, curva de afluencia creciente y edificios alrededor de la plaza (que podrán decidir la mezcla de niveles).
+1. Mapas como datos. Hecho (v23).
+2. Recolorear sin coste y «muy forzada» (s / s_min). Aplazado: el usuario aún no lo tiene claro; no hacerlo hasta que lo pida.
+3. Mapa nuevo con dos valles y roca, generado por script como datos; máscara de terreno esquiable. Hecho (v23).
+4. Abrir un valle: desbloqueo de nodos bajos al activarse una cima. Con esto se cierra la etapa 2. Siguiente. En «Dos valles», los nodos del valle B son de tipo intermedio de momento; al hacerlo habrá que decidir si son un tipo propio.
+5. Etapa 3 rehecha según la especificación: aguante, contento de 3 puntos con la tabla, variedad, aforo de cola 6 con anillo de 20 s que expulsa al último, destello al irse enfadado, puntos sin gris, quitar «No vienen» y el tope de población; contadores por color (puntito y número) y «Enfadados: N»; en `?ajustes`, desglose de quejas por causa.
+6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo, edificios decorativos (el nivel nuevo se aplica 15 s después).
 
-Después: etapa 5 (ampliación del dominio con zonas y bases nuevas), añadida el 2026-11-12 a petición del usuario; las etapas siguientes se han renumerado.
+### Pendiente que contradice la especificación (se arregla en el paso 5)
+
+- Los puntos se vuelven grises con la diversión (descartado).
+- «No vienen» hace depender la afluencia de lo construido (descartado).
+- Diversión continua en vez de contento de 3 puntos; marcha por aburrimiento sin queja; sin aguante; tope de 90 esquiadores; anillo de 15 sin consecuencia.
 
 ### Cómo se trabaja
 

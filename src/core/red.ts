@@ -119,8 +119,13 @@ export interface ReglasRed {
    * pistas). Se les suma el margen `margenObstaculo` de las reglas de pista.
    */
   obstaculos?: { x: number; y: number; radio: number }[];
-  /** Cota del terreno (mapa de alturas), para exigir que las pistas salgan cuesta abajo. */
+  /**
+   * Cota del terreno (mapa de alturas), para exigir que las pistas salgan
+   * cuesta abajo y que no pasen por terreno más alto que su salida.
+   */
   cotaTerreno?: (p: Punto) => number;
+  /** Terreno no esquiable (roca o precipicio): ninguna pista lo cruza. */
+  esRoca?: (p: Punto) => boolean;
 }
 
 export type Motivo =
@@ -143,6 +148,9 @@ export type Motivo =
 
 /** Construcción registrada en el historial. */
 export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
+
+/** Metros entre comprobaciones del terreno a lo largo de una pista (ver pisaTerrenoProhibido). */
+const PASO_TERRENO = 20;
 
 export class Red {
   readonly nodos: readonly Nodo[];
@@ -385,6 +393,24 @@ export class Red {
     return (this.reglas.obstaculos ?? []).some((o) => distanciaAPolilinea(o, l.puntos) < o.radio + m);
   }
 
+  /**
+   * ¿Pisa el trazado terreno no esquiable, o pasa por terreno más alto que la
+   * cota de su salida (más la tolerancia de `toleranciaHorizontal`)? Se
+   * comprueba cada `PASO_TERRENO` metros. Un cordal o una banda de roca cierran
+   * así el paso de verdad, aunque la recta entre los nodos baje.
+   */
+  pisaTerrenoProhibido(desde: number, l: Polilinea): boolean {
+    const { esRoca, cotaTerreno } = this.reglas;
+    if (!esRoca && !cotaTerreno) return false;
+    const techo = this.nodos[desde].cota + this.reglas.pista.toleranciaHorizontal;
+    for (let s = 0; s <= l.longitud; s += PASO_TERRENO) {
+      const p = l.puntoEn(s);
+      if (esRoca?.(p)) return true;
+      if (cotaTerreno && cotaTerreno(p) > techo) return true;
+    }
+    return false;
+  }
+
   /** Número de veces que una polilínea corta la línea de algún remonte. */
   crucesConRemontes(l: Polilinea): number {
     let n = 0;
@@ -608,6 +634,7 @@ export class Red {
     const rp = this.reglas.pista;
     // Ni el tramo propio ni el compartido ni el ramal pueden entrar en la plaza.
     if (this.pisaObstaculo(conf.trazado)) return false;
+    if (this.pisaTerrenoProhibido(desde, conf.trazado)) return false;
     const existentes = this.pistas.map((p) => ({
       id: p.id,
       hasta: p.hasta,

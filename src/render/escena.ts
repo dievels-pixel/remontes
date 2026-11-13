@@ -1,7 +1,6 @@
 // Dibujo de la escena en Canvas 2D. Tamaños en px CSS, posiciones en metros
 // convertidas con la cámara.
 import { CONFIG } from '../config';
-import { PLAZA } from '../core/mapa';
 import { COLORES, pistaForzada, type ColorPista } from '../core/colores';
 import type { Perfil } from '../core/simulacion';
 import { desplazamientoPista as calcularDesplazamiento } from '../core/desplazamiento';
@@ -68,8 +67,8 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   const esquina = P({ x: 0, y: 0 });
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const wT = CONFIG.mundo.ancho * camara.escala;
-  const hT = CONFIG.mundo.alto * camara.escala;
+  const wT = juego.mapa.datos.ancho * camara.escala;
+  const hT = juego.mapa.datos.alto * camara.escala;
   ctx.drawImage(terreno, esquina.x, esquina.y, wT, hT);
   // En pantallas más alargadas que el mundo se prolongan la primera y la última
   // fila del terreno para que no queden bandas planas.
@@ -79,10 +78,10 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   }
 
   // Plaza del pie de pistas.
-  const plaza = P(PLAZA);
+  const plaza = P(juego.plaza);
   ctx.fillStyle = COLOR.plaza;
   ctx.beginPath();
-  ctx.arc(plaza.x, plaza.y, PLAZA.radio * camara.escala, 0, Math.PI * 2);
+  ctx.arc(plaza.x, plaza.y, juego.plaza.radio * camara.escala, 0, Math.PI * 2);
   ctx.fill();
 
   // Pistas.

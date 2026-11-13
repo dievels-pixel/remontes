@@ -5,20 +5,15 @@ import type { PendienteObjetivo } from './core/colores';
 // o a valores que solo se pueden fijar jugando.
 
 export const CONFIG = {
-  // Mundo, en metros. Vista vertical 3:4. PROVISIONAL: la orientación de
-  // pantalla es una decisión abierta.
-  mundo: { ancho: 2400, alto: 3200 },
+  // El tamaño del mundo, las cotas y la plaza son del mapa (mapas/<nombre>/mapa.json).
 
-  // Mapa de alturas: rejilla de muestras y rango de cotas que representa el gris.
-  alturas: {
-    columnas: 96,
-    filas: 128,
-    cotaMin: 1400,
-    cotaMax: 2900,
-    semilla: 7,
-    // Peso del desnivel general (pie abajo, cumbres arriba) frente al ruido.
-    pesoPendienteGeneral: 0.78,
-    pesoRuido: 0.22,
+  // Terreno esquiable. Donde la pendiente local del mapa de alturas pasa de
+  // este umbral, el terreno es roca o precipicio: se pinta como roca y ninguna
+  // pista lo cruza. Bastante mayor que la de una negra, porque una pista que
+  // serpentea cruza la ladera con menos pendiente que la del terreno.
+  // PROVISIONAL (decisión abierta de la especificación).
+  terreno: {
+    umbralRoca: 0.9,
   },
 
   // Remontes (en la etapa 1 todos son telesquí). PROVISIONAL: capacidades y

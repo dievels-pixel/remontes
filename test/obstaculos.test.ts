@@ -4,7 +4,7 @@ import { Polilinea } from '../src/core/polilinea';
 import { proyectosDesde } from '../src/core/proyectos';
 import { Red } from '../src/core/red';
 import { Juego } from '../src/juego';
-import { REGLAS, redPequena } from './apoyo';
+import { mapaInicial, REGLAS, redPequena } from './apoyo';
 
 /** Red pequeña con un obstáculo circular. */
 function conObstaculo(o: { x: number; y: number; radio: number }): Red {
@@ -44,7 +44,7 @@ describe('La plaza como obstáculo para las pistas', () => {
   });
 
   it('en el mapa real, ningún proyecto propuesto entra en la plaza', () => {
-    const j = new Juego();
+    const j = new Juego(mapaInicial());
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     const altos = j.red.nodos.filter((n) => n.tipo !== 'base');
     for (const b of bases) for (const a of altos) if (j.red.puedeConstruirRemonte(b.id, a.id) === 'ok') j.red.construirRemonte(b.id, a.id);

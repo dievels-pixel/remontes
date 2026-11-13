@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { decodificarPngGris } from '../scripts/png';
 import { CONFIG } from '../src/config';
+import { alturasDesdeGris, leerDatosMapa, type Mapa } from '../src/core/mapa';
 import type { Bandas } from '../src/core/colores';
 import { Red, type Nodo, type ReglasRed } from '../src/core/red';
 
@@ -48,4 +51,16 @@ export function abrir(red: Red, desde: number, hasta: number) {
 export function conValoresClasicos(red: Red): Red {
   Object.assign(red.reglas.pista, { pendienteObjetivo: 'central', sinuosidadMaxima: 2, bandas: BANDAS_CLASICAS });
   return red;
+}
+
+/** Mapa del juego (mapas/inicial), leído del PNG y el JSON como en el navegador. */
+export function mapaInicial(): Mapa {
+  return cargarMapaPrueba('inicial');
+}
+
+/** Un mapa de mapas/<nombre>, leído del PNG y el JSON como en el navegador. */
+export function cargarMapaPrueba(nombre: string): Mapa {
+  const datos = leerDatosMapa(JSON.parse(readFileSync(`mapas/${nombre}/mapa.json`, 'utf8')));
+  const png = decodificarPngGris(readFileSync(`mapas/${nombre}/alturas.png`));
+  return { datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) };
 }

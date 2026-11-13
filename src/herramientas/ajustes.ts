@@ -6,7 +6,7 @@
 import { CONFIG } from '../config';
 import { copiarBandas, type ColorPista, type PendienteObjetivo } from '../core/colores';
 import { textoMapa } from '../core/editorMapa';
-import { MAPA_INICIAL, type DefinicionNodo } from '../core/mapa';
+import type { DefinicionNodo } from '../core/mapa';
 import type { HerramientaMapa, Juego } from '../juego';
 import { textoConfigEsquiador, textoConfigPista } from './textoConfig';
 
@@ -278,15 +278,16 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   window.addEventListener('resize', () => requestAnimationFrame(avisarAltura));
 }
 
-const CLAVE_MAPA = 'remontes.mapaPruebas';
 
 /**
  * Editor del mapa de pruebas: mover, añadir y borrar puntos, y cambiar el
  * desnivel del terreno. El mapa se guarda en este navegador (si se puede) y
- * se copia como texto para pegarlo en src/core/mapa.ts.
+ * se copia como JSON, listo para guardarlo como mapas/<nombre>/mapa.json.
  */
 function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   const cotaOriginal = juego.cotaMaxima;
+  // Una clave por mapa: lo guardado para un mapa no se carga en otro.
+  const CLAVE_MAPA = `remontes.mapaPruebas.${juego.mapa.datos.nombre}`;
   try {
     const guardado = localStorage.getItem(CLAVE_MAPA);
     if (guardado) {
@@ -354,12 +355,31 @@ function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   pintarCota();
   fila.append('Cota máx.', input, valor);
 
+  // Umbral de roca: pendiente local a partir de la cual el terreno no es esquiable.
+  const filaRoca = document.createElement('label');
+  filaRoca.className = 'fila';
+  const roca = document.createElement('input');
+  roca.type = 'range';
+  roca.min = '0.5';
+  roca.max = '2';
+  roca.step = '0.05';
+  roca.value = String(juego.umbralRoca);
+  const valorRoca = document.createElement('span');
+  valorRoca.className = 'valor';
+  valorRoca.textContent = coma(juego.umbralRoca, 2);
+  roca.addEventListener('input', () => {
+    juego.umbralRoca = Number(roca.value);
+    valorRoca.textContent = coma(juego.umbralRoca, 2);
+    juego.recalcularPistas();
+  });
+  filaRoca.append('Umbral roca', roca, valorRoca);
+
   const botones = document.createElement('div');
   botones.className = 'botones';
   const copiar = document.createElement('button');
   copiar.textContent = 'Copiar mapa';
   copiar.addEventListener('click', async () => {
-    const texto = textoMapa(juego.definicion) + `// alturas.cotaMax en config.ts: ${juego.cotaMaxima}\n`;
+    const texto = textoMapa(juego.mapa.datos, juego.definicion, juego.cotaMaxima);
     const ok = await copiarTexto(texto);
     copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
     setTimeout(() => (copiar.textContent = 'Copiar mapa'), 1500);
@@ -367,7 +387,7 @@ function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   const original = document.createElement('button');
   original.textContent = 'Mapa original';
   original.addEventListener('click', () => {
-    juego.cargarMapa(MAPA_INICIAL, cotaOriginal);
+    juego.cargarMapa(juego.mapa.datos.nodos, cotaOriginal);
     pintarCota();
   });
   botones.append(copiar, original);
@@ -375,8 +395,8 @@ function montarEditorMapa(juego: Juego, cuerpo: Element): void {
   const nota = document.createElement('div');
   nota.className = 'nota';
   nota.textContent =
-    'Mover o cambiar la cota máx. conserva lo construido (las pistas que ya no caben en su color quedan a trazos cortos). Añadir o borrar un punto rehace la red y omite lo que ya no se pueda construir. El mapa se guarda en este navegador; «Mapa original» lo vacía.';
-  cuerpo.append(titulo, herramientas, fila, botones, nota);
+    'Mover o cambiar la cota máx. conserva lo construido (las pistas que ya no caben en su color quedan a trazos cortos). Añadir o borrar un punto rehace la red y omite lo que ya no se pueda construir. El mapa se guarda en este navegador; «Mapa original» lo vacía. El umbral de roca va en config.ts (terreno.umbralRoca); con ?mapa=inicial se carga el mapa anterior.';
+  cuerpo.append(titulo, herramientas, fila, filaRoca, botones, nota);
 }
 
 async function copiarTexto(texto: string): Promise<boolean> {
