@@ -23,8 +23,15 @@ function iniciar(mapa: Mapa): void {
   let ancho = 0;
   let alto = 0;
 
-  /** Franjas de pantalla ocupadas por el panel de ajustes, si está abierto. */
-  const reserva = { arriba: 0, abajo: 0 };
+  /**
+   * Franjas de pantalla libres arriba y abajo: el mapa se encaja entre ellas
+   * para que los puntos de los bordes no queden bajo el texto de ayuda, los
+   * botones o la zona de gestos del navegador (costaba tocarlos). Con el panel
+   * de ajustes abierto, la de arriba crece hasta el panel.
+   */
+  const RESERVA_ARRIBA = 64; // dos líneas de texto de ayuda
+  const RESERVA_ABAJO = 72; // botones de deshacer y velocidad
+  const reserva = { arriba: RESERVA_ARRIBA, abajo: RESERVA_ABAJO };
 
   function redimensionar(): void {
     const dpr = window.devicePixelRatio || 1;
@@ -46,8 +53,7 @@ function iniciar(mapa: Mapa): void {
       m.montarPanelAjustes(juego, (arriba) => {
         // Con el panel abierto, el mapa se encaja debajo de él y por encima de
         // los botones, para no tapar nada mientras se ajusta.
-        reserva.arriba = arriba;
-        reserva.abajo = arriba > 0 ? 70 : 0;
+        reserva.arriba = Math.max(arriba, RESERVA_ARRIBA);
         redimensionar();
       }),
     );

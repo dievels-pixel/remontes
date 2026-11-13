@@ -315,9 +315,14 @@ export class Red {
     return this.ladosLibres(desde, hasta).some((l) => this.giroLimpio(desde, hasta, l) !== null);
   }
 
-  /** Activo: es una base o lo alcanza algún remonte. */
+  /**
+   * Activo: es un punto de la plaza, lo alcanza algún remonte o sale alguno
+   * de él (una base de media ladera). De un punto activo que no sea de la
+   * plaza pueden salir pistas hacia los puntos más bajos viables, también
+   * hacia la llegada de un remonte más bajo: así la red queda más conectada.
+   */
   activo(id: number): boolean {
-    return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id);
+    return this.nodos[id].tipo === 'base' || this.remontes.some((r) => r.hasta === id || r.desde === id);
   }
 
   /**

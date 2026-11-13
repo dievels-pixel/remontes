@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v26: desdoble desde cualquier punto que no sea cima). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v28: pistas desde bases de media ladera). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -320,6 +320,7 @@ Actualizado el 2026-11-13 (v26: desdoble desde cualquier punto que no sea cima).
 - **Puntos grises y un intermedio por línea (v24):** todos los puntos empiezan como círculos grises pequeños, sin estación; toman su símbolo al usarse (las estaciones se crean al construir). Un remonte arranca en una base o sigue una vez desde un cuadrado, y ese tramo acaba en triángulo. En `?ajustes`, junto a la cota de cada punto gris se ve su tipo oculto (B, I o C).
 - **Bases nuevas (v25):** un punto gris al que podría llegar una pista limpia desde un triángulo o cuadrado más alto se puede usar para arrancar un remonte, y se convierte en base (admite más remontes). Se calcula una vez por cambio de la red (unos 15 a 30 ms en el ordenador). Los puntos grises arrancables llevan borde oscuro. Esto cubre buena parte del paso 4 («Abrir un valle»): falta decidir si sigue haciendo falta el desbloqueo por cercanía de la especificación o basta con esta regla.
 - **Desdoble desde cualquier punto que no sea cima (v26):** de un cuadrado (tras su continuación) o de un triángulo de un intermedio arranca un remonte nuevo, desdoblando un círculo: una base. Las cimas son puntos finales.
+- **Pistas desde bases de media ladera y puntos de arriba accesibles (v28):** un punto del que sale un remonte cuenta como activo, así que de él salen pistas hacia puntos más bajos viables (también a la llegada de un remonte inferior). El mapa se encaja dejando 64 px arriba para el texto de ayuda y 72 px abajo para los botones: los puntos del borde superior quedaban bajo el texto y la zona de gestos del navegador.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
