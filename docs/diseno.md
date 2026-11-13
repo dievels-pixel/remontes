@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-13 (v35: calentamiento de cachés en segundo plano). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-13 (v36: elección de ruta por nivel, variedad y cola). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -327,6 +327,13 @@ Actualizado el 2026-11-13 (v35: calentamiento de cachés en segundo plano). Las 
 - **Mapa limpio en reposo y pistas en espera (v33):** en reposo solo lo construido (sin los puntitos grises de v32). Pistas hacia un punto sin salida: se abren en espera (`Red.pistasActivas`, punto fijo con caché por versión; `enServicio`, `viable`, `viablesPorNivel`, `salidas` y `llegadaConBajada` cuentan solo las activas) y se activan solas al tener salida su destino. `evaluarPista` devuelve `espera`; durante el arrastre, aro discontinuo; en la escena, a trazos con su color.
 - **Sin paradas intermedias y pistas provisionales encadenadas (v34):** solo estaciones de salida y de llegada (fuera el cuadrado de paso y el tope de un intermedio por línea). Un remonte está en servicio si de su llegada sale una pista activa o un remonte en servicio (encadenados). Un punto es activo también si es el final de una pista (aunque esté en espera): de él salen pistas y puede arrancar un remonte; la cadena se activa sola al enlazar el final con algo conectado.
 - **Calentamiento de cachés (v35):** tras cada cambio de la red, el bucle del juego calcula en segundo plano, unos 4 ms por fotograma, la bajada desde cada punto, qué puntos grises pueden arrancar y las pistas desde cada punto activo hacia sus 16 destinos más bajos más cercanos, empezando por lo más cercano a la última obra y por turnos entre orígenes (`src/core/calentamiento.ts`, `Juego.calentar`). Si la red cambia, empieza de nuevo; si el dedo llega antes a un punto sin calcular, se calcula en el momento. No cambia ninguna regla (prueba de resultado idéntico con y sin calentamiento). Medida en «Gran dominio» con `npm run medir:arrastre` (ordenador): arrastre de remontes desde la plaza 400 ms → 0 ms; de pistas desde la cima 370 ms (peor destino 61 ms) → 183 ms (peor 23 ms, solo los destinos más allá de los 16 más cercanos); el calentamiento tarda unos 42 fotogramas (0,7 s). Pendiente: el presupuesto se comprueba entre tareas y una sola tarea (la bajada desde un punto) puede durar hasta unos 55-60 ms, así que tras cada obra puede haber algún fotograma largo; si se nota en el móvil, habría que partir esa tarea.
+- **Elección de ruta por nivel, variedad y cola (v36):** peso = gusto × repetición × 1 / (1 + cola) en `Simulacion.decidir` (`pesoPista`); el gusto de un remonte es `Red.mejorGustoDesde` (guardado por versión de la red, como `viablesPorNivel`). Valores provisionales en `config.ts`: gusto 1 / 0,5 / 0,15 / 0,03, repetición 0,3, descuento por remonte 0,85. Medido con `npm run medir:eleccion` («Gran dominio», 6 min, la misma red de 5 remontes y 17 pistas: 8 verdes, 4 azules, 2 rojas, 3 negras). Antes → después:
+  - rojos por pistas de su color 22 % → 30 %; dos niveles por debajo 48 % → 31 %;
+  - negros por pistas de su color 18 % → 31 %; por verdes 55 % → 33 % (el resto es por la red de prueba, con muchas verdes y puntos cuya única bajada es verde);
+  - azules por la suya 73 % → 75 %; los verdes, siempre por verdes;
+  - visitas a puntos a 2 pasos de la plaza 1 % → 3 %; bajadas 953 → 1078;
+  - quejas por aburrimiento 44 → 34; por cola 0; cansados 26 → 26.
+  Pendiente: recalibrar afluencia, aguante y tarifas con la simulación, porque cambia el balance.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

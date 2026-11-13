@@ -264,6 +264,41 @@ export class Red {
     return mejor;
   }
 
+  private cacheGustos: { version: number; clave: string; valores: Map<string, number> } | null = null;
+
+  /**
+   * Lo que más le gusta a un esquiador de nivel `nivel` de lo que puede
+   * hacer desde `nodo`: el gusto de la mejor pista que sale de él (por
+   * diferencia de niveles, `gustos[nivel - dificultad]`) o, subiendo por un
+   * remonte en servicio, lo mejor desde su llegada multiplicado por
+   * `descuento` por cada remonte más que haya que coger. Solo cuenta lo que
+   * puede usar (pistas activas de su nivel o más fáciles que llevan a algo
+   * viable para él). 0 si no hay nada. Es el gusto de un remonte en la
+   * elección del esquiador. Se guarda por versión de la red y parámetros.
+   */
+  mejorGustoDesde(nodo: number, nivel: number, gustos: readonly number[], descuento: number): number {
+    const clave = `${gustos.join(',')}|${descuento}`;
+    if (this.cacheGustos?.version !== this.version || this.cacheGustos.clave !== clave) {
+      this.cacheGustos = { version: this.version, clave, valores: new Map() };
+    }
+    const cache = this.cacheGustos.valores;
+    const k = `${nodo}|${nivel}`;
+    let g = cache.get(k);
+    if (g === undefined) {
+      const viables = this.viablesPorNivel()[nivel];
+      const { remontes, pistas } = this.salidas(nodo);
+      g = 0;
+      for (const p of pistas) {
+        const d = nivel - this.dificultad(p);
+        if (d >= 0 && viables.has(p.hasta)) g = Math.max(g, gustos[Math.min(d, gustos.length - 1)]);
+      }
+      // Los remontes siempre suben: la recursión termina.
+      for (const r of remontes) if (viables.has(r.hasta)) g = Math.max(g, descuento * this.mejorGustoDesde(r.hasta, nivel, gustos, descuento));
+      cache.set(k, g);
+    }
+    return g;
+  }
+
   /**
    * ¿Puede arrancar un remonte en este punto?
    * - En una cima, nunca: está marcada en el mapa como punto final.

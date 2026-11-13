@@ -89,7 +89,20 @@ Los puntos no cambian de color según su contento (ver "Movimiento y aspecto vis
 
 El esquiador recuerda sus dos últimas pistas (parámetro; con una sola bastaría con dos pistas para variar siempre). Bajar por una pista distinta a esas dos cuenta como variedad. Repetir no castiga con quejas, pero no avanza: no se recupera contento y el multiplicador de precio no sube.
 
-Al elegir ruta, el esquiador prefiere entre las pistas válidas la que no ha usado hace poco, y desempata por la cola. Así se reparte la gente sin reglas extra y la cantidad de pistas importa: más pistas de un nivel dan más variedad y más ingresos por esquiador. Una telecabina que descargue en una sola pista tiene penalización natural, porque todos repiten y el precio no sube. Por eso no se añade una regla de velocidad por densidad en pista (descartada por ahora; se podría recuperar si aparecen pistas saturadas que molesten).
+Al elegir ruta, el esquiador prefiere entre las pistas válidas la que no ha usado hace poco, y desempata por la cola (desde v36, con pesos: ver «Elección de ruta»). Así se reparte la gente sin reglas extra y la cantidad de pistas importa: más pistas de un nivel dan más variedad y más ingresos por esquiador. Una telecabina que descargue en una sola pista tiene penalización natural, porque todos repiten y el precio no sube. Por eso no se añade una regla de velocidad por densidad en pista (descartada por ahora; se podría recuperar si aparecen pistas saturadas que molesten).
+
+### Elección de ruta
+
+Decidido el 2026-11-13 (v36). En cada punto el esquiador elige entre lo que puede hacer (pistas de su nivel o más fáciles que llevan a algo con salida para él, remontes en servicio y, en una base, ir andando a una contigua) por azar ponderado:
+
+peso = gusto × repetición × 1 / (1 + cola)
+
+- Gusto de una pista según cuántos niveles queda por debajo del esquiador: su nivel pesa 1; uno por debajo, menos; dos por debajo (donde empieza el aburrimiento), bastante menos; tres, casi nada. Una pista más difícil que su nivel no se elige nunca (filtro duro). El nivel es así una preferencia, no solo un filtro.
+- Repetición: una pista entre sus últimas bajadas se multiplica por un factor menor que 1, en vez de descartarse. Sigue sin restar contento.
+- Cola: la del remonte, o la que espera en el destino de la pista.
+- Gusto de un remonte (y de ir andando a otra base, y de la base que elige al llegar): el de lo mejor que puede hacer tras él, multiplicado por un descuento por cada remonte que haya que coger. Un remonte que solo lleva a pistas que le aburren pesa poco; uno que lleva a pistas de su nivel, mucho. Como pistas y remontes están en la misma escala, en un punto con las dos cosas se usan ambas.
+- Valores provisionales en `src/config.ts`: gusto por diferencia de niveles 1 / 0,5 / 0,15 / 0,03, factor de repetición 0,3 y descuento por remonte 0,85.
+- Aviso: cambia el balance. Con el mismo mapa y la misma red, hay menos aburrimiento y menos quejas (medido en «Gran dominio»: quejas por aburrimiento de 44 a 34 en 6 minutos), así que la afluencia, el aguante y las tarifas habrá que recalibrarlos con la simulación.
 
 ### Pago
 
@@ -259,7 +272,7 @@ Detección: las pistas son polilíneas muestreadas, y los cruces se calculan com
 El movimiento es lo que da la sensación Mini Metro: todo fluye de forma continua y suave.
 
 - Remontes: funcionan como un bucle continuo. Las bolitas aparecen abajo con separación fija, suben y desaparecen al entrar en la estación superior. Su tamaño depende del tipo y llevan dentro tantos puntitos como personas transportan. Un remonte inactivo se ve en gris y sin bolitas.
-- Esquiadores: puntos del color de su nivel que bajan por la curva con velocidad según la pendiente. Eligen su ruta por nivel, variedad y cola, no por el camino más corto, para que no todos hagan lo mismo.
+- Esquiadores: puntos del color de su nivel que bajan por la curva con velocidad según la pendiente. Eligen su ruta por nivel, variedad y cola (ver «Elección de ruta»), no por el camino más corto, para que no todos hagan lo mismo.
 - Colas: un racimo de puntos alrededor del nodo, con un anillo que se llena y se enrojece, como el temporizador de las estaciones de Mini Metro. Si hay demasiados puntos en pantalla, cada punto pasa a representar varios esquiadores.
 - Remontes frente a pistas negras: los remontes van en línea doble (línea gruesa negra con otra fina del color del fondo encima). Se prueba en el móvil con muchas líneas a la vez, y si ensucia se añaden marcas de pilonas.
 - Daltonismo: verde y rojo son la combinación más problemática, así que cada nivel llevará una señal secundaria (grosor o un símbolo de forma).

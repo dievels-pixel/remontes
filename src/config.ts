@@ -125,6 +125,17 @@ export const CONFIG = {
     contentoInicial: 3,
     // Pistas que recuerda para la variedad. Especificación: 2. PROVISIONAL.
     memoriaVariedad: 2,
+    // Elección de ruta (por nivel, variedad y cola): peso = gusto × repetición
+    // × 1 / (1 + cola). Gusto de una pista según cuántos niveles queda por
+    // debajo del esquiador: su nivel, uno, dos (empieza el aburrimiento) y
+    // tres por debajo. PROVISIONAL: por calibrar con la simulación.
+    gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
+    // Peso de una pista entre sus últimas bajadas (no se descarta, pesa
+    // menos; no resta contento). PROVISIONAL.
+    factorRepeticion: 0.3,
+    // Gusto de un remonte: el de lo mejor que hay tras su llegada, por este
+    // factor por cada remonte que haya que coger. PROVISIONAL.
+    descuentoPorRemonte: 0.85,
   },
 
   // Colas: con más gente que el aforo, el anillo del remonte se llena en

@@ -22,6 +22,10 @@ const P: ParametrosSimulacion = {
   intervaloBolitas: 0.9,
   capacidadBolita: 1,
   ...CONFIG.esquiador,
+  // Elección de ruta fijada aquí (no los valores provisionales de config.ts).
+  gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
+  factorRepeticion: 0.3,
+  descuentoPorRemonte: 0.85,
   mezclaNiveles: [0.25, 0.25, 0.25, 0.25],
   aguanteMinimo: 1e6,
   aguanteMaximo: 1e6,

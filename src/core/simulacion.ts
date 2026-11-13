@@ -29,10 +29,33 @@ export interface ParametrosSimulacion {
   contentoInicial: number;
   /** Cuántas pistas recuerda para la variedad. */
   memoriaVariedad: number;
+  /**
+   * Gusto de una pista según cuántos niveles queda por debajo del esquiador:
+   * [su nivel, uno por debajo, dos, tres]. El nivel es una preferencia, no
+   * solo un filtro (una pista más difícil que su nivel no se elige nunca).
+   */
+  gustoPorDiferencia: readonly number[];
+  /** Multiplica el peso de una pista que está entre sus últimas bajadas. */
+  factorRepeticion: number;
+  /** Multiplica el gusto de lo que hay tras cada remonte más que haya que coger. */
+  descuentoPorRemonte: number;
   /** Personas en cola a partir de las que el anillo empieza a llenarse. */
   aforoCola: number;
   /** Segundos que tarda el anillo en llenarse (y en vaciarse) por completo. */
   tiempoAnillo: number;
+}
+
+/**
+ * Peso de una pista en la elección de un esquiador: gusto (por diferencia de
+ * niveles) × repetición (si la ha usado hace poco) × 1 / (1 + cola en su
+ * destino). 0 si es más difícil que su nivel. Los remontes usan la misma
+ * escala (ver Simulacion.decidir), para que pistas y remontes se comparen.
+ */
+export function pesoPista(nivel: number, dificultad: number, reciente: boolean, cola: number, p: Pick<ParametrosSimulacion, 'gustoPorDiferencia' | 'factorRepeticion'>): number {
+  const d = nivel - dificultad;
+  if (d < 0) return 0;
+  const gusto = p.gustoPorDiferencia[Math.min(d, p.gustoPorDiferencia.length - 1)];
+  return (gusto * (reciente ? p.factorRepeticion : 1)) / (1 + cola);
 }
 
 /** Por qué se va enfadado un esquiador (cada una suma una queja). */
@@ -237,8 +260,15 @@ export class Simulacion {
     }
   }
 
+  /** Lo mejor que puede hacer un esquiador de ese nivel desde un punto (ver Red.mejorGustoDesde). */
+  private gustoDesde(nodo: number, nivel: number): number {
+    return this.red.mejorGustoDesde(nodo, nivel, this.p.gustoPorDiferencia, this.p.descuentoPorRemonte);
+  }
+
   private caminarABase(id: number, origen: Punto, bases: number[]): void {
-    const hacia = this.elegir(bases, (b) => 1 / (1 + this.colaEnNodo(b)));
+    // Hacia la base que lleva a lo que más le gusta, con menos cola.
+    const nivel = this.perfiles.get(id)?.nivel ?? 0;
+    const hacia = this.elegir(bases, (b) => (this.gustoDesde(b, nivel) || 1e-3) / (1 + this.colaEnNodo(b)));
     this.esquiadores.set(id, {
       id,
       estado: 'andando',
@@ -304,15 +334,16 @@ export class Simulacion {
       this.irse(id);
       return;
     }
-    // Variedad: entre las pistas, primero las que no ha usado hace poco; si
-    // todas son recientes, cualquiera. El reparto es por cola (la del remonte,
-    // o la que espera en el destino de la pista), no por camino más corto.
-    const nuevas = opciones.filter((op) => 'pista' in op && !perfil.recientes.includes(op.pista.id));
-    const candidatas = nuevas.length > 0 ? opciones.filter((op) => !('pista' in op) || nuevas.includes(op)) : opciones;
-    const o = this.elegir(candidatas, (op) => {
-      if ('remonte' in op) return 1 / (1 + this.colas[op.remonte.id].length);
-      if ('andar' in op) return 1 / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
-      return 1 / (1 + this.colaEnNodo(op.pista.hasta));
+    // Elección por nivel, variedad y cola (azar ponderado):
+    // peso = gusto × repetición × 1 / (1 + cola). El gusto de una pista sale de
+    // la diferencia de niveles; el de un remonte (o de ir andando a otra base),
+    // de lo mejor que hay tras él, con un descuento por cada remonte más. Así
+    // pistas y remontes están en la misma escala y se puede subir o bajar.
+    const nivel = perfil.nivel;
+    const o = this.elegir(opciones, (op) => {
+      if ('remonte' in op) return (this.gustoDesde(op.remonte.hasta, nivel) * this.p.descuentoPorRemonte) / (1 + this.colas[op.remonte.id].length);
+      if ('andar' in op) return this.gustoDesde(op.andar, nivel) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
+      return pesoPista(nivel, this.red.dificultad(op.pista), perfil.recientes.includes(op.pista.id), this.colaEnNodo(op.pista.hasta), this.p);
     });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);

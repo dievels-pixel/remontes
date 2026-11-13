@@ -11,6 +11,10 @@ const P: ParametrosSimulacion = {
   intervaloBolitas: CONFIG.remonte.intervaloBolitas,
   capacidadBolita: CONFIG.remonte.capacidad,
   ...CONFIG.esquiador,
+  // Elección de ruta fijada aquí (no los valores provisionales de config.ts).
+  gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
+  factorRepeticion: 0.3,
+  descuentoPorRemonte: 0.85,
   // Valores fijos para la prueba, no los provisionales de config.ts.
   aguanteMinimo: 180,
   aguanteMaximo: 360,
@@ -150,35 +154,42 @@ describe('Contento y variedad', () => {
     expect(sim.perfiles.get(99)!.contento).toBe(2); // la repite: no recupera
   });
 
-  it('entre las pistas válidas prefiere la que no ha usado hace poco', () => {
+  it('entre las pistas válidas prefiere la que no ha usado hace poco: con factor 0 nunca repite; con 0,3, poco', () => {
     const red = conValoresClasicos(redPequena());
     red.construirRemonte(0, 3);
     const a = red.abrirPista(3, 0, 'azul', 1);
     const b = red.abrirPista(3, 0, 'azul', -1);
-    // Con memoria de 1, dos pistas bastan para variar siempre (con 2, las dos
-    // serían «recientes» y elegiría cualquiera).
-    const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], memoriaVariedad: 1, aguanteMinimo: 1e6, aguanteMaximo: 1e6 }, ENTRADA, crearAzar(6));
-    // Cada esquiador alterna: tras bajar por una, la siguiente es la otra.
-    const ultima = new Map<number, number>();
-    let repeticiones = 0;
-    let bajadas = 0;
-    const enPista = new Map<number, number | null>();
-    correr(sim, 200, () => {
-      for (const e of sim.esquiadores.values()) {
-        const ahora = e.estado === 'pista' ? e.pista : null;
-        if (ahora !== null && enPista.get(e.id) == null) {
-          // Empieza una bajada.
-          if (ultima.get(e.id) === ahora) repeticiones++;
-          if (ultima.has(e.id)) bajadas++;
-          ultima.set(e.id, ahora);
+    // Con memoria de 1, dos pistas bastan para variar siempre.
+    const medir = (factorRepeticion: number) => {
+      const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], memoriaVariedad: 1, factorRepeticion, aguanteMinimo: 1e6, aguanteMaximo: 1e6 }, ENTRADA, crearAzar(6));
+      const ultima = new Map<number, number>();
+      let repeticiones = 0;
+      let bajadas = 0;
+      const enPista = new Map<number, number | null>();
+      correr(sim, 200, () => {
+        for (const e of sim.esquiadores.values()) {
+          const ahora = e.estado === 'pista' ? e.pista : null;
+          if (ahora !== null && enPista.get(e.id) == null) {
+            // Empieza una bajada.
+            if (ultima.get(e.id) === ahora) repeticiones++;
+            if (ultima.has(e.id)) bajadas++;
+            ultima.set(e.id, ahora);
+          }
+          enPista.set(e.id, ahora);
         }
-        enPista.set(e.id, ahora);
-      }
-    });
-    expect(bajadas).toBeGreaterThan(20);
-    expect(repeticiones).toBe(0);
-    expect([a.id, b.id].every((id) => [...ultima.values()].includes(id))).toBe(true);
+      });
+      expect([a.id, b.id].every((id) => [...ultima.values()].includes(id))).toBe(true);
+      return { repeticiones, bajadas };
+    };
+    const sinRepetir = medir(0);
+    expect(sinRepetir.bajadas).toBeGreaterThan(20);
+    expect(sinRepetir.repeticiones).toBe(0);
+    const conFactor = medir(0.3);
+    // Esperado: 0,3 / 1,3 ≈ 23 % de repeticiones, con margen.
+    expect(conFactor.repeticiones / conFactor.bajadas).toBeGreaterThan(0);
+    expect(conFactor.repeticiones / conFactor.bajadas).toBeLessThan(0.4);
   });
+
 });
 
 describe('Cola saturada', () => {
