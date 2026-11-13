@@ -267,20 +267,23 @@ export class Red {
 
   /**
    * ¿Puede arrancar un remonte en este punto?
+   * - En una cima, nunca: está marcada en el mapa como punto final.
    * - En un punto de inicio de la plaza (base), siempre, desdoblándose.
-   * - En un punto que ya es base (tiene un círculo de salida), también.
+   * - En un punto ya en uso que no es cima (base nueva, cuadrado o triángulo
+   *   de un intermedio), también. Desde un cuadrado que aún no sigue, el
+   *   primer remonte es la continuación de su línea; después, y desde los
+   *   demás, el punto se desdobla en un círculo nuevo: una base.
    * - En un punto gris al que podría llegar una pista desde un punto más alto
    *   al que ya llega un remonte: arrancar ahí lo convierte en base. Así se
    *   abren pistas desde media ladera y se coloniza otro valle.
-   * - En un cuadrado, una sola vez, como continuación de su línea.
-   * De un triángulo no arranca ninguno.
+   * El tope de estaciones por punto lo pone puedeConstruirRemonte.
    */
   puedeArrancar(id: number): boolean {
-    if (this.nodos[id].tipo === 'base') return true;
-    const propias = this.estacionesDe(id);
-    if (propias.some((e) => e.tipo === 'salida')) return true;
-    if (propias.length === 0) return this.alcanzablePorPista(id);
-    return propias.some((e) => e.tipo === 'paso' && !this.remontes.some((r) => r.estacionDesde === e.id));
+    const tipo = this.nodos[id].tipo;
+    if (tipo === 'cima') return false;
+    if (tipo === 'base') return true;
+    if (this.estacionesDe(id).length > 0) return true;
+    return this.alcanzablePorPista(id);
   }
 
   private cacheAlcanzables: { version: number; clave: string; valores: Map<number, boolean> } | null = null;

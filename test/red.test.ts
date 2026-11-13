@@ -51,13 +51,43 @@ describe('Red: activación y reglas de construcción', () => {
       REGLAS,
     );
     red.construirRemonte(0, 1);
-    red.construirRemonte(1, 2); // sigue desde el cuadrado
+    const sigue = red.construirRemonte(1, 2); // sigue desde el cuadrado
+    expect(red.estaciones[sigue.estacionDesde].tipo).toBe('paso'); // sale del mismo cuadrado
     expect(red.estacionesDe(2).map((e) => e.tipo)).toEqual(['llegada']); // triángulo, no cuadrado
-    expect(red.puedeConstruirRemonte(2, 3)).toBe('origen-no-arranca'); // no hay tercer tramo
-    expect(red.puedeConstruirRemonte(1, 3)).toBe('origen-no-arranca'); // el cuadrado ya siguió una vez
   });
 
-  it('de un intermedio no arranca un remonte salvo como continuación de su cuadrado', () => {
+  it('de un cuadrado que ya siguió, o de un triángulo que no es cima, arranca un remonte nuevo desdoblando un círculo', () => {
+    const red = new Red(
+      [
+        { id: 0, tipo: 'base', x: 0, y: 3000, cota: 1500 },
+        { id: 1, tipo: 'intermedio', x: 0, y: 2000, cota: 1800 },
+        { id: 2, tipo: 'intermedio', x: 0, y: 1000, cota: 2100 },
+        { id: 3, tipo: 'cima', x: 0, y: 0, cota: 2400 },
+        { id: 4, tipo: 'intermedio', x: 900, y: 1200, cota: 2050 },
+      ],
+      REGLAS,
+    );
+    red.construirRemonte(0, 1);
+    red.construirRemonte(1, 2); // línea completa: cuadrado en 1, triángulo en 2
+    // Desde el cuadrado: círculo nuevo pegado, que llega a un intermedio como cuadrado (es una línea nueva).
+    const nuevo = red.construirRemonte(1, 4);
+    expect(red.estaciones[nuevo.estacionDesde].tipo).toBe('salida');
+    expect(red.estacionesDe(1).map((e) => e.tipo)).toEqual(['paso', 'salida']);
+    expect(red.estacionesDe(4).map((e) => e.tipo)).toEqual(['paso']);
+    // Desde el triángulo de un intermedio (punto alto que no es cima): base nueva que sube más.
+    expect(red.puedeArrancar(2)).toBe(true);
+    const arriba = red.construirRemonte(2, 3);
+    expect(red.estaciones[arriba.estacionDesde].tipo).toBe('salida');
+    expect(red.estacionesDe(2).map((e) => e.tipo)).toEqual(['llegada', 'salida']);
+  });
+
+  it('de una cima no arranca ningún remonte', () => {
+    const red = redPequena();
+    red.construirRemonte(0, 3);
+    expect(red.puedeArrancar(3)).toBe(false);
+  });
+
+  it('de un cuadrado o una base se puede arrancar; de una cima no', () => {
     const red = redPequena();
     red.construirRemonte(0, 3);
     red.construirRemonte(1, 2); // cuadrado en 2
