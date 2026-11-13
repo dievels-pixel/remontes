@@ -279,7 +279,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 - Los esquiadores pueden cambiar andando entre bases contiguas.
 - Los remontes no terminan en una base y de las bases no salen pistas: las bases solo se comunican por la plaza.
 - Un punto es viable si desde él se llega a una base (evita bucles cerrados).
-- En pantalla se ve la versión desplegada (`vN · fecha y hora`), con N el número de la petición de fusión.
+- En pantalla se ve la versión desplegada (`vN · fecha y hora`): hasta la v26, el número de la petición de fusión; desde entonces, 26 más los commits subidos a `main`.
 - Plataforma: web (TypeScript y Canvas 2D), para iterar rápido y probar desde el móvil. Portar a un motor solo si más adelante compensa.
 
 ## Decisiones abiertas
@@ -341,5 +341,5 @@ Pasos, cada uno jugable antes del siguiente:
 
 ### Cómo se trabaja
 
-- Cada cambio va en una petición de fusión desde la rama de trabajo de Claude. El usuario la fusiona y se despliega sola en GitHub Pages. En pantalla se ve `vN`, con N el número de la petición, para saber qué versión está cargada.
+- Desde el 2026-11-13, cada cambio se sube directamente a `main` en un solo commit, sin petición de fusión, y se despliega solo en GitHub Pages. En pantalla se ve `vN` (26 más los commits subidos desde la v26), para saber qué versión está cargada.
 - Los pasos de un plan que quede a medias se apuntan aquí, en este apartado, no solo en la conversación, para que la siguiente sesión pueda continuar.

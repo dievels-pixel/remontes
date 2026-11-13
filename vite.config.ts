@@ -2,11 +2,16 @@ import { execSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 
 /**
- * Versión visible en pantalla. Al fusionar, el commit de main se llama
- * "Merge pull request #N ...", así que la versión es el número de la petición
- * de fusión. Fuera de ese caso se usa el commit corto. Se añade la hora de
+ * Versión visible en pantalla. Hasta la v26 era el número de la petición de
+ * fusión; desde entonces los cambios se suben directamente a main, uno por
+ * petición del usuario, y la versión sigue contando: 26 más los commits de
+ * main (primer padre) desde la fusión de la #26. Sin ese commit en el
+ * historial (copia parcial), se usa el commit corto. Se añade la hora de
  * construcción (hora de España) para distinguir despliegues.
  */
+/** Fusión de la petición #26, la última antes de subir directamente a main. */
+const BASE_VERSION = '381384f';
+
 function version(): string {
   const git = (cmd: string) => {
     try {
@@ -15,9 +20,8 @@ function version(): string {
       return '';
     }
   };
-  const asunto = git('git log -1 --pretty=%s');
-  const pr = /^Merge pull request #(\d+)/.exec(asunto)?.[1];
-  const id = pr ? `v${pr}` : git('git rev-parse --short HEAD') || 'local';
+  const desde = git(`git rev-list --count --first-parent ${BASE_VERSION}..HEAD`);
+  const id = desde !== '' ? `v${26 + Number(desde)}` : git('git rev-parse --short HEAD') || 'local';
   const hora = new Date().toLocaleString('es-ES', {
     timeZone: 'Europe/Madrid',
     day: '2-digit',
