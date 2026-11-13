@@ -135,6 +135,13 @@ export const CONFIG = {
     tiempoAnillo: 20,
   },
 
+  // Rendimiento: calentamiento de cachés en segundo plano tras cada obra
+  // (ver src/core/calentamiento.ts). No es balance: no cambia ninguna regla.
+  calentamiento: {
+    msPorFotograma: 4, // presupuesto por fotograma (se comprueba entre tareas)
+    destinosPorOrigen: 16, // pistas que se precalculan desde cada punto activo: las más cercanas
+  },
+
   // Entrada: interacción táctil.
   entrada: {
     radioToque: 34, // px de pantalla para acertar un nodo con el dedo

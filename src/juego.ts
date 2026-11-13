@@ -10,6 +10,7 @@ import { copiarBandas, type ColorPista } from './core/colores';
 import type { Confluencia } from './core/confluencia';
 import { idsIguales, idsTrasBorrar, reconstruirRed, sitioLibre, type LimitesMapa } from './core/editorMapa';
 import { crearNodos, type DefinicionNodo, type Mapa } from './core/mapa';
+import { tareasCalentamiento, type TareaCalentamiento } from './core/calentamiento';
 import { claveProyecto, evaluarPista, type ColorElegible, type EvaluacionPista, type Proyecto } from './core/proyectos';
 import { Red, type Estacion, type Motivo, type MotivoTrazado, type ReglasRed, type TipoNodo } from './core/red';
 import { Simulacion, type ParametrosSimulacion } from './core/simulacion';
@@ -243,6 +244,43 @@ export class Juego {
     this.mensaje = { texto, hasta: performance.now() + 2500 };
   }
 
+  // ---- Calentamiento de cachés en segundo plano ----
+
+  /** Punto de la última obra: el calentamiento empieza por lo más cercano a él. */
+  private ultimaObra: number | null = null;
+  private calentamiento: { version: number; tareas: TareaCalentamiento[]; siguiente: number } | null = null;
+
+  /** ¿Ha terminado el calentamiento para la versión actual de la red? */
+  get calentado(): boolean {
+    const c = this.calentamiento;
+    return c !== null && c.version === this.red.version && c.siguiente >= c.tareas.length;
+  }
+
+  /**
+   * Calcula de antemano, durante unos `ms` milisegundos, lo que pedirá el
+   * próximo arrastre: la bajada desde cada punto, qué puntos grises pueden
+   * arrancar y las pistas desde los puntos activos hacia los más cercanos
+   * (ver tareasCalentamiento). Usa las mismas funciones y cachés que el
+   * arrastre, así que no cambia ningún resultado. Si la red cambia, empieza
+   * de nuevo. El tiempo se comprueba entre tareas: una tarea larga puede
+   * pasarse del presupuesto. Si el dedo llega antes a un punto sin calcular,
+   * se calcula en el momento, como siempre.
+   */
+  calentar(ms: number = CONFIG.calentamiento.msPorFotograma): void {
+    const inicio = performance.now();
+    if (this.calentamiento?.version !== this.red.version) {
+      const obra = this.ultimaObra !== null && this.red.nodos[this.ultimaObra] ? this.red.nodo(this.ultimaObra) : this.plaza;
+      this.calentamiento = { version: this.red.version, tareas: tareasCalentamiento(this.red, obra, CONFIG.calentamiento.destinosPorOrigen), siguiente: 0 };
+    }
+    const c = this.calentamiento;
+    while (c.siguiente < c.tareas.length && performance.now() - inicio < ms) {
+      const t = c.tareas[c.siguiente++];
+      if (t.tipo === 'bajada') this.red.llegadaConBajada(t.nodo);
+      else if (t.tipo === 'arranque') this.red.puedeArrancar(t.nodo);
+      else this.evaluarPista(t.desde, t.hasta);
+    }
+  }
+
   // ---- Pistas: el jugador elige inicio y destino ----
 
   private cacheEvaluaciones: { version: number; mapa: Map<string, EvaluacionPista> } | null = null;
@@ -315,6 +353,7 @@ export class Juego {
       return;
     }
     this.red.abrirPista(desde, hasta, color, lado, giro);
+    this.ultimaObra = hasta;
   }
 
   /** Tras cambiar parámetros de pista (panel de ajustes): rehace todo. */
@@ -425,6 +464,7 @@ export class Juego {
       return;
     }
     this.red.construirRemonte(a.origen, o.nodo);
+    this.ultimaObra = o.nodo;
   }
 
   cancelarArrastre(): void {

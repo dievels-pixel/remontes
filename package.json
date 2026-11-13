@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "mapa:inicial": "node scripts/generarMapaInicial.ts",
     "mapa:dos-valles": "node scripts/generarMapaDosValles.ts",
-    "mapa:gran-dominio": "node scripts/generarMapaGranDominio.ts"
+    "mapa:gran-dominio": "node scripts/generarMapaGranDominio.ts",
+    "medir:arrastre": "node scripts/medirArrastre.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

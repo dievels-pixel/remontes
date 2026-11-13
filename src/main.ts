@@ -72,6 +72,8 @@ function iniciar(mapa: Mapa): void {
       juego.paso(DT);
       acumulado -= DT;
     }
+    // En segundo plano, unos milisegundos: lo que pedirá el próximo arrastre.
+    juego.calentar();
     if (claveTerreno.alturas !== juego.alturas || claveTerreno.umbral !== juego.umbralRoca) {
       terreno = crearTerreno(juego.alturas, juego.umbralRoca);
       claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
