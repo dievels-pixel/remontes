@@ -150,7 +150,7 @@ describe('Contento y variedad', () => {
     red.abrirPista(3, 0, 'azul', -1);
     const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], memoriaVariedad: 1 }, ENTRADA, crearAzar(5));
     const contentar = (sim as unknown as { contentar: (id: number, p: unknown) => boolean }).contentar.bind(sim);
-    sim.perfiles.set(99, { nivel: 1, contento: 2, cansadoEn: 1e9, recientes: [] });
+    sim.perfiles.set(99, { nivel: 1, contento: 2, cansadoEn: 1e9, recientes: [], variedades: 0 });
     contentar(99, a);
     expect(sim.perfiles.get(99)!.contento).toBe(3); // variedad: +1
     sim.perfiles.get(99)!.contento = 2;

@@ -27,7 +27,7 @@ export function reconstruirRed(antigua: Red, nueva: Red, ids: readonly (number |
     if (desde !== null && desde !== undefined && hasta !== null && hasta !== undefined) {
       if (h.tipo === 'remonte') {
         if (nueva.puedeConstruirRemonte(desde, hasta) === 'ok') {
-          nueva.construirRemonte(desde, hasta);
+          nueva.construirRemonte(desde, hasta).tipo = h.remonte.tipo;
           ok = true;
         }
       } else {

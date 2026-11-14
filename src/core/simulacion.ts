@@ -7,6 +7,8 @@
 // llega a 0 (por aburrimiento o por colas saturadas).
 // Lógica pura: ni DOM ni canvas.
 import { mezclaEn, tasaEn, type ParametrosAfluencia } from './afluencia';
+import { nivelDe } from './colores';
+import { pagoBajada, type ParametrosPago } from './economia';
 import type { Azar } from './azar';
 import { Polilinea } from './polilinea';
 import type { Hecho, Red, Remonte, Pista } from './red';
@@ -59,6 +61,12 @@ export interface ParametrosSimulacion {
    * la partida no termina (pruebas).
    */
   medidor?: { capacidad: number; vaciadoPorMinuto: number };
+  /** Personas por bolita de cada tipo de remonte; sin ello, `capacidadBolita` para todos. */
+  capacidadPorTipo?: readonly number[];
+  /** Velocidad relativa de cada tipo de remonte; sin ello, todos a `velocidadRemonte`. */
+  factorVelocidadPorTipo?: readonly number[];
+  /** Pago por bajada; sin él no se cobra (pruebas). */
+  pago?: ParametrosPago;
 }
 
 /**
@@ -103,6 +111,8 @@ export interface Perfil {
   cansadoEn: number;
   /** Últimas pistas por las que ha bajado (ids), la más reciente al final. */
   recientes: number[];
+  /** Bajadas con variedad que lleva (suben el pago). */
+  variedades: number;
 }
 
 /** Un esquiador que se acaba de ir enfadado, para el destello rojo. */
@@ -134,6 +144,8 @@ export class Simulacion {
   readonly quejasPorNivel = [0, 0, 0, 0];
   /** Esquiadores que han llegado por la carretera desde el principio. */
   llegados = 0;
+  /** Monedas: suben con cada bajada y se gastan en remontes (fuera de la simulación). */
+  monedas = 0;
   /** Medidor de quejas (en quejas): sube 1 por enfadado y se vacía despacio. */
   medidorQuejas = 0;
   /** Se ha llenado el medidor de quejas: la simulación ya no avanza. */
@@ -361,7 +373,7 @@ export class Simulacion {
       const nivel = this.sortearNivel();
       const id = this.siguienteId++;
       this.llegados++;
-      this.perfiles.set(id, { nivel, contento: this.p.contentoInicial, cansadoEn: Infinity, recientes: [] });
+      this.perfiles.set(id, { nivel, contento: this.p.contentoInicial, cansadoEn: Infinity, recientes: [], variedades: 0 });
       // Por la carretera hasta la plaza; sin carretera, ya está en ella.
       if (this.carretera) this.esquiadores.set(id, { id, estado: 'carretera', recorrido: 0 });
       else this.llegarAPlaza(id);
@@ -524,14 +536,27 @@ export class Simulacion {
     const variedad = !perfil.recientes.includes(pista.id) && !this.red.forzada(pista);
     if (diferencia >= 2) perfil.contento -= diferencia - 1;
     else if (diferencia === 0 && variedad) perfil.contento = Math.min(this.p.contentoInicial, perfil.contento + 1);
+    if (variedad) perfil.variedades++;
     perfil.recientes.push(pista.id);
     while (perfil.recientes.length > this.p.memoriaVariedad) perfil.recientes.shift();
     return perfil.contento > 0;
   }
 
+  /** Velocidad (m/s) de un remonte según su tipo. */
+  velocidadDe(r: Remonte): number {
+    return this.p.velocidadRemonte * (this.p.factorVelocidadPorTipo?.[r.tipo] ?? 1);
+  }
+
+  /** Personas por bolita de un remonte según su tipo. */
+  capacidadDe(r: Remonte): number {
+    return this.p.capacidadPorTipo?.[r.tipo] ?? this.p.capacidadBolita;
+  }
+
   private moverRemontes(dt: number): void {
-    const { velocidadRemonte: v, intervaloBolitas: intervalo, capacidadBolita } = this.p;
+    const { intervaloBolitas: intervalo } = this.p;
     for (const r of this.red.remontes) {
+      const v = this.velocidadDe(r);
+      const capacidadBolita = this.capacidadDe(r);
       const bolitas = this.bolitas[r.id];
       for (const b of bolitas) b.recorrido += v * dt;
       if (!this.red.enServicio(r) && this.colas[r.id].length > 0) {
@@ -581,6 +606,9 @@ export class Simulacion {
         e.recorrido += this.velocidadEnPista(pista) * dt;
         if (e.recorrido >= pista.trazado.longitud) {
           this.bajadasCompletadas++;
+          // Cobra la bajada (aunque después se vaya enfadado: la ha hecho).
+          const perfil = this.perfiles.get(e.id);
+          if (this.p.pago && perfil) this.monedas += pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago);
           if (!this.contentar(e.id, pista)) this.irseEnfadado(e.id, pista.hasta, 'aburrimiento');
           else this.decidir(e.id, pista.hasta);
         }

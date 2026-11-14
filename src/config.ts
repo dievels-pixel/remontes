@@ -16,13 +16,38 @@ export const CONFIG = {
     umbralRoca: 0.9,
   },
 
-  // Remontes (en la etapa 1 todos son telesquí). PROVISIONAL: capacidades y
-  // velocidades por tipo son decisión abierta.
+  // Tiempo: segundos de juego por segundo real a la velocidad «1×» (v41: el
+  // antiguo 2× pasa a ser el normal). Los botones dan 1×, 2× y 0,5×.
+  tiempo: {
+    escala: 2,
+    velocidades: [1, 2, 0.5],
+  },
+
+  // Remontes. Se construye siempre un telesquí y se mejora a telesilla y a
+  // telecabina (pulsación larga), pagando la diferencia. Por tipo (telesquí,
+  // telesilla, telecabina): personas por bolita (2 y 4 los decidió el usuario;
+  // la especificación decía 4 y 8) y velocidad relativa (la telecabina, más
+  // rápida). PROVISIONAL las velocidades.
   remonte: {
-    velocidad: 160, // m/s de juego (tiempo comprimido)
-    intervaloBolitas: 0.9, // s entre bolitas
-    capacidad: 1, // personas por bolita
+    velocidad: 160, // m/s de juego del telesquí (tiempo comprimido)
+    intervaloBolitas: 0.9, // s entre bolitas, igual en los tres tipos
+    capacidad: 1, // personas por bolita del telesquí (= capacidadPorTipo[0])
+    capacidadPorTipo: [1, 2, 4],
+    factorVelocidadPorTipo: [1, 1, 1.3],
     desnivelMinimo: 30, // m; evita remontes casi horizontales
+  },
+
+  // Economía (etapa 6). Precio de un remonte = longitud en planta × precio por
+  // metro × factor del tipo; mejorar paga la diferencia y deshacer devuelve lo
+  // pagado. Cada bajada paga la tarifa del color de la pista × (1 +
+  // multiplicadorVariedad × bajadas con variedad que lleva el esquiador).
+  // Factores y tarifas, de la especificación; PROVISIONAL todo.
+  economia: {
+    monedasIniciales: 100,
+    precioPorMetro: 0.04, // un telesquí de 1500 m cuesta 60
+    factorPrecioPorTipo: [1, 2.5, 5],
+    tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra
+    multiplicadorVariedad: 0.2,
   },
 
   // Estaciones: cada emplazamiento se desdobla en estaciones pegadas, una por

@@ -11,10 +11,12 @@ import { CONFIG } from '../config';
 import type { Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
-import { layoutSelector, rectBotonDeshacer, rectBotonVelocidad, rectNuevaPartida } from '../render/escena';
+import { layoutMejora, layoutSelector, rectBotonDeshacer, rectBotonVelocidad, rectNuevaPartida } from '../render/escena';
 
 /** Píxeles que se puede mover el dedo sobre el fondo sin dejar de ser un toque. */
 const UMBRAL_TOQUE = 8;
+/** Milisegundos de pulsación larga (sobre un remonte: mejorarlo). */
+const PULSACION_LARGA = 500;
 
 type Modo =
   | { tipo: 'nada' }
@@ -27,6 +29,11 @@ type Modo =
 export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara: Camara): void {
   const punteros = new Map<number, Punto>();
   let modo: Modo = { tipo: 'nada' };
+  let temporizadorLarga: ReturnType<typeof setTimeout> | null = null;
+  const anularLarga = () => {
+    if (temporizadorLarga !== null) clearTimeout(temporizadorLarga);
+    temporizadorLarga = null;
+  };
 
   const enPantalla = (e: { clientX: number; clientY: number }): Punto => {
     const r = lienzo.getBoundingClientRect();
@@ -48,6 +55,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
 
     // Segundo dedo: empieza el pellizco (y se cancela lo que hubiera a medias).
     if (punteros.size === 2) {
+      anularLarga();
       if (modo.tipo === 'arrastre') juego.cancelarArrastre();
       modo = { tipo: 'pellizco', ...dosDedos() };
       return;
@@ -72,6 +80,14 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       modo = { tipo: 'espera' };
       return;
     }
+    // Con la pregunta de mejora abierta, el toque es para ella.
+    if (juego.mejora) {
+      const { panel, si, no } = layoutMejora(r.width, r.height);
+      if (dentro(si)) juego.confirmarMejora();
+      else if (dentro(no) || !dentro(panel)) juego.cancelarMejora();
+      modo = { tipo: 'espera' };
+      return;
+    }
     // Con el selector de color abierto, el toque es para él: elegir un color
     // posible o, fuera del panel, cerrarlo.
     if (juego.selector) {
@@ -91,11 +107,27 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       return;
     }
     if (juego.empezarArrastre(enMundo(p), radio(), sep())) {
-      modo = { tipo: 'arrastre', id: e.pointerId };
+      const arrastre: Modo = { tipo: 'arrastre', id: e.pointerId };
+      modo = arrastre;
+      // Quieto un rato junto a un cable: mejorar el remonte (ver Juego.pulsacionLarga).
+      anularLarga();
+      temporizadorLarga = setTimeout(() => {
+        temporizadorLarga = null;
+        if (modo === arrastre && juego.pulsacionLarga(enMundo(p), CONFIG.entrada.toleranciaProyecto / camara.escala)) modo = { tipo: 'espera' };
+      }, PULSACION_LARGA);
       return;
     }
-    // Fondo: aún no se sabe si es un toque o un desplazamiento.
-    modo = { tipo: 'fondo', id: e.pointerId, inicio: p, ultimo: p, movido: false };
+    // Fondo: aún no se sabe si es un toque, un desplazamiento o una pulsación
+    // larga (sobre un remonte: mejorarlo).
+    const fondo: Modo = { tipo: 'fondo', id: e.pointerId, inicio: p, ultimo: p, movido: false };
+    modo = fondo;
+    anularLarga();
+    temporizadorLarga = setTimeout(() => {
+      temporizadorLarga = null;
+      if (modo === fondo && !fondo.movido && juego.pulsacionLarga(enMundo(fondo.inicio), CONFIG.entrada.toleranciaProyecto / camara.escala)) {
+        modo = { tipo: 'espera' };
+      }
+    }, PULSACION_LARGA);
   });
 
   lienzo.addEventListener('pointermove', (e) => {
@@ -105,7 +137,10 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
     if (modo.tipo === 'arrastre' && e.pointerId === modo.id) {
       juego.moverArrastre(enMundo(p), radio(), sep());
     } else if (modo.tipo === 'fondo' && e.pointerId === modo.id) {
-      if (!modo.movido && Math.hypot(p.x - modo.inicio.x, p.y - modo.inicio.y) > UMBRAL_TOQUE) modo.movido = true;
+      if (!modo.movido && Math.hypot(p.x - modo.inicio.x, p.y - modo.inicio.y) > UMBRAL_TOQUE) {
+        modo.movido = true;
+        anularLarga();
+      }
       if (modo.movido) {
         camara.desplazar(p.x - modo.ultimo.x, p.y - modo.ultimo.y);
         modo.ultimo = p;
@@ -124,6 +159,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
     const p = enPantalla(e);
     punteros.delete(e.pointerId);
     if (modo.tipo === 'arrastre' && e.pointerId === modo.id) {
+      anularLarga();
       if (cancelado) juego.cancelarArrastre();
       else {
         juego.moverArrastre(enMundo(p), radio(), sep());
@@ -131,6 +167,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       }
       modo = { tipo: 'nada' };
     } else if (modo.tipo === 'fondo' && e.pointerId === modo.id) {
+      anularLarga();
       // Un toque en el fondo: abre el selector de un proyecto o quita el foco.
       if (!modo.movido && !cancelado) juego.tocar(enMundo(modo.inicio), CONFIG.entrada.toleranciaProyecto / camara.escala);
       modo = { tipo: 'nada' };

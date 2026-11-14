@@ -9,6 +9,7 @@ import { mapaInicial } from './apoyo';
 describe('Juego: arrastre y velocidad', () => {
   it('el segundo remonte a una cima desdobla la estación y se puede arrastrar desde la base desdoblada', () => {
     const j = new Juego(mapaInicial());
+    j.sim.monedas = 1e6; // aquí no se mira el dinero
     const cima = j.red.nodos.find((n) => n.tipo === 'cima')!;
     const bases = j.red.nodos.filter((n) => n.tipo === 'base');
     for (const b of bases.slice(0, 2)) {
@@ -26,14 +27,14 @@ describe('Juego: arrastre y velocidad', () => {
     expect(j.nodoEn(j.posicionEstacion(nueva, sep), 40, sep)).toBe(bases[0].id);
   });
 
-  it('la velocidad cicla entre 1×, 2× y 4×', () => {
+  it('la velocidad cicla entre 1×, 2× y 0,5×', () => {
     const j = new Juego(mapaInicial());
     const vistas = [j.velocidad];
     for (let i = 0; i < 3; i++) {
       j.cambiarVelocidad();
       vistas.push(j.velocidad);
     }
-    expect(vistas).toEqual([1, 2, 4, 1]);
+    expect(vistas).toEqual([...CONFIG.tiempo.velocidades, CONFIG.tiempo.velocidades[0]]);
   });
 
   it('arrastrar de una llegada hacia un punto más bajo abre el selector y elegir color abre la pista', () => {

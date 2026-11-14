@@ -49,6 +49,8 @@ export interface Remonte {
   estacionDesde: number;
   estacionHasta: number;
   longitud: number;
+  /** 0 telesquí, 1 telesilla, 2 telecabina (ver core/economia). Se mejora sin deshacer. */
+  tipo: number;
 }
 
 export interface Pista {
@@ -752,11 +754,24 @@ export class Red {
       estacionDesde,
       estacionHasta,
       longitud: distancia(this.nodos[desde], this.nodos[hasta]),
+      tipo: 0,
     };
     this.remontes.push(r);
     this.version++;
     this.historial.push({ tipo: 'remonte', remonte: r, estacionesNuevas: this.estaciones.length - antes });
     return r;
+  }
+
+  /**
+   * Mejora un remonte al tipo siguiente (telesquí → telesilla → telecabina).
+   * No cambia la red (ni la viabilidad ni las cachés): solo su capacidad y
+   * velocidad. Devuelve false si ya es del tipo máximo.
+   */
+  mejorarRemonte(id: number, tipoMaximo: number): boolean {
+    const r = this.remontes[id];
+    if (!r || r.tipo >= tipoMaximo) return false;
+    r.tipo++;
+    return true;
   }
 
   /** `giro`: el de una salida orientada (ver giroLimpio); si no, el de las reglas. */

@@ -6,6 +6,7 @@
 import { CONFIG } from './config';
 import { trazarCarretera } from './core/afluencia';
 import { MapaAlturas } from './core/alturas';
+import { NOMBRES_TIPO, TIPO_MAXIMO, precioMejora, precioRemonte } from './core/economia';
 import { crearAzar } from './core/azar';
 import { copiarBandas, type ColorPista } from './core/colores';
 import type { Confluencia } from './core/confluencia';
@@ -102,8 +103,10 @@ export class Juego {
   arrastre: Arrastre | null = null;
   selector: Selector | null = null;
   mensaje: { texto: string; hasta: number } | null = null;
-  /** Multiplicador de tiempo: 1×, 2× o 4×. */
-  velocidad: 1 | 2 | 4 = 1;
+  /** Velocidad elegida (1×, 2× o 0,5×); el tiempo de juego va a `CONFIG.tiempo.escala` veces esto. */
+  velocidad: number = CONFIG.tiempo.velocidades[0];
+  /** Mejora de un remonte pendiente de confirmar (pulsación larga sobre él). */
+  mejora: { remonte: number; precio: number; punto: Punto } | null = null;
   /**
    * Modo de calibración (?ajustes en la dirección). Herramienta temporal: al
    * tocar una pista abierta muestra su color, sinuosidad y pendiente.
@@ -143,6 +146,9 @@ export class Juego {
       velocidadRemonte: remonte.velocidad,
       intervaloBolitas: remonte.intervaloBolitas,
       capacidadBolita: remonte.capacidad,
+      capacidadPorTipo: [...remonte.capacidadPorTipo],
+      factorVelocidadPorTipo: [...remonte.factorVelocidadPorTipo],
+      pago: { tarifas: [...CONFIG.economia.tarifas], multiplicadorVariedad: CONFIG.economia.multiplicadorVariedad },
       ...CONFIG.esquiador,
       // Con la curva de afluencia, estos dos no se usan (la curva manda).
       llegadasPorMinuto: CONFIG.afluencia.tasaInicial,
@@ -161,7 +167,86 @@ export class Juego {
 
   private nuevaSimulacion(): Simulacion {
     const entrada = this.carretera[this.carretera.length - 1];
-    return new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(12345), this.carretera);
+    const sim = new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(12345), this.carretera);
+    sim.monedas = CONFIG.economia.monedasIniciales;
+    return sim;
+  }
+
+  // ---- Economía ----
+
+  /** Monedas disponibles (las lleva la simulación, que cobra las bajadas). */
+  get monedas(): number {
+    return this.sim.monedas;
+  }
+
+  /** Precio de un remonte nuevo (telesquí) entre dos puntos. */
+  precioRemonteEntre(desde: number, hasta: number): number {
+    return precioRemonte(distancia(this.red.nodo(desde), this.red.nodo(hasta)), 0, CONFIG.economia);
+  }
+
+  /** Precio del remonte que se soltaría ahora, si el arrastre apunta a uno válido. */
+  precioArrastre(): { precio: number; alcanza: boolean } | null {
+    const o = this.arrastre?.objetivo;
+    if (!this.arrastre || !o || o.tipo !== 'remonte' || o.motivo !== 'ok') return null;
+    const precio = this.precioRemonteEntre(this.arrastre.origen, o.nodo);
+    return { precio, alcanza: precio <= this.monedas };
+  }
+
+  /** Remonte cuyo cable pasa a menos de `tolerancia` (m) del punto, el más cercano. */
+  remonteEn(p: Punto, tolerancia: number): number | null {
+    let mejor: number | null = null;
+    let min = tolerancia;
+    for (const r of this.red.remontes) {
+      const d = distanciaAPolilinea(p, [this.red.nodo(r.desde), this.red.nodo(r.hasta)]);
+      if (d <= min) [mejor, min] = [r.id, d];
+    }
+    return mejor;
+  }
+
+  /**
+   * Pulsación larga: si es sobre un remonte, pregunta si se quiere mejorar.
+   * Si el dedo había empezado un arrastre desde un punto sin moverse, vale
+   * solo si está más cerca del cable que del punto (y el arrastre se anula).
+   */
+  pulsacionLarga(p: Punto, tolerancia: number): boolean {
+    const id = this.remonteEn(p, tolerancia);
+    if (id === null) return false;
+    const r = this.red.remontes[id];
+    if (this.arrastre) {
+      if (this.arrastre.movido) return false;
+      const cable = distanciaAPolilinea(p, [this.red.nodo(r.desde), this.red.nodo(r.hasta)]);
+      if (distancia(p, this.red.nodo(this.arrastre.origen)) < cable) return false;
+      this.arrastre = null;
+    }
+    if (r.tipo >= TIPO_MAXIMO) {
+      this.avisar(`Ya es una ${NOMBRES_TIPO[r.tipo]}: no se puede mejorar más.`);
+      return true;
+    }
+    this.selector = null;
+    this.mejora = { remonte: id, precio: precioMejora(r.longitud, r.tipo, CONFIG.economia), punto: p };
+    return true;
+  }
+
+  /** Texto de la pregunta de mejora. */
+  textoMejora(): string {
+    if (!this.mejora) return '';
+    const r = this.red.remontes[this.mejora.remonte];
+    return `¿Mejorar el ${NOMBRES_TIPO[r.tipo]} a ${NOMBRES_TIPO[r.tipo + 1]} por ${this.mejora.precio} monedas?`;
+  }
+
+  confirmarMejora(): void {
+    const m = this.mejora;
+    this.mejora = null;
+    if (!m) return;
+    if (m.precio > this.monedas) {
+      this.avisar(`Faltan ${Math.ceil(m.precio - this.monedas)} monedas.`);
+      return;
+    }
+    if (this.red.mejorarRemonte(m.remonte, TIPO_MAXIMO)) this.sim.monedas -= m.precio;
+  }
+
+  cancelarMejora(): void {
+    this.mejora = null;
   }
 
   // ---- Editor del mapa de pruebas (?ajustes) ----
@@ -260,7 +345,8 @@ export class Juego {
   }
 
   cambiarVelocidad(): void {
-    this.velocidad = this.velocidad === 1 ? 2 : this.velocidad === 2 ? 4 : 1;
+    const v: readonly number[] = CONFIG.tiempo.velocidades;
+    this.velocidad = v[(v.indexOf(this.velocidad) + 1) % v.length];
   }
 
   private avisar(texto: string): void {
@@ -486,8 +572,15 @@ export class Juego {
       if (texto) this.avisar(texto);
       return;
     }
+    const precio = this.precioRemonteEntre(a.origen, o.nodo);
+    if (precio > this.monedas) {
+      this.avisar(`Faltan ${Math.ceil(precio - this.monedas)} monedas para este remonte (${precio}).`);
+      return;
+    }
     this.red.construirRemonte(a.origen, o.nodo);
+    this.sim.monedas -= precio;
     this.ultimaObra = o.nodo;
+    if (this.red.remontes.length === 1) this.avisar('Mantén pulsado un remonte para mejorarlo a telesilla o telecabina.');
   }
 
   cancelarArrastre(): void {
@@ -500,8 +593,12 @@ export class Juego {
     this.arrastre = null;
     this.selector = null;
     this.infoPista = null;
+    this.mejora = null;
     const h = this.red.deshacer();
-    if (h) this.sim.alDeshacer(h);
+    if (!h) return;
+    this.sim.alDeshacer(h);
+    // Deshacer un remonte devuelve todo lo pagado por él (con sus mejoras).
+    if (h.tipo === 'remonte') this.sim.monedas += precioRemonte(h.remonte.longitud, h.remonte.tipo, CONFIG.economia);
   }
 
   /** Indicación para el jugador según el estado de la red. */
@@ -516,6 +613,6 @@ export class Juego {
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
     const s = this.sim;
-    return `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`;
+    return `Monedas: ${Math.floor(s.monedas)} · Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`;
   }
 }

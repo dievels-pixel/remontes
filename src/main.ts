@@ -1,3 +1,4 @@
+import { CONFIG } from './config';
 import { cargarMapa, MAPA_POR_DEFECTO } from './cargarMapa';
 import { conectarPuntero } from './input/puntero';
 import type { Mapa } from './core/mapa';
@@ -66,7 +67,7 @@ function iniciar(mapa: Mapa): void {
   let anterior = performance.now();
   let acumulado = 0;
   function fotograma(ahora: number): void {
-    acumulado += Math.min((ahora - anterior) / 1000, 0.25) * juego.velocidad;
+    acumulado += Math.min((ahora - anterior) / 1000, 0.25) * juego.velocidad * CONFIG.tiempo.escala;
     anterior = ahora;
     while (acumulado >= DT) {
       juego.paso(DT);
