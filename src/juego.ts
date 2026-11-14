@@ -4,7 +4,7 @@
 // Gestos: arrastrar desde un punto hacia otro más alto construye un remonte;
 // hacia uno más bajo, una pista (al soltar se elige el color).
 import { CONFIG } from './config';
-import { edificios, escalonVisible, huecosPlaza, trazarCarretera, type Edificio } from './core/afluencia';
+import { trazarCarretera } from './core/afluencia';
 import { MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import { copiarBandas, type ColorPista } from './core/colores';
@@ -84,8 +84,6 @@ export class Juego {
   readonly plaza: Mapa['datos']['plaza'];
   /** Carretera de acceso, del borde del mapa a la plaza (el último punto es la entrada). */
   readonly carretera: Punto[];
-  /** Huecos de los edificios decorativos, en el orden en que se llenan. */
-  readonly huecos: Punto[];
   /** Pendiente local a partir de la cual el terreno es roca (el panel de ajustes la cambia). */
   umbralRoca: number = CONFIG.terreno.umbralRoca;
   /** Límites del editor del mapa de pruebas. */
@@ -119,8 +117,7 @@ export class Juego {
     this.alturas = mapa.alturas;
     this.definicion = datos.nodos.map((d) => ({ ...d }));
     this.plaza = datos.plaza;
-    this.carretera = trazarCarretera(datos.plaza, datos.ancho);
-    this.huecos = huecosPlaza(datos.plaza, this.carretera[this.carretera.length - 1], CONFIG.afluencia.huecosEdificios);
+    this.carretera = trazarCarretera(datos.plaza, datos.ancho, datos.alto);
     this.limitesMapa = {
       ancho: datos.ancho,
       alto: datos.alto,
@@ -164,12 +161,6 @@ export class Juego {
   private nuevaSimulacion(): Simulacion {
     const entrada = this.carretera[this.carretera.length - 1];
     return new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(12345), this.carretera);
-  }
-
-  /** Edificios decorativos de la plaza según el tiempo de estación abierta. */
-  edificios(): Edificio[] {
-    const a = this.parametrosSim.afluencia ?? CONFIG.afluencia;
-    return edificios(escalonVisible(this.sim.tiempoAbierta, a), this.huecos.length, CONFIG.afluencia.gradoMaximoEdificios, a.intervalo);
   }
 
   // ---- Editor del mapa de pruebas (?ajustes) ----
@@ -514,6 +505,6 @@ export class Juego {
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
     const s = this.sim;
-    return `Bajadas: ${s.bajadasCompletadas} · Cansados: ${s.cansados} · Enfadados: ${s.enfadados}`;
+    return `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Bajadas: ${s.bajadasCompletadas} · Cansados: ${s.cansados} · Enfadados: ${s.enfadados}`;
   }
 }

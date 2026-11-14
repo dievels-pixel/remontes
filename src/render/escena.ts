@@ -20,9 +20,6 @@ const COLOR = {
   esquiador: '#262a31',
   plaza: 'rgba(240, 236, 226, 0.75)',
   carretera: 'rgba(128, 132, 136, 0.55)',
-  // Casa, hotel y gran hotel: tonos apagados para que no compitan con los puntos.
-  edificio: ['#b8a58c', '#a39588', '#8e837d'],
-  tejado: ['#8f7b63', '#7b6e63', '#665c57'],
   valido: '#2f9e6a',
   invalido: '#b9473b',
   forzada: '#e8908a', // borde rojo suave del selector: color empinado para su nivel
@@ -86,7 +83,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.drawImage(terreno, 0, terreno.height - 1, terreno.width, 1, esquina.x, esquina.y + hT - 1, wT, alto - esquina.y - hT + 1);
   }
 
-  // Carretera de acceso y plaza del pie de pistas, con sus edificios.
+  // Carretera de acceso y plaza del pie de pistas.
   ctx.save();
   ctx.strokeStyle = COLOR.carretera;
   ctx.lineWidth = Math.max(3, 26 * camara.escala);
@@ -104,7 +101,6 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.beginPath();
   ctx.arc(plaza.x, plaza.y, juego.plaza.radio * camara.escala, 0, Math.PI * 2);
   ctx.fill();
-  dibujarEdificios(ctx, juego, P, camara.escala);
 
   // Pistas.
   ctx.lineCap = 'round';
@@ -717,72 +713,61 @@ function mezclar(a: string, b: string, t: number): string {
 }
 
 /** Color de un esquiador: el de su nivel (la especificación descarta cambiarlo con el contento). */
-/** Lado (m) de cada grado de edificio: casa, hotel, gran hotel. */
-const LADO_EDIFICIO = [30, 40, 50];
-/** Segundos (de estación abierta) que dura la animación al aparecer o mejorar. */
-const DURACION_EDIFICIO = 0.7;
-
-/**
- * Edificios decorativos alrededor de la plaza: un bloque con tejado a dos
- * aguas visto desde arriba (la cumbrera como línea). Al aparecer o mejorar
- * crecen con un pequeño rebote.
- */
-function dibujarEdificios(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Punto) => Punto, escala: number): void {
-  const t = juego.sim.tiempoAbierta;
-  ctx.save();
-  for (const e of juego.edificios()) {
-    const h = juego.huecos[e.hueco];
-    if (!h) continue;
-    const c = P(h);
-    const u = Math.min(1, Math.max(0, (t - e.desde) / DURACION_EDIFICIO));
-    // Crece de 0 a 1 con un rebote suave (ease-out-back).
-    const k = 1.7;
-    const crece = 1 + (k + 1) * Math.pow(u - 1, 3) + k * Math.pow(u - 1, 2);
-    const lado = Math.max(5, LADO_EDIFICIO[Math.min(e.grado, LADO_EDIFICIO.length - 1)] * escala) * crece;
-    const w = lado * (1 + 0.3 * e.grado);
-    const hh = lado;
-    ctx.fillStyle = COLOR.edificio[Math.min(e.grado, 2)];
-    ctx.fillRect(c.x - w / 2, c.y - hh / 2, w, hh);
-    ctx.strokeStyle = COLOR.tejado[Math.min(e.grado, 2)];
-    ctx.lineWidth = Math.max(1, lado * 0.08);
-    ctx.strokeRect(c.x - w / 2, c.y - hh / 2, w, hh);
-    ctx.beginPath();
-    ctx.moveTo(c.x - w / 2, c.y);
-    ctx.lineTo(c.x + w / 2, c.y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
 function colorEsquiador(perfil: Perfil | undefined): string {
   return perfil ? COLOR_PISTA[COLORES[perfil.nivel]] : COLOR.esquiador;
 }
 
 /**
- * Contadores de esquiadores por nivel, abajo en el centro, en una fila justo
- * encima de los botones (entre ellos no caben en un móvil estrecho): un punto
- * de cada color y cuántos hay en la estación.
+ * Contadores por nivel, abajo en el centro, justo encima de los botones (entre
+ * ellos no caben en un móvil estrecho). Una columna por color:
+ * - arriba, un punto del color y cuántos de ese nivel hay en la estación;
+ * - debajo, el contento medio de los presentes de ese nivel, como una barra
+ *   de 3 segmentos (uno por punto de contento), y cuántos de ese nivel se han
+ *   ido enfadados (✕, en rojo si hay alguno).
  */
 function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
-  const n = juego.sim.porNivel();
-  const paso = 48;
-  const x0 = ancho / 2 - (paso * (n.length - 1)) / 2 - 8;
-  const y = alto - 72;
+  const { sim } = juego;
+  const n = sim.porNivel();
+  const contento = sim.contentoMedioPorNivel();
+  const tope = sim.p.contentoInicial;
+  const paso = 76;
+  const x0 = ancho / 2 - (paso * (n.length - 1)) / 2 - 22;
+  const y1 = alto - 92;
+  const y2 = alto - 74;
   ctx.save();
-  ctx.font = '600 12px system-ui, sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   n.forEach((v, i) => {
     const x = x0 + i * paso;
-    ctx.fillStyle = COLOR_PISTA[COLORES[i]];
+    const color = COLOR_PISTA[COLORES[i]];
+    ctx.fillStyle = color;
     ctx.strokeStyle = COLOR.hueco;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.arc(x, y1, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    ctx.font = '600 12px system-ui, sans-serif';
     ctx.fillStyle = COLOR.tinta;
-    ctx.fillText(String(v), x + 9, y + 1);
+    ctx.fillText(String(v), x + 9, y1 + 1);
+    // Contento medio: segmentos llenos en proporción (vacíos si no hay nadie).
+    const seg = 7;
+    const hueco = 2;
+    const c = contento[i];
+    for (let k = 0; k < tope; k++) {
+      const sx = x - 5 + k * (seg + hueco);
+      ctx.fillStyle = 'rgba(38, 42, 49, 0.15)';
+      ctx.fillRect(sx, y2 - 2.5, seg, 5);
+      const lleno = c === null ? 0 : Math.min(1, Math.max(0, c - k));
+      if (lleno > 0) {
+        ctx.fillStyle = color;
+        ctx.fillRect(sx, y2 - 2.5, seg * lleno, 5);
+      }
+    }
+    const enfadados = sim.quejasPorNivel[i];
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.fillStyle = enfadados > 0 ? COLOR.colaLlena : COLOR.vacio;
+    ctx.fillText(`✕${enfadados}`, x - 5 + tope * (seg + hueco) + 3, y2 + 1);
   });
   ctx.restore();
 }

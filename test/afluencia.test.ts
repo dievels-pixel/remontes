@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  edificios,
   escalonEfectivo,
   escalonVisible,
-  huecosPlaza,
   mezclaEn,
   mezclaEnMinuto,
   tasaEn,
@@ -48,44 +46,32 @@ describe('curva de afluencia', () => {
   });
 });
 
-describe('carretera y edificios', () => {
+describe('carretera', () => {
   const plaza = { x: 2000, y: 5780, radio: 200 };
+  const c = trazarCarretera(plaza, 4000, 6000);
 
-  it('la carretera llega desde el borde lateral más cercano hasta el borde de la plaza', () => {
-    const c = trazarCarretera(plaza, 4000);
-    expect(c[0].x === 0 || c[0].x === 4000).toBe(true);
+  it('llega desde el sureste (borde derecho, por debajo de la plaza) hasta el borde de la plaza', () => {
+    expect(c[0].x).toBe(4000);
+    expect(c[0].y).toBeGreaterThan(plaza.y);
     const fin = c[c.length - 1];
     expect(Math.hypot(fin.x - plaza.x, fin.y - plaza.y)).toBeCloseTo(plaza.radio);
-    expect(trazarCarretera({ ...plaza, x: 500 }, 4000)[0].x).toBe(0);
-    expect(trazarCarretera({ ...plaza, x: 3500 }, 4000)[0].x).toBe(4000);
+    expect(fin.x).toBeGreaterThan(plaza.x);
+    expect(fin.y).toBeGreaterThan(plaza.y);
   });
 
-  it('los huecos quedan dentro de la plaza y lejos de la entrada de la carretera', () => {
-    const entrada = trazarCarretera(plaza, 4000)[1];
-    const h = huecosPlaza(plaza, entrada, 8);
-    expect(h).toHaveLength(8);
-    for (const p of h) {
-      expect(Math.hypot(p.x - plaza.x, p.y - plaza.y)).toBeLessThan(plaza.radio);
-      expect(Math.hypot(p.x - entrada.x, p.y - entrada.y)).toBeGreaterThan(plaza.radio * 0.4);
+  it('serpentea sin salirse del mapa', () => {
+    for (const p of c) {
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(4000);
+      expect(p.y).toBeLessThanOrEqual(6000);
     }
-    // Se llenan de arriba abajo: los de abajo quedan junto al borde del mapa.
-    for (let i = 1; i < h.length; i++) expect(h[i].y).toBeGreaterThanOrEqual(h[i - 1].y - 1e-9);
-  });
-
-  it('un edificio por escalón; llenos los huecos, mejoran en el mismo orden hasta el grado máximo', () => {
-    expect(edificios(0, 3, 2, 60)).toEqual([]);
-    expect(edificios(2, 3, 2, 60)).toEqual([
-      { hueco: 0, grado: 0, desde: 60 },
-      { hueco: 1, grado: 0, desde: 120 },
-    ]);
-    expect(edificios(4, 3, 2, 60)).toEqual([
-      { hueco: 0, grado: 1, desde: 240 },
-      { hueco: 1, grado: 0, desde: 120 },
-      { hueco: 2, grado: 0, desde: 180 },
-    ]);
-    // Tope: 3 huecos × 3 grados = 9 escalones; después ya no cambia.
-    expect(edificios(50, 3, 2, 60)).toEqual(edificios(9, 3, 2, 60));
-    expect(edificios(9, 3, 2, 60).map((e) => e.grado)).toEqual([2, 2, 2]);
+    // Cruza varias veces la recta que une sus extremos: curvas a uno y otro lado.
+    const a = c[0];
+    const b = c[c.length - 1];
+    const lado = (p: { x: number; y: number }) => Math.sign((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x));
+    let cambios = 0;
+    for (let i = 2; i < c.length - 1; i++) if (lado(c[i]) !== 0 && lado(c[i]) !== lado(c[i - 1])) cambios++;
+    expect(cambios).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -166,5 +152,45 @@ describe('simulación con carretera y curva', () => {
     const sim = new Simulacion(estacion(), { ...P, afluencia: { ...A, tasaInicial: 120 } }, { x: 0, y: 3100 }, crearAzar(4));
     correr(sim, 30);
     expect(sim.porNivel()).toEqual([sim.poblacion, 0, 0, 0]);
+  });
+
+  it('al entrar en la plaza elige el remonte con su criterio: el de menos cola, más a menudo, y va directo a su cola', () => {
+    const red = redPequena();
+    const a = red.construirRemonte(0, 2);
+    const b = red.construirRemonte(1, 2);
+    expect(a && b).toBeTruthy();
+    abrir(red, 2, 0);
+    const sim = new Simulacion(red, { ...P, afluencia: { ...A, tasaInicial: 6000 } }, { x: 150, y: 3100 }, crearAzar(7));
+    sim.paso(DT);
+    // Cola artificial de 9 en el primer remonte: pesa 1/10 frente a 1/1.
+    const ra = red.remontes.find((r) => r.desde === 0)!;
+    const rb = red.remontes.find((r) => r.desde === 1)!;
+    for (let i = 0; i < 9; i++) sim.colas[ra.id].push(-1 - i);
+    const elegido = new Map<number, number>();
+    for (let t = 0; t < 1; t += DT) {
+      sim.paso(DT);
+      for (const e of sim.esquiadores.values()) if (e.estado === 'andando' && e.remonte !== undefined) elegido.set(e.id, e.remonte);
+    }
+    const n = elegido.size;
+    const aA = [...elegido.values()].filter((r) => r === ra.id).length;
+    expect(n).toBeGreaterThan(50);
+    expect(aA / n).toBeGreaterThan(0.03);
+    expect(aA / n).toBeLessThan(0.2);
+    // Al llegar a la base, a la cola del remonte elegido sin volver a decidir.
+    const id = [...elegido.entries()].find(([, r]) => r === rb.id)![0];
+    for (let t = 0; t < 8 && sim.esquiadores.get(id)?.estado === 'andando'; t += DT) sim.paso(DT);
+    const e = sim.esquiadores.get(id)!;
+    expect(e.estado === 'cola' || e.estado === 'remonte').toBe(true);
+    if (e.estado === 'cola') expect(e.remonte).toBe(rb.id);
+  });
+
+  it('cuenta los llegados y los enfadados por nivel', () => {
+    const red = redPequena(); // sin remontes: nadie llega
+    const sim = new Simulacion(estacion(), { ...P, afluencia: { ...A, tasaInicial: 120 } }, { x: 0, y: 3100 }, crearAzar(4));
+    correr(sim, 10);
+    expect(sim.llegados).toBeGreaterThanOrEqual(19);
+    expect(new Simulacion(red, P, { x: 0, y: 3100 }, crearAzar(1)).llegados).toBe(0);
+    expect(sim.contentoMedioPorNivel()).toEqual([1000, null, null, null]);
+    expect(sim.quejasPorNivel.reduce((x, y) => x + y, 0)).toBe(sim.enfadados);
   });
 });

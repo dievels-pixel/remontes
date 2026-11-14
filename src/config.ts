@@ -101,13 +101,14 @@ export const CONFIG = {
 
   // Afluencia: curva por escalones en función del tiempo con la estación
   // abierta (desde que hay algún remonte en servicio), sin depender de lo
-  // construido. Cada `intervalo` s aparece un edificio en la plaza y, `retraso`
-  // s después, se aplica el escalón nuevo. Ver src/core/afluencia.ts.
+  // construido. Cada `intervalo` s sube un escalón, que se aplica `retraso` s
+  // después (era el margen tras el edificio que lo anunciaba; los edificios
+  // se quitaron en v39). Ver src/core/afluencia.ts.
   // PROVISIONAL todo salvo el retraso (15 s en la especificación): por
   // calibrar con la simulación.
   afluencia: {
     intervalo: 60, // s entre escalones
-    retraso: 15, // s entre el edificio y la afluencia nueva
+    retraso: 15, // s de retraso de cada escalón
     tasaInicial: 12, // llegadas por minuto al abrir
     incremento: 3, // llegadas por minuto más en cada escalón
     // Mezcla de niveles (pesos de verdes, azules, rojos y negros) en algunos
@@ -121,8 +122,6 @@ export const CONFIG = {
       { minuto: 14, pesos: [0.3, 0.3, 0.22, 0.18] },
     ],
     velocidadCarretera: 150, // m/s de juego por la carretera de acceso
-    huecosEdificios: 8, // huecos alrededor de la plaza
-    gradoMaximoEdificios: 2, // casa, hotel, gran hotel
   },
 
   esquiador: {

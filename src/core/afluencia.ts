@@ -1,21 +1,19 @@
 // Afluencia de esquiadores: curva por escalones en función del tiempo, mezcla
-// de niveles también en función del tiempo, carretera de acceso y edificios
-// decorativos alrededor de la plaza (ver «Pie de pistas y afluencia» en la
-// especificación). Nada de esto depende de lo construido.
+// de niveles también en función del tiempo y carretera de acceso (ver «Pie de
+// pistas y afluencia» en la especificación). Nada de esto depende de lo construido.
 //
 // El tiempo es el de la estación abierta: cuenta desde que hay algún remonte
 // en servicio (antes no llega nadie).
 //
-// Cada `intervalo` segundos la curva sube un escalón: aparece un edificio y,
-// `retraso` segundos después, se aplica la afluencia nueva (margen de
-// reacción, como una estación nueva en Mini Metro).
+// Cada `intervalo` segundos la curva sube un escalón, que se aplica `retraso`
+// segundos después.
 // Lógica pura: ni DOM ni canvas.
 import type { Punto } from './vector';
 
 export interface ParametrosAfluencia {
   /** Segundos entre escalones. */
   intervalo: number;
-  /** Segundos entre que aparece el edificio y se aplica el escalón. */
+  /** Segundos de retraso con que se aplica cada escalón. */
   retraso: number;
   /** Llegadas por minuto del escalón 0. */
   tasaInicial: number;
@@ -28,7 +26,7 @@ export interface ParametrosAfluencia {
   mezcla: readonly { minuto: number; pesos: readonly number[] }[];
 }
 
-/** Escalones alcanzados en el instante t (edificios que se ven): 0 al abrir. */
+/** Escalones alcanzados en el instante t (sin el retraso): 0 al abrir. */
 export function escalonVisible(t: number, p: ParametrosAfluencia): number {
   return Math.max(0, Math.floor(t / p.intervalo));
 }
@@ -66,60 +64,33 @@ export function mezclaEnMinuto(minuto: number, claves: ParametrosAfluencia['mezc
 }
 
 /**
- * Carretera de acceso: recta desde el borde lateral más cercano del mapa
- * hasta el borde de la plaza, entrando algo por debajo de su centro (las
- * bases están por encima y a los lados). El último punto es la entrada.
+ * Carretera de acceso: llega desde el sureste (el borde derecho del mapa, por
+ * debajo de la plaza) serpenteando hasta el borde de la plaza, por el que
+ * entra algo por debajo de su centro (las bases están por encima y a los
+ * lados). Las curvas se amortiguan en los dos extremos y no se salen del
+ * mapa. El último punto es la entrada.
  */
-export function trazarCarretera(plaza: Punto & { radio: number }, anchoMapa: number): Punto[] {
-  const haciaDerecha = anchoMapa - plaza.x <= plaza.x;
-  const dy = plaza.radio * 0.5;
-  const dx = Math.sqrt(plaza.radio * plaza.radio - dy * dy) * (haciaDerecha ? 1 : -1);
-  const y = plaza.y + dy;
-  return [
-    { x: haciaDerecha ? anchoMapa : 0, y },
-    { x: plaza.x + dx, y },
-  ];
-}
-
-/**
- * Huecos predefinidos para los edificios: repartidos en un anillo dentro de
- * la plaza, sin tapar la entrada de la carretera. Se devuelven en el orden en
- * que se llenan: los de arriba primero.
- */
-export function huecosPlaza(plaza: Punto & { radio: number }, entrada: Punto, cuantos: number): Punto[] {
-  const angEntrada = Math.atan2(entrada.y - plaza.y, entrada.x - plaza.x);
-  const libre = (Math.PI * 2) / (cuantos + 1); // un hueco de más, el de la carretera
-  const r = plaza.radio * 0.7;
-  const anillo: Punto[] = [];
-  for (let i = 1; i <= cuantos; i++) {
-    const a = angEntrada + i * libre;
-    anillo.push({ x: plaza.x + Math.cos(a) * r, y: plaza.y + Math.sin(a) * r });
+export function trazarCarretera(plaza: Punto & { radio: number }, anchoMapa: number, altoMapa: number): Punto[] {
+  const amplitud = plaza.radio * 0.6;
+  const onda = 600; // m entre dos curvas hacia el mismo lado
+  const angEntrada = Math.PI / 6; // 30° por debajo de la horizontal, hacia la derecha
+  const fin = { x: plaza.x + Math.cos(angEntrada) * plaza.radio, y: plaza.y + Math.sin(angEntrada) * plaza.radio };
+  const inicio = { x: anchoMapa, y: Math.max(fin.y, altoMapa - 30 - amplitud) };
+  const largo = Math.hypot(fin.x - inicio.x, fin.y - inicio.y);
+  // Normal a la recta inicio–fin.
+  const nx = -(fin.y - inicio.y) / largo;
+  const ny = (fin.x - inicio.x) / largo;
+  const ondas = Math.max(1, Math.round(largo / onda)) - 0.5; // termina a media curva
+  const n = Math.max(2, Math.ceil(largo / 20));
+  const puntos: Punto[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const desvio = amplitud * Math.sin(2 * Math.PI * ondas * t) * Math.pow(Math.sin(Math.PI * t), 0.7);
+    puntos.push({
+      x: inicio.x + (fin.x - inicio.x) * t + nx * desvio,
+      y: Math.min(altoMapa - 15, inicio.y + (fin.y - inicio.y) * t + ny * desvio),
+    });
   }
-  // Orden de llenado: de arriba abajo (la parte baja de la plaza queda cerca
-  // del borde del mapa y de los botones), y a igual altura del centro afuera.
-  return anillo.sort((a, b) => a.y - b.y || Math.abs(a.x - plaza.x) - Math.abs(b.x - plaza.x));
-}
-/** Edificio decorativo: en un hueco, con su grado (0 casa, 1 hotel, 2 gran hotel). */
-export interface Edificio {
-  hueco: number;
-  grado: number;
-  /** Instante (s de estación abierta) en que apareció o mejoró por última vez. */
-  desde: number;
-}
-
-/**
- * Edificios en el escalón e: uno por escalón a partir del primero. Cuando se
- * llenan los huecos, los edificios mejoran de aspecto en el mismo orden,
- * hasta el grado máximo.
- */
-export function edificios(e: number, huecos: number, gradoMaximo: number, intervalo: number): Edificio[] {
-  const res: Edificio[] = [];
-  if (huecos <= 0) return res;
-  const total = Math.min(e, huecos * (gradoMaximo + 1));
-  for (let h = 0; h < Math.min(total, huecos); h++) {
-    // Escalones que han tocado este hueco: h+1, h+1+huecos, h+1+2·huecos…
-    const veces = Math.floor((total - 1 - h) / huecos) + 1;
-    res.push({ hueco: h, grado: veces - 1, desde: (h + 1 + (veces - 1) * huecos) * intervalo });
-  }
-  return res;
+  puntos[puntos.length - 1] = fin;
+  return puntos;
 }

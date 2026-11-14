@@ -73,7 +73,16 @@ export type CausaQueja = 'aburrimiento' | 'cola' | 'sinPistas';
 
 export type Esquiador =
   | { id: number; estado: 'carretera'; recorrido: number }
-  | { id: number; estado: 'andando'; origen: Punto; hacia: number; recorrido: number; largo: number }
+  | {
+      id: number;
+      estado: 'andando';
+      origen: Punto;
+      hacia: number;
+      recorrido: number;
+      largo: number;
+      /** Remonte de la plaza elegido al entrar: al llegar a su base se pone en su cola. */
+      remonte?: number;
+    }
   | { id: number; estado: 'cola'; nodo: number; remonte: number }
   | { id: number; estado: 'remonte'; remonte: number }
   | { id: number; estado: 'pista'; pista: number; recorrido: number };
@@ -115,6 +124,10 @@ export class Simulacion {
   cansados = 0;
   /** Se han ido enfadados, por causa. Cada uno es una queja. */
   readonly quejas: Record<CausaQueja, number> = { aburrimiento: 0, cola: 0, sinPistas: 0 };
+  /** Enfadados por nivel del esquiador (verde, azul, roja, negra). */
+  readonly quejasPorNivel = [0, 0, 0, 0];
+  /** Esquiadores que han llegado por la carretera desde el principio. */
+  llegados = 0;
   /** Marchas enfadadas recientes (las de los últimos segundos), para dibujarlas. */
   readonly marchasEnfadadas: MarchaEnfadada[] = [];
   tiempo = 0;
@@ -156,6 +169,22 @@ export class Simulacion {
   /** Total de enfadados (quejas). */
   get enfadados(): number {
     return this.quejas.aburrimiento + this.quejas.cola + this.quejas.sinPistas;
+  }
+
+  /**
+   * Contento medio de los presentes de cada nivel (verde, azul, roja, negra),
+   * o null si no hay ninguno de ese nivel.
+   */
+  contentoMedioPorNivel(): (number | null)[] {
+    const suma = [0, 0, 0, 0];
+    const n = [0, 0, 0, 0];
+    for (const id of this.esquiadores.keys()) {
+      const p = this.perfiles.get(id);
+      if (!p) continue;
+      suma[p.nivel] += p.contento;
+      n[p.nivel]++;
+    }
+    return suma.map((x, i) => (n[i] > 0 ? x / n[i] : null));
   }
 
   /** Esquiadores presentes de cada nivel (verde, azul, roja, negra). */
@@ -212,6 +241,8 @@ export class Simulacion {
   /** Se va enfadado en `nodo`: suma una queja de esa causa. */
   private irseEnfadado(id: number, nodo: number, causa: CausaQueja): void {
     this.quejas[causa]++;
+    const nivel = this.perfiles.get(id)?.nivel;
+    if (nivel !== undefined) this.quejasPorNivel[nivel]++;
     this.marchasEnfadadas.push({ nodo, tiempo: this.tiempo });
     this.irse(id);
   }
@@ -277,6 +308,7 @@ export class Simulacion {
       this.llegadasPendientes -= 1;
       const nivel = this.sortearNivel();
       const id = this.siguienteId++;
+      this.llegados++;
       this.perfiles.set(id, { nivel, contento: this.p.contentoInicial, cansadoEn: Infinity, recientes: [] });
       // Por la carretera hasta la plaza; sin carretera, ya está en ella.
       if (this.carretera) this.esquiadores.set(id, { id, estado: 'carretera', recorrido: 0 });
@@ -285,24 +317,46 @@ export class Simulacion {
   }
 
   /**
-   * Entra en la plaza: empieza a contar su aguante y va a una base. La
-   * afluencia no depende de lo construido: viene igual.
+   * Entra en la plaza: empieza a contar su aguante y elige, con el mismo
+   * criterio que en cualquier punto (peso = gusto de lo que hay tras el
+   * remonte × descuento / (1 + cola)), uno de los remontes de la plaza que
+   * lleven a algo para su nivel. Va andando a su base y se pone en su cola.
+   * La afluencia no depende de lo construido: viene igual. Si para su nivel
+   * no hay ninguno, se va enfadado al llegar (PROVISIONAL: decisión abierta
+   * de la especificación).
    */
   private llegarAPlaza(id: number): void {
     const perfil = this.perfiles.get(id);
     if (!perfil) return;
     const { aguanteMinimo: a, aguanteMaximo: b } = this.p;
     perfil.cansadoEn = this.tiempo + a + this.azar() * (b - a);
-    const nivel = perfil.nivel;
-    const bases = this.basesPara(nivel);
-    // Si para su nivel no hay ninguna bajada, se va enfadado al llegar (PROVISIONAL:
-    // decisión abierta de la especificación).
-    if (bases.length === 0) {
+    const remontes = this.remontesDePlazaPara(perfil.nivel);
+    if (remontes.length === 0) {
       this.esquiadores.set(id, { id, estado: 'andando', origen: { ...this.entrada }, hacia: -1, recorrido: 0, largo: 0 });
       this.irseEnfadado(id, -1, 'sinPistas');
       return;
     }
-    this.caminarABase(id, this.entrada, bases);
+    const r = this.elegir(remontes, (r) => this.pesoRemonte(r, perfil.nivel));
+    this.esquiadores.set(id, {
+      id,
+      estado: 'andando',
+      origen: { ...this.entrada },
+      hacia: r.desde,
+      recorrido: 0,
+      largo: distancia(this.entrada, this.red.nodo(r.desde)),
+      remonte: r.id,
+    });
+  }
+
+  /** Remontes que salen de la plaza y llevan a alguna bajada para ese nivel. */
+  remontesDePlazaPara(nivel: number): Remonte[] {
+    const viables = this.red.viablesPorNivel()[nivel];
+    return this.red.remontes.filter((r) => this.red.nodo(r.desde).tipo === 'base' && viables.has(r.hasta));
+  }
+
+  /** Peso de coger un remonte: lo mejor que hay tras él, con descuento, entre (1 + cola). */
+  private pesoRemonte(r: Remonte, nivel: number): number {
+    return (this.gustoDesde(r.hasta, nivel) * this.p.descuentoPorRemonte) / (1 + (this.colas[r.id]?.length ?? 0));
   }
 
   /** Lo mejor que puede hacer un esquiador de ese nivel desde un punto (ver Red.mejorGustoDesde). */
@@ -386,7 +440,7 @@ export class Simulacion {
     // pistas y remontes están en la misma escala y se puede subir o bajar.
     const nivel = perfil.nivel;
     const o = this.elegir(opciones, (op) => {
-      if ('remonte' in op) return (this.gustoDesde(op.remonte.hasta, nivel) * this.p.descuentoPorRemonte) / (1 + this.colas[op.remonte.id].length);
+      if ('remonte' in op) return this.pesoRemonte(op.remonte, nivel);
       if ('andar' in op) return this.gustoDesde(op.andar, nivel) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
       return pesoPista(nivel, this.red.dificultad(op.pista), perfil.recientes.includes(op.pista.id), this.colaEnNodo(op.pista.hasta), this.p);
     });
@@ -455,7 +509,16 @@ export class Simulacion {
         break;
       case 'andando':
         e.recorrido += this.p.velocidadAndando * dt;
-        if (e.recorrido >= e.largo) this.decidir(e.id, e.hacia, false);
+        if (e.recorrido >= e.largo) {
+          // Si venía a un remonte de la plaza y sigue llevando a algo para su
+          // nivel, a su cola; si no (se ha deshecho algo), decide ahí.
+          const r = e.remonte !== undefined ? this.red.remontes[e.remonte] : undefined;
+          const nivel = this.perfiles.get(e.id)?.nivel ?? 0;
+          if (r && r.desde === e.hacia && this.red.viablesPorNivel()[nivel].has(r.hasta)) {
+            this.colas[r.id].push(e.id);
+            this.esquiadores.set(e.id, { id: e.id, estado: 'cola', nodo: r.desde, remonte: r.id });
+          } else this.decidir(e.id, e.hacia, false);
+        }
         break;
       case 'pista': {
         const pista = this.red.pistas[e.pista];

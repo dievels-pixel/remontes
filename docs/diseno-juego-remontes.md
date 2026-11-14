@@ -13,7 +13,7 @@ Lo esencial del sistema, decidido en la sesión de diseño del 12 de noviembre:
 - Cada esquiador tiene un contento de 3 puntos. Se aburre en pistas dos niveles o más por debajo del suyo, y solo recupera contento con variedad de pistas de su nivel. Si llega a 0 se va enfadado y suma una queja.
 - El color de las pistas es libre (entre los colores factibles). Una pista forzada con curvas para ser más fácil de lo que da su pendiente natural resta contento si está muy forzada.
 - El pago por bajada depende del color de la pista y crece con cada bajada con variedad.
-- La afluencia total sube con el tiempo; la mezcla de colores de los esquiadores también la fija la curva del tiempo, no lo que construya el jugador. Los edificios son solo decoración.
+- La afluencia total sube con el tiempo; la mezcla de colores de los esquiadores también la fija la curva del tiempo, no lo que construya el jugador. No hay edificios (quitados en v39).
 - Crecer hacia otro valle es gratis: al activarse una cima se desbloquean los nodos bajos cercanos, y el jugador solo paga el remonte que sube desde ellos. Las pistas de bajada son gratuitas.
 - El relieve cuenta: un mapa de alturas define valles y cimas, y las zonas de pendiente excesiva son roca o precipicio por donde no pasa ninguna pista. Los mapas son datos (PNG de alturas y JSON de nodos) que más adelante podrá producir un editor.
 - Todas las cifras de este documento son hipótesis a calibrar con una simulación sin gráficos antes de pulir nada.
@@ -121,15 +121,15 @@ El juego empieza en el pie de pistas: una plaza con varios puntos de inicio (bas
 - Entrada de esquiadores: llegan por la carretera, entran en la plaza y van al inicio que tenga remonte. Un único punto de entrada.
 - Afluencia total: una sola curva de esquiadores por minuto que crece con el tiempo y fija la dificultad. Es un parámetro en un único sitio para calibrarla. No depende de la reputación, de las quejas ni de lo construido, para evitar un efecto elástico en el que el juego se autorregula y nunca se pierde.
 - Mezcla de niveles: la fija la curva del tiempo (hipótesis: al principio mayoría de verdes y azules, y más peso de rojos y negros con el tiempo). Es independiente de las pistas que construya el jugador; si la demanda dependiera de la oferta, no habría reto en equilibrar los colores. Conviene contrastar las proporciones con datos reales de estaciones. Más adelante se podría probar un boca a boca suave (los satisfechos de un color atraen un poco más de ese color, con tope de ±20% y lento), solo si el juego resulta demasiado rígido.
-- Edificios: casas y hoteles alrededor de la plaza son solo decoración y no entran en la mecánica. Aparecen cuando la curva cruza un umbral, en un hueco predefinido y con una pequeña animación, como señal visual de que la afluencia sube. El nuevo nivel de afluencia se aplica unos 15 segundos después, como margen de reacción (igual que una estación nueva en Mini Metro). Cuando se llenan los huecos, los edificios mejoran de aspecto (casa, hotel, gran hotel).
+- Sin edificios (decidido por el usuario el 2026-11-14, v39: no le gustaban). La afluencia se lee en el texto de arriba («Llegados: N (x/min)»). Se mantiene que cada escalón de afluencia se aplica unos 15 segundos después de alcanzarse.
 - Fase posterior: cuando la estación crezca mucho, puede haber varias carreteras de acceso, es decir, varios puntos de entrada.
 
 Implementado (2026-11-14, v38; valores provisionales en `src/config.ts`, bloque `afluencia`):
 
-- La curva va por escalones. El reloj es el de la estación abierta: empieza cuando hay algún remonte en servicio (antes no llega nadie). Cada minuto sube un escalón: aparece un edificio y, 15 s después, la afluencia pasa a la del escalón nuevo (12 llegadas por minuto al abrir y 3 más por escalón, sin tope).
+- La curva va por escalones. El reloj es el de la estación abierta: empieza cuando hay algún remonte en servicio (antes no llega nadie). Cada minuto sube un escalón, que se aplica 15 s después (12 llegadas por minuto al abrir y 3 más por escalón, sin tope).
 - La mezcla de niveles se da en algunos minutos y se interpola entre ellos; cambia a la vez que la tasa. Al abrir, 60 % verdes y 40 % azules; los rojos entran hacia el minuto 4 y los negros hacia el 8; desde el minuto 14, 30/30/22/18.
-- Carretera: recta desde el borde lateral del mapa más cercano hasta el borde de la plaza, algo por debajo de su centro. La calcula el juego a partir de la plaza (no es un dato del mapa). Los esquiadores la recorren como puntos de su color; su aguante empieza a contar al entrar en la plaza.
-- Edificios: 8 huecos en un anillo dentro de la plaza (dentro, para no chocar con pistas ni puntos), sin tapar la entrada de la carretera, que se llenan de arriba abajo. Uno por escalón; llenos los huecos, mejoran en el mismo orden a hotel y a gran hotel. Aparecen creciendo con un pequeño rebote.
+- Carretera (v39): llega desde el sureste (borde derecho del mapa, por debajo de la plaza) serpenteando, y entra en la plaza por su borde, algo por debajo de su centro. La calcula el juego a partir de la plaza (no es un dato del mapa). Los esquiadores la recorren como puntos de su color; su aguante empieza a contar al entrar en la plaza.
+- Al final de la carretera (v39), cada esquiador elige uno de los remontes de la plaza con su criterio de elección (ver «Elección de ruta»: gusto de lo que hay tras el remonte, por el descuento por remonte, entre 1 + cola), entre los que llevan a alguna bajada para su nivel, y va andando directamente a su cola. Antes elegía una base y, al llegar, un remonte de ella.
 
 ## Construcción y economía
 
@@ -298,7 +298,7 @@ Los puntos de un color sobre pistas de su mismo color se leen mal. En lugar de e
 
 - Los puntos mantienen siempre el color de su nivel. No cambian de color según su contento (se confundiría con el nivel y no se leería con tantos puntos).
 - Cuando un esquiador se va enfadado, un pequeño destello rojo y desaparece.
-- Cuatro indicadores pequeños de contento, uno por color, muestran dónde falla la estación (media del contento de los esquiadores de ese nivel).
+- Cuatro indicadores pequeños de contento, uno por color, muestran dónde falla la estación (media del contento de los esquiadores de ese nivel). Implementado en v39 (adelantado de la etapa 8 a petición del usuario): bajo el contador de presentes de cada color, una barra de 3 segmentos con el contento medio y los enfadados de ese nivel (✕N, en rojo si hay alguno). Arriba, además, el total de llegados y la afluencia del momento.
 - Una barra apilada con los kilómetros de pista por color, con una marca que indique la proporción de esquiadores de cada nivel en llegadas.
 - Opcional, segunda pasada: un anillo rojo fino solo en los esquiadores a un punto de irse.
 
@@ -349,7 +349,7 @@ Se construye por etapas, y cada una debe poder jugarse antes de pasar a la sigui
 1. Prototipo mínimo: mapa fijo de 6 o 7 nodos sobre un mapa de alturas en escala de grises (de ahí salen las cotas), con un pie de pistas de 2 o 3 inicios (solo ellos activos), remontes creados arrastrando entre nodos (activan el nodo de destino y quedan en gris hasta activar una pista desde su cima), bolitas subiendo, pistas con curva y esquiadores como puntos bajando por el grafo. Fondo con degradado sencillo. Sin dinero ni niveles.
 2. Proyectos de pista a trazos, selector de color libre con rango factible, cálculo de sinuosidad por bisección, regla de nodo viable, desbloqueo de nodos bajos al activarse una cima y máscara de terreno esquiable.
 3. Niveles de esquiador, aguante, contento, aburrimiento por tabla, variedad y colas con anillo.
-4. Entrada de esquiadores por la carretera, curva de afluencia creciente con mezcla de colores y aparición de edificios decorativos alrededor de la plaza.
+4. Entrada de esquiadores por la carretera y curva de afluencia creciente con mezcla de colores (sin edificios desde v39).
 5. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas.
 6. Economía: precio por longitud y tipo, pago por color con multiplicador, mejora de remontes, medidor de quejas y derrota.
 7. Simulación sin gráficos que corra miles de esquiadores con todos los parámetros en un único archivo de configuración, para calibrar antes de pulir. Los cuatro parámetros que más pesan: aguante, penalización por abandono, tarifas y curva de afluencia.
@@ -380,7 +380,7 @@ Notas técnicas:
 - Con roca, la lente de dos pistas por remonte pasa a ser "hasta dos", y un nodo solo se desbloquea si hay una pista factible hasta él.
 - Dos recursos: monedas y quejas. La derrota viene del medidor de quejas, no de la quiebra ni de una reputación.
 - La afluencia total es solo función del tiempo, sin depender de lo que construya el jugador. La mezcla de colores de los esquiadores es exógena.
-- Los edificios (casas, hoteles) son solo decoración y no afectan a la mecánica.
+- No hay edificios alrededor de la plaza (v39).
 - Los esquiadores tienen aguante individual medido en tiempo, y se van cansados. No hay cierre de jornada.
 - Contento de 3 puntos, con aburrimiento por la tabla (solo aburren pistas dos niveles o más por debajo) y recuperación con variedad.
 - El contento no cambia el color de los puntos.
@@ -404,6 +404,7 @@ Para que no se reintroduzca por error:
 - Jornada fija de 3 a 6 bajadas (sustituida por aguante en tiempo) y cierre de jornada con salida masiva.
 - Afluencia por color que dependa de las pistas construidas (la oferta no atrae demanda).
 - Edificios que definan la mezcla de niveles de los esquiadores.
+- Edificios decorativos alrededor de la plaza (probados en v38 y quitados en v39: no gustaban).
 - Cambio de color de los puntos según su contento.
 - Velocidad de bajada por densidad en la pista (queda como opción si hiciera falta más adelante).
 - Cobro por remonte cogido, por longitud de pista, por nivel del esquiador o por tamaño de la estación.
@@ -431,7 +432,7 @@ Para que no se reintroduzca por error:
 - [ ] Orientación de pantalla.
 - [ ] Curva de afluencia (v38, provisional): escalón cada 60 s, 12 llegadas por minuto al abrir y 3 más por escalón, sin tope; mezcla por minutos 60/40/0/0 → 50/35/15/0 (min 4) → 40/30/20/10 (min 8) → 30/30/22/18 (min 14). Por calibrar con la simulación (etapa 7).
 - [ ] Cuándo empieza a correr el reloj de la afluencia. Provisional (v38): con el primer remonte en servicio, y solo mientras haya alguno.
-- [ ] Carretera y huecos de edificios como dato del mapa (`mapa.json`) en vez de calculados a partir de la plaza. Provisional (v38): calculados.
+- [ ] Carretera como dato del mapa (`mapa.json`) en vez de calculada a partir de la plaza. Provisional (v39): calculada, desde el sureste, con curvas de 0,6 radios de plaza de amplitud y unos 600 m de onda.
 - [ ] Esquiador sin ninguna pista de su nivel o inferior en la estación (un verde sin verdes no puede bajar por nada). Provisional, implementado (v29): llega igual (la afluencia no depende de lo construido) y se va enfadado al llegar, con queja «sin pistas de su nivel».
 - [ ] Cuándo se va un esquiador cuyo contento llega a 0. Provisional, implementado (v29): al terminar la bajada, en el punto al que llega.
 - [ ] Dónde se va un esquiador cansado. Provisional (v29): en el primer punto al que llega tras agotar su aguante, sin bajar a la plaza.
