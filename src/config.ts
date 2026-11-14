@@ -163,6 +163,19 @@ export const CONFIG = {
     tiempoAnillo: 20,
   },
 
+  // Medidor de quejas (fin de partida): cada esquiador que se va enfadado lo
+  // llena en 1 y se vacía solo a `vaciadoPorMinuto`; con `capacidad` quejas
+  // dentro se acaba la partida. Por encima de `aviso` (fracción) la plaza se
+  // tiñe de rojo. PROVISIONAL todo. Vaciado: con la regla de la
+  // especificación (un enfadado por cada cuatro satisfechos es tolerable) y
+  // 12 llegadas/min al abrir, unas 2,4 quejas/min; como la afluencia sube y el
+  // vaciado no, la tensión crece sola.
+  quejas: {
+    capacidad: 20,
+    vaciadoPorMinuto: 2,
+    aviso: 0.7,
+  },
+
   // Rendimiento: calentamiento de cachés en segundo plano tras cada obra
   // (ver src/core/calentamiento.ts). No es balance: no cambia ninguna regla.
   calentamiento: {

@@ -111,10 +111,25 @@ const afl = (clave: ClaveAfluencia, nombre: string, min: number, max: number, pa
   },
 });
 
+/** Parámetro del medidor de quejas. */
+const med = (clave: 'capacidad' | 'vaciadoPorMinuto', nombre: string, min: number, max: number, paso: number, decimales: number): DeslizadorSim => ({
+  nombre,
+  min,
+  max,
+  paso,
+  decimales,
+  leer: (p) => p.medidor?.[clave] ?? 0,
+  escribir: (p, v) => {
+    if (p.medidor) p.medidor[clave] = v;
+  },
+});
+
 const DESLIZADORES_SIM: DeslizadorSim[] = [
   afl('tasaInicial', 'Llegadas/min al abrir', 1, 60, 1),
   afl('incremento', 'Llegadas/min por escalón', 0, 20, 1),
   afl('intervalo', 'Escalón cada (s)', 15, 300, 15),
+  med('capacidad', 'Quejas para perder', 5, 100, 1, 0),
+  med('vaciadoPorMinuto', 'Vaciado (quejas/min)', 0, 10, 0.5, 1),
   sim('aguanteMinimo', 'Aguante mín. (s)', 30, 600, 10, 0),
   sim('aguanteMaximo', 'Aguante máx. (s)', 30, 900, 10, 0),
   sim('memoriaVariedad', 'Memoria variedad', 1, 4, 1, 0),
@@ -221,7 +236,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   // Esquiadores: niveles y diversión. Se aplican al momento, sin recalcular.
   const parametros = juego.parametrosSim;
-  const copiaSim = (p: typeof parametros) => ({ ...p, mezclaNiveles: [...p.mezclaNiveles], afluencia: p.afluencia && { ...p.afluencia } });
+  const copiaSim = (p: typeof parametros) => ({ ...p, mezclaNiveles: [...p.mezclaNiveles], afluencia: p.afluencia && { ...p.afluencia }, medidor: p.medidor && { ...p.medidor } });
   const inicialesSim = copiaSim(parametros);
   const tituloSim = document.createElement('h3');
   tituloSim.textContent = 'Esquiadores';
@@ -273,7 +288,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
     desglose.textContent =
       `Abierta ${Math.floor(s.tiempoAbierta / 60)}:${String(Math.floor(s.tiempoAbierta % 60)).padStart(2, '0')}, ` +
       `${coma(s.llegadasPorMinuto, 0)} llegadas/min (${llegan}). ` +
-      `Quejas: ${s.enfadados} (aburrimiento ${s.quejas.aburrimiento}, cola ${s.quejas.cola}, sin pistas de su nivel ${s.quejas.sinPistas}). ` +
+      `Medidor ${coma(s.medidorQuejas, 1)} de ${parametros.medidor?.capacidad ?? "–"}. Quejas: ${s.enfadados} (aburrimiento ${s.quejas.aburrimiento}, cola ${s.quejas.cola}, sin pistas de su nivel ${s.quejas.sinPistas}). ` +
       `Cansados: ${s.cansados}. Contento medio (de ${parametros.contentoInicial}): ${medio}.`;
   };
   setInterval(pintarDesglose, 500);
@@ -288,7 +303,9 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
     const colas = `  colas: {\n    aforo: ${parametros.aforoCola},\n    tiempoAnillo: ${parametros.tiempoAnillo},\n  },`;
     const a = parametros.afluencia;
     const afluencia = a ? `  afluencia: {\n    intervalo: ${a.intervalo},\n    tasaInicial: ${a.tasaInicial},\n    incremento: ${a.incremento},\n  },` : '';
-    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + afluencia + '\n\n' + textoConfigEsquiador({ ...parametros }, claves) + '\n\n' + colas);
+    const m = parametros.medidor;
+    const quejas = m ? `  quejas: {\n    capacidad: ${m.capacidad},\n    vaciadoPorMinuto: ${m.vaciadoPorMinuto},\n    aviso: ${CONFIG.quejas.aviso},\n  },` : '';
+    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + afluencia + '\n\n' + quejas + '\n\n' + textoConfigEsquiador({ ...parametros }, claves) + '\n\n' + colas);
     copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
     setTimeout(() => (copiar.textContent = 'Copiar valores'), 1500);
   });
@@ -304,7 +321,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   const nota = document.createElement('div');
   nota.className = 'nota';
-  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista, afluencia (sin la mezcla), esquiador y colas. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
+  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista, afluencia (sin la mezcla), quejas, esquiador y colas. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
   cuerpo.append(botones, nota);
   montarEditorMapa(juego, cuerpo);
 

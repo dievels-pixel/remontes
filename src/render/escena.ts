@@ -101,6 +101,12 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.beginPath();
   ctx.arc(plaza.x, plaza.y, juego.plaza.radio * camara.escala, 0, Math.PI * 2);
   ctx.fill();
+  // Aviso del medidor de quejas: la plaza se tiñe de rojo con un pulso lento.
+  if (sim.fraccionQuejas >= CONFIG.quejas.aviso) {
+    const pulso = 0.5 + 0.5 * Math.sin(performance.now() / 500);
+    ctx.fillStyle = `rgba(208, 69, 58, ${0.18 + 0.17 * pulso})`;
+    ctx.fill();
+  }
 
   // Pistas.
   ctx.lineCap = 'round';
@@ -119,6 +125,13 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
   }
+  // Pistas forzadas: un rayado blanco fino encima (se bajan, pero no divierten).
+  ctx.save();
+  ctx.setLineDash([2, 6]);
+  for (const p of red.pistas) {
+    if (activas.has(p.id) && red.forzada(p)) dibujarTrazado(ctx, p.trazado, P, 'rgba(255, 255, 255, 0.85)', 1.2, p.compartido, desplazamientoPista(p));
+  }
+  ctx.restore();
 
   // Pista por abrir con el selector de color abierto: su trazado previsto, a trazos.
   if (juego.selector) {
@@ -257,6 +270,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     const c = PE(red.estaciones[estacion]);
     return { x: c.x + Math.cos(ang) * rad, y: c.y + Math.sin(ang) * rad };
   };
+  const parpadeo = Math.floor(performance.now() / 300) % 2 === 0;
   for (const e of sim.esquiadores.values()) {
     let q: Punto | null = null;
     switch (e.estado) {
@@ -282,7 +296,9 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
         break; // va dentro de su bolita
     }
     if (!q) continue;
-    ctx.fillStyle = colorEsquiador(sim.perfiles.get(e.id));
+    const perfil = sim.perfiles.get(e.id);
+    // A un punto de irse: parpadea en blanco.
+    ctx.fillStyle = parpadeo && perfil?.contento === 1 && sim.p.contentoInicial > 1 ? COLOR.hueco : colorEsquiador(perfil);
     ctx.beginPath();
     ctx.arc(q.x, q.y, RADIO_PUNTO, 0, Math.PI * 2);
     ctx.fill();
@@ -290,10 +306,12 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
 
   if (juego.selector) dibujarSelector(ctx, juego, P(juego.selector.punto), ancho, alto);
   if (juego.infoPista && red.pistas[juego.infoPista.pista]) dibujarInfoPista(ctx, juego, P(juego.infoPista.punto), ancho);
-  dibujarTextos(ctx, juego, ancho);
+  const bajoTextos = dibujarTextos(ctx, juego, ancho);
+  if (red.remontes.length > 0 && !juego.herramientaMapa) dibujarMedidor(ctx, juego, ancho, bajoTextos);
   dibujarContadores(ctx, juego, ancho, alto);
   dibujarBotonVelocidad(ctx, juego, ancho, alto);
   dibujarBotonDeshacer(ctx, juego, alto);
+  if (juego.terminada) dibujarFin(ctx, juego, P, ancho, alto);
 
   // Versión, pequeña y discreta, centrada abajo entre los dos botones.
   ctx.fillStyle = 'rgba(38, 42, 49, 0.55)';
@@ -569,7 +587,8 @@ function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: P
   ctx.restore();
 }
 
-function dibujarTextos(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number): void {
+/** Textos de arriba; devuelve la altura (px) por debajo de ellos. */
+function dibujarTextos(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number): number {
   const lineas = [juego.ayuda()];
   if (juego.mensaje && performance.now() < juego.mensaje.hasta) lineas.push(juego.mensaje.texto);
   ctx.font = '14px system-ui, sans-serif';
@@ -588,6 +607,39 @@ function dibujarTextos(ctx: CanvasRenderingContext2D, juego: Juego, ancho: numbe
     }
     y += 4;
   }
+  return y;
+}
+
+/**
+ * Medidor de quejas, bajo los textos de arriba: se llena con cada enfadado y
+ * se vacía solo. Gris hasta la mitad; después se va enrojeciendo.
+ */
+function dibujarMedidor(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, y: number): void {
+  const f = juego.sim.fraccionQuejas;
+  const w = Math.min(ancho - 120, 260);
+  const x = ancho / 2 - w / 2 + 26;
+  const h = 7;
+  ctx.save();
+  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.85)';
+  ctx.beginPath();
+  ctx.roundRect(x - 58, y - 4, w + 66, h + 8, 6);
+  ctx.fill();
+  ctx.fillStyle = COLOR.tinta;
+  ctx.fillText('Quejas', x - 6, y + h / 2 + 0.5);
+  ctx.fillStyle = 'rgba(38, 42, 49, 0.15)';
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, h / 2);
+  ctx.fill();
+  if (f > 0) {
+    ctx.fillStyle = mezclar(COLOR.colaVacia, COLOR.colaLlena, Math.max(0, (f - 0.5) / 0.5));
+    ctx.beginPath();
+    ctx.roundRect(x, y, Math.max(h, w * f), h, h / 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function partirTexto(ctx: CanvasRenderingContext2D, texto: string, max: number): string[] {
@@ -721,15 +773,14 @@ function colorEsquiador(perfil: Perfil | undefined): string {
  * Contadores por nivel, abajo en el centro, justo encima de los botones (entre
  * ellos no caben en un móvil estrecho). Una columna por color:
  * - arriba, un punto del color y cuántos de ese nivel hay en la estación;
- * - debajo, el contento medio de los presentes de ese nivel, como una barra
- *   de 3 segmentos (uno por punto de contento), y cuántos de ese nivel se han
- *   ido enfadados (✕, en rojo si hay alguno).
+ * - debajo, un punto blanco (como el parpadeo del mapa) con cuántos de ese
+ *   nivel están a un punto de irse, y ✕ con cuántos se han ido enfadados (en
+ *   rojo si hay alguno).
  */
 function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
   const { sim } = juego;
   const n = sim.porNivel();
-  const contento = sim.contentoMedioPorNivel();
-  const tope = sim.p.contentoInicial;
+  const enRiesgo = sim.aPuntoDeIrsePorNivel();
   const paso = 76;
   const x0 = ancho / 2 - (paso * (n.length - 1)) / 2 - 22;
   const y1 = alto - 92;
@@ -739,8 +790,7 @@ function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: n
   ctx.textBaseline = 'middle';
   n.forEach((v, i) => {
     const x = x0 + i * paso;
-    const color = COLOR_PISTA[COLORES[i]];
-    ctx.fillStyle = color;
+    ctx.fillStyle = COLOR_PISTA[COLORES[i]];
     ctx.strokeStyle = COLOR.hueco;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -750,25 +800,82 @@ function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: n
     ctx.font = '600 12px system-ui, sans-serif';
     ctx.fillStyle = COLOR.tinta;
     ctx.fillText(String(v), x + 9, y1 + 1);
-    // Contento medio: segmentos llenos en proporción (vacíos si no hay nadie).
-    const seg = 7;
-    const hueco = 2;
-    const c = contento[i];
-    for (let k = 0; k < tope; k++) {
-      const sx = x - 5 + k * (seg + hueco);
-      ctx.fillStyle = 'rgba(38, 42, 49, 0.15)';
-      ctx.fillRect(sx, y2 - 2.5, seg, 5);
-      const lleno = c === null ? 0 : Math.min(1, Math.max(0, c - k));
-      if (lleno > 0) {
-        ctx.fillStyle = color;
-        ctx.fillRect(sx, y2 - 2.5, seg * lleno, 5);
-      }
-    }
-    const enfadados = sim.quejasPorNivel[i];
+    // A un punto de irse.
+    ctx.fillStyle = COLOR.hueco;
+    ctx.strokeStyle = COLOR.vacio;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y2, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
     ctx.font = '600 11px system-ui, sans-serif';
+    ctx.fillStyle = enRiesgo[i] > 0 ? COLOR.tinta : COLOR.vacio;
+    ctx.fillText(String(enRiesgo[i]), x + 7, y2 + 1);
+    const enfadados = sim.quejasPorNivel[i];
     ctx.fillStyle = enfadados > 0 ? COLOR.colaLlena : COLOR.vacio;
-    ctx.fillText(`✕${enfadados}`, x - 5 + tope * (seg + hueco) + 3, y2 + 1);
+    ctx.fillText(`✕${enfadados}`, x + 9 + ctx.measureText(String(enRiesgo[i])).width + 8, y2 + 1);
   });
+  ctx.restore();
+}
+
+/** Botón «Nueva partida» del panel final. */
+export function rectNuevaPartida(ancho: number, alto: number): Rect {
+  const w = 160;
+  return { x: ancho / 2 - w / 2, y: alto / 2 + 28, ancho: w, alto: 44 };
+}
+
+/**
+ * Fin de la partida: el punto donde más esquiadores se han ido enfadados
+ * (cuello de botella) con un anillo rojo y un panel con el resultado.
+ */
+function dibujarFin(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Punto) => Punto, ancho: number, alto: number): void {
+  const { sim, red } = juego;
+  const cuello = sim.cuelloDeBotella();
+  if (cuello !== null) {
+    const c = P(cuello >= 0 ? red.nodo(cuello) : juego.plaza);
+    const pulso = 0.5 + 0.5 * Math.sin(performance.now() / 400);
+    ctx.save();
+    ctx.strokeStyle = COLOR.colaLlena;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, RADIO_NODO + 10 + 6 * pulso, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  const w = Math.min(ancho - 32, 340);
+  const h = 170;
+  const x = ancho / 2 - w / 2;
+  const y = alto / 2 - h / 2;
+  ctx.save();
+  ctx.fillStyle = 'rgba(241, 243, 244, 0.95)';
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = COLOR.tinta;
+  ctx.font = '600 18px system-ui, sans-serif';
+  ctx.fillText('Demasiadas quejas', ancho / 2, y + 26);
+  ctx.font = '14px system-ui, sans-serif';
+  const t = sim.tiempoAbierta;
+  ctx.fillText(`Has aguantado ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} con la estación abierta.`, ancho / 2, y + 56);
+  ctx.fillText(`Satisfechos: ${sim.cansados} · Enfadados: ${sim.enfadados}`, ancho / 2, y + 78);
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillStyle = COLOR.vacio;
+  ctx.fillText(cuello !== null ? 'En rojo, donde más se han ido enfadados.' : '', ancho / 2, y + 100);
+  const b = rectNuevaPartida(ancho, alto);
+  ctx.fillStyle = COLOR.hueco;
+  ctx.strokeStyle = COLOR.tinta;
+  ctx.beginPath();
+  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = COLOR.tinta;
+  ctx.font = '600 15px system-ui, sans-serif';
+  ctx.fillText('Nueva partida', ancho / 2, b.y + b.alto / 2 + 1);
   ctx.restore();
 }
 

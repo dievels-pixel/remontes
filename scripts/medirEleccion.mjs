@@ -25,6 +25,7 @@ const red = j.red;
 // Caudal y mezcla constantes (los de antes de la curva de afluencia), para
 // que las cifras se puedan comparar entre versiones.
 j.parametrosSim.afluencia = undefined;
+j.parametrosSim.medidor = undefined; // sin derrota: se mide la elección, no la partida
 j.parametrosSim.llegadasPorMinuto = 30;
 j.parametrosSim.mezclaNiveles = [0.35, 0.35, 0.2, 0.1];
 const nodo = (x, y) => red.nodos.find((n) => n.x === x && n.y === y).id;

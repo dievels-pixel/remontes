@@ -152,6 +152,7 @@ export class Juego {
         mezcla: CONFIG.afluencia.mezcla.map((m) => ({ minuto: m.minuto, pesos: [...m.pesos] })),
       },
       velocidadCarretera: CONFIG.afluencia.velocidadCarretera,
+      medidor: { capacidad: CONFIG.quejas.capacidad, vaciadoPorMinuto: CONFIG.quejas.vaciadoPorMinuto },
       aforoCola: CONFIG.colas.aforo,
       tiempoAnillo: CONFIG.colas.tiempoAnillo,
     };
@@ -246,6 +247,16 @@ export class Juego {
 
   paso(dt: number): void {
     this.sim.paso(dt);
+  }
+
+  /** Se ha llenado el medidor de quejas. */
+  get terminada(): boolean {
+    return this.sim.terminada;
+  }
+
+  /** Nueva partida: recarga la página (mismo mapa y parámetros de la dirección). */
+  nuevaPartida(): void {
+    location.reload();
   }
 
   cambiarVelocidad(): void {
@@ -505,6 +516,6 @@ export class Juego {
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
     const s = this.sim;
-    return `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Bajadas: ${s.bajadasCompletadas} · Cansados: ${s.cansados} · Enfadados: ${s.enfadados}`;
+    return `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`;
   }
 }

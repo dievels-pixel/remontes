@@ -276,8 +276,8 @@ export class Red {
    * viable para él). 0 si no hay nada. Es el gusto de un remonte en la
    * elección del esquiador. Se guarda por versión de la red y parámetros.
    */
-  mejorGustoDesde(nodo: number, nivel: number, gustos: readonly number[], descuento: number): number {
-    const clave = `${gustos.join(',')}|${descuento}`;
+  mejorGustoDesde(nodo: number, nivel: number, gustos: readonly number[], descuento: number, factorForzada = 1): number {
+    const clave = `${gustos.join(',')}|${descuento}|${factorForzada}`;
     if (this.cacheGustos?.version !== this.version || this.cacheGustos.clave !== clave) {
       this.cacheGustos = { version: this.version, clave, valores: new Map() };
     }
@@ -290,10 +290,11 @@ export class Red {
       g = 0;
       for (const p of pistas) {
         const d = nivel - this.dificultad(p);
-        if (d >= 0 && viables.has(p.hasta)) g = Math.max(g, gustos[Math.min(d, gustos.length - 1)]);
+        // Una pista forzada pesa como una repetida (no divierte).
+        if (d >= 0 && viables.has(p.hasta)) g = Math.max(g, gustos[Math.min(d, gustos.length - 1)] * (this.forzada(p) ? factorForzada : 1));
       }
       // Los remontes siempre suben: la recursión termina.
-      for (const r of remontes) if (viables.has(r.hasta)) g = Math.max(g, descuento * this.mejorGustoDesde(r.hasta, nivel, gustos, descuento));
+      for (const r of remontes) if (viables.has(r.hasta)) g = Math.max(g, descuento * this.mejorGustoDesde(r.hasta, nivel, gustos, descuento, factorForzada));
       cache.set(k, g);
     }
     return g;
@@ -487,7 +488,10 @@ export class Red {
     return otra ? Math.max(propia, this.dificultad(otra)) : propia;
   }
 
-  /** ¿Es una pista forzada (empinada para su color)? Divierte menos a su nivel. */
+  /**
+   * ¿Es una pista forzada (su pendiente entra en la banda del color siguiente:
+   * el borde rojo del selector)? Se puede bajar, pero cuenta como repetida.
+   */
   forzada(p: Pista): boolean {
     return pistaForzada(p.color, p.pendiente, this.reglas.pista.bandas);
   }

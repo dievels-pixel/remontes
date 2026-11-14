@@ -11,7 +11,7 @@ Lo esencial del sistema, decidido en la sesión de diseño del 12 de noviembre:
 - Dos números en pantalla: monedas (se ganan por bajada completada y se gastan en remontes) y quejas (medidor de derrota).
 - Los esquiadores tienen un aguante propio, medido en minutos de juego. Al agotarlo se van cansados, sin quejas. No hay cierre de jornada.
 - Cada esquiador tiene un contento de 3 puntos. Se aburre en pistas dos niveles o más por debajo del suyo, y solo recupera contento con variedad de pistas de su nivel. Si llega a 0 se va enfadado y suma una queja.
-- El color de las pistas es libre (entre los colores factibles). Una pista forzada con curvas para ser más fácil de lo que da su pendiente natural resta contento si está muy forzada.
+- El color de las pistas es libre (entre los colores factibles). Una pista forzada (más fácil de lo que da su pendiente) se puede bajar, pero no divierte: cuenta como una bajada repetida (v40).
 - El pago por bajada depende del color de la pista y crece con cada bajada con variedad.
 - La afluencia total sube con el tiempo; la mezcla de colores de los esquiadores también la fija la curva del tiempo, no lo que construya el jugador. No hay edificios (quitados en v39).
 - Crecer hacia otro valle es gratis: al activarse una cima se desbloquean los nodos bajos cercanos, y el jugador solo paga el remonte que sube desde ellos. Las pistas de bajada son gratuitas.
@@ -59,7 +59,7 @@ Esta sección define lo que le ocurre a cada esquiador desde que entra hasta que
 Llega por la carretera, espera en la plaza, sube por un remonte, baja por una pista y repite hasta que se va. Hay dos formas de irse:
 
 - Cansado: se le agota el aguante. No suma quejas. Es la salida normal.
-- Enfadado: su contento llega a 0 o se llena el anillo de la cola en la que espera. Suma una queja y deja de pagar.
+- Enfadado: su contento llega a 0 (por aburrimiento o por colas saturadas). Suma una queja y deja de pagar.
 
 ### Aguante
 
@@ -79,8 +79,8 @@ Cada esquiador tiene un contento de 3 puntos al entrar. Lo modifican estos event
 | Negro | 2 | 1 | 0 | 0 |
 
 - Recuperación: una bajada por una pista de su propio nivel recupera 1 punto (tope 3), pero solo si hubo variedad (ver más abajo).
-- Pista muy forzada: resta 1 punto. El umbral de lo que cuenta como muy forzada es un parámetro (ver "Proyectos de pista").
-- Cola saturada: cada nodo con espera tiene un aforo visible (hipótesis: unos 6 puntos). Si se supera, se llena un anillo en unos 20 segundos. Al llenarse, el último de la cola se va enfadado y el anillo baja a la mitad.
+- Pista forzada (decidido por el usuario el 2026-11-14, v40): no resta, pero no divierte. Cuenta como una bajada repetida: no recupera contento ni sube el multiplicador de pago, y al elegir ruta pesa como una repetida. Sí aplica el aburrimiento normal de la tabla. Sirve para llevar a los de un color a otra zona de la estación. Cuenta como forzada la pista cuya pendiente entra en la banda del color siguiente (el borde rojo del selector); en el mapa lleva un rayado blanco fino.
+- Cola saturada (decidido por el usuario el 2026-11-14, v40): cada nodo con espera tiene un aforo visible (hipótesis: unos 6 puntos). Si se supera, se llena un anillo en unos 20 segundos. Al llenarse, todos los que esperan en esa cola pierden 1 punto de contento (los que se quedan a 0 se van enfadados) y el anillo vuelve a 0; si la cola sigue saturada, empieza otra vez. Así las colas también afectan a verdes y azules, que no se aburren nunca.
 - A 0 puntos de contento, el esquiador se va enfadado.
 
 Los puntos no cambian de color según su contento (ver "Movimiento y aspecto visual").
@@ -184,7 +184,7 @@ Al tocar un proyecto aparece el selector de color. Los colores inalcanzables par
 - El color es libre entre los colores factibles y se puede cambiar sin coste, lo que encaja con la sensación relajante: reorganizar es parte del juego.
 - Color natural de un par de nodos: el de la pendiente de la línea más recta posible (s_min).
 - Pista forzada: pista cuyo color elegido es más fácil que el natural y por tanto necesita curvas. Solo se puede forzar hacia lo fácil, nunca hacia lo difícil, así que las negras dependen de los desniveles del mapa.
-- Grado de forzado: la sinuosidad añadida respecto a la mínima del par (s dividido por s_min). Una azul casi recta apenas está forzada, y una verde sacada de una ladera negra lo está mucho. Una pista cuenta como "muy forzada" cuando su grado supera un umbral (parámetro a calibrar), y entonces resta 1 punto de contento a los esquiadores que bajan por ella.
+- Grado de forzado: la sinuosidad añadida respecto a la mínima del par (s dividido por s_min). Una azul casi recta apenas está forzada, y una verde sacada de una ladera negra lo está mucho. Sustituido en v40: cuenta como forzada la pista cuya pendiente entra en la banda del color siguiente, y no resta contento sino que cuenta como bajada repetida (ver «Contento»).
 - Por qué existe esta penalización: sin ella, forzar todo a verde sería siempre la mejor opción, y sin coste real la elección de color no tendría tensión.
 
 ### Oferta de pistas
@@ -298,9 +298,9 @@ Los puntos de un color sobre pistas de su mismo color se leen mal. En lugar de e
 
 - Los puntos mantienen siempre el color de su nivel. No cambian de color según su contento (se confundiría con el nivel y no se leería con tantos puntos).
 - Cuando un esquiador se va enfadado, un pequeño destello rojo y desaparece.
-- Cuatro indicadores pequeños de contento, uno por color, muestran dónde falla la estación (media del contento de los esquiadores de ese nivel). Implementado en v39 (adelantado de la etapa 8 a petición del usuario): bajo el contador de presentes de cada color, una barra de 3 segmentos con el contento medio y los enfadados de ese nivel (✕N, en rojo si hay alguno). Arriba, además, el total de llegados y la afluencia del momento.
+- Cuatro indicadores pequeños de contento, uno por color, muestran dónde falla la estación (media del contento de los esquiadores de ese nivel). Implementado en v39 como una barra de contento medio bajo el contador de presentes de cada color, con los enfadados de ese nivel (✕N, en rojo si hay alguno); en v40 la barra se sustituye por los que están a un punto de irse (ver abajo). Arriba, además, el total de llegados y la afluencia del momento.
 - Una barra apilada con los kilómetros de pista por color, con una marca que indique la proporción de esquiadores de cada nivel en llegadas.
-- Opcional, segunda pasada: un anillo rojo fino solo en los esquiadores a un punto de irse.
+- Los esquiadores a un punto de irse (contento 1) parpadean en blanco (v40; un anillo rojo fino se confundiría con los rojos). En los contadores por color, bajo cada uno, un punto blanco con cuántos de ese nivel están a un punto de irse y ✕ con los enfadados de ese nivel. Sustituye a la barra de contento medio de v39, que apenas se movía (los que llegan a 0 se van y dejan de contar).
 
 Prueba temprana de densidad: 150 a 300 puntos en movimiento, antes de añadir más reglas.
 
@@ -331,6 +331,8 @@ Música generativa como en Mini Metro: cada evento dispara una nota de una escal
 - Puntuación: días sobrevividos (ciclo de día visual) y esquiadores satisfechos (los que se van cansados).
 - Pantalla final: dibujo de la red con el cuello de botella resaltado.
 - Condición de equilibrio inicial: con +0 por salida cansado y una queja por cada enfadado, hay que calibrar cuántas quejas por minuto vacía el medidor para que un abandono por cada cuatro satisfechos sea tolerable.
+
+Implementado (v40, adelantado de la etapa 6 a petición del usuario; valores provisionales en `src/config.ts`, bloque `quejas`): el medidor es una barra arriba, bajo el texto, que se llena con 20 quejas y se vacía 2 por minuto (con 12 llegadas por minuto al abrir, el equilibrio de un enfadado por cuatro satisfechos da unas 2,4 por minuto; como la afluencia sube y el vaciado no, la tensión crece sola). Gris hasta la mitad y después cada vez más rojo; por encima del 70 %, la plaza se tiñe de rojo con un pulso lento. Al llenarse, la simulación se para y un panel muestra el tiempo con la estación abierta (en lugar de días, hasta que haya ciclo de día), los satisfechos y los enfadados, con un anillo rojo en el punto donde más se han ido enfadados y el botón «Nueva partida». Arriba se ve «Llegados N (x/min) · Satisfechos N»; las bajadas volverán como monedas en la economía.
 
 ## Ejemplo de partida (ilustrativo, cifras inventadas)
 
@@ -384,7 +386,7 @@ Notas técnicas:
 - Los esquiadores tienen aguante individual medido en tiempo, y se van cansados. No hay cierre de jornada.
 - Contento de 3 puntos, con aburrimiento por la tabla (solo aburren pistas dos niveles o más por debajo) y recuperación con variedad.
 - El contento no cambia el color de los puntos.
-- El color de las pistas es libre y recolorear no cuesta. Las pistas muy forzadas restan contento.
+- El color de las pistas es libre y recolorear no cuesta. Las pistas forzadas no divierten: cuentan como bajada repetida (v40).
 - Se cobra por bajada, según el color de la pista, con un multiplicador que crece solo con variedad.
 - La variedad es la forma de que importe la cantidad de pistas; no se añade velocidad por densidad en el primer prototipo.
 - Los puntos llevan anillo de contorno y las pistas se dibujan más suaves para leerse bien.
@@ -420,7 +422,7 @@ Para que no se reintroduzca por error:
 - [ ] Todos los parámetros marcados como hipótesis: aguante, tarifas, multiplicador de variedad, factores y capacidades de remonte, aforo y tiempo del anillo, umbral de pista muy forzada, tasa de vaciado de quejas, mezcla de colores y curva de afluencia.
 - [ ] Recuerdo de variedad: dos pistas o una.
 - [ ] Un azul en una verde: 0 puntos (decisión actual) o medio punto.
-- [ ] Umbral de aviso del medidor de quejas, si se incluye.
+- [ ] Medidor de quejas (v40, provisional): 20 quejas para perder, vaciado de 2 por minuto y aviso al 70 %.
 - [ ] Demolición: ¿se pueden borrar remontes o pistas? Exige revalidar el grafo de nodos viables. Recomendación para la primera versión: no permitirla, o devolver el 50% al demoler un remonte sin esquiadores.
 - [ ] Ingreso mínimo para suavizar la espiral de colas, solo si resulta demasiado dura.
 - [ ] Boca a boca de afluencia por color (±20%), solo si el juego resulta rígido.
@@ -438,4 +440,4 @@ Para que no se reintroduzca por error:
 - [ ] Dónde se va un esquiador cansado. Provisional (v29): en el primer punto al que llega tras agotar su aguante, sin bajar a la plaza.
 - [ ] Anillo de cola por debajo del aforo. Provisional (v29): se vacía al mismo ritmo que se llena.
 - [ ] Color natural con bandas solapadas: es ambiguo. Como el grado de forzado se mide solo con s / s_min, se puede prescindir del término o definirlo como el color más difícil que admite la recta.
-- [ ] Recolorear sin coste y "muy forzada" (s / s_min por encima de un umbral): pendiente de decidir por el usuario antes de implementarlo. Hasta entonces, el prototipo marca como forzada la pista cuya pendiente entra en el solape con la banda siguiente.
+- [ ] Recolorear sin coste: pendiente de decidir por el usuario. «Muy forzada» quedó resuelta en v40: forzada es la pista cuya pendiente entra en la banda siguiente, y cuenta como bajada repetida.

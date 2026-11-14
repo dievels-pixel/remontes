@@ -11,7 +11,7 @@ import { CONFIG } from '../config';
 import type { Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
-import { layoutSelector, rectBotonDeshacer, rectBotonVelocidad } from '../render/escena';
+import { layoutSelector, rectBotonDeshacer, rectBotonVelocidad, rectNuevaPartida } from '../render/escena';
 
 /** Píxeles que se puede mover el dedo sobre el fondo sin dejar de ser un toque. */
 const UMBRAL_TOQUE = 8;
@@ -56,6 +56,12 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
 
     const r = lienzo.getBoundingClientRect();
     const dentro = (b: { x: number; y: number; ancho: number; alto: number }) => p.x >= b.x && p.x <= b.x + b.ancho && p.y >= b.y && p.y <= b.y + b.alto;
+    // Partida terminada: solo vale el botón «Nueva partida».
+    if (juego.terminada) {
+      if (dentro(rectNuevaPartida(r.width, r.height))) juego.nuevaPartida();
+      modo = { tipo: 'espera' };
+      return;
+    }
     if (dentro(rectBotonVelocidad(r.width, r.height))) {
       juego.cambiarVelocidad();
       modo = { tipo: 'espera' };

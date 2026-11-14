@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-14 (v39: sin edificios, carretera desde el sureste, elección del remonte de la plaza y contadores por color). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-14 (v40: colas que restan contento, forzadas como repetidas, medidor de quejas y fin de partida). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -337,6 +337,7 @@ Actualizado el 2026-11-14 (v39: sin edificios, carretera desde el sureste, elecc
 - **Cápsula en los puntos desdoblados (v37):** el usuario veía que en una cima desdoblada los esquiadores solo bajaban por las pistas de su triángulo. La lógica no lo hacía (prueba en `test/simulacion.test.ts`: quien llega por cualquier remonte usa las pistas de los dos triángulos, casi a partes iguales); era el dibujo, porque cada pista sale de un triángulo y los triángulos se veían sueltos. Ahora las estaciones de un punto van dentro de una cápsula.
 - **Etapa 4 (v38): afluencia, carretera y edificios.** Lógica pura en `src/core/afluencia.ts` (con pruebas en `test/afluencia.test.ts`): curva por escalones según el tiempo de estación abierta (`Simulacion.tiempoAbierta`, que corre solo con algún remonte en servicio), mezcla por minutos interpolada, carretera calculada desde la plaza, (y, hasta v39, edificios en la plaza). La simulación tiene un estado nuevo, `carretera`; el aguante cuenta desde la plaza. Si `ParametrosSimulacion.afluencia` falta, se usan `llegadasPorMinuto` y `mezclaNiveles` constantes: así siguen las pruebas antiguas (que ahora fijan esos dos valores) y `npm run medir:eleccion` (30/min y 35/35/20/10). Con la carretera, sus cifras cambian algo respecto a v36 (1051 bajadas, 17 quejas por aburrimiento, 30 cansados), por el retraso de la llegada y el sorteo. En `?ajustes`, los pesos de la mezcla y las llegadas por minuto se sustituyen por la tasa inicial, el incremento y el intervalo de la curva, y el desglose muestra el tiempo abierta, la tasa y la mezcla actuales. Valores provisionales: ver «Decisiones abiertas» de la especificación.
 - **Cambios pedidos tras la v38 (v39):** fuera los edificios (código y huecos borrados; queda el retraso de 15 s de cada escalón). Carretera desde el sureste serpenteando (`trazarCarretera(plaza, ancho, alto)`). Al final de la carretera, cada esquiador elige un remonte de la plaza con el peso de la elección de ruta (`Simulacion.llegarAPlaza`, `remontesDePlazaPara`, `pesoRemonte`) y va directo a su cola (`remonte` en el estado `andando`; si al llegar ya no sirve, decide en la base). Contadores por color en dos filas (presentes; barra de contento medio y enfadados del nivel, `contentoMedioPorNivel` y `quejasPorNivel`) y, arriba, «Llegados: N (x/min)» (`Simulacion.llegados`). Reserva inferior de la cámara de 88 a 106 px.
+- **Contento y fin de partida (v40):** el anillo lleno resta 1 punto a toda la cola y vuelve a 0 (`Simulacion.llenarAnillos`); una pista forzada (`Red.forzada`, el borde rojo del selector) cuenta como repetida al recuperar contento (`contentar`) y al elegir (`decidir` y `Red.mejorGustoDesde` con `factorForzada`); medidor de quejas (`ParametrosSimulacion.medidor`, `medidorQuejas`, `fraccionQuejas`, `terminada`; sin medidor no se pierde, para las pruebas) y enfadados por punto (`enfadosPorNodo`, `cuelloDeBotella`). Dibujo: barra de quejas bajo el texto de arriba, tinte de la plaza por encima del aviso, rayado blanco en las forzadas, parpadeo blanco de los que están a un punto de irse (`aPuntoDeIrsePorNivel` en los contadores) y panel final con «Nueva partida» (recarga la página). En `?ajustes`, capacidad y vaciado del medidor. Pruebas en `test/contento.test.ts` y `test/niveles.test.ts`. Adelanta de la etapa 6 el medidor y la derrota; la economía sigue pendiente.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
@@ -353,7 +354,7 @@ Pasos, cada uno jugable antes del siguiente:
 
 ### Pendiente que contradice la especificación
 
-- Nada conocido desde v29, salvo lo aplazado (recolorear y «muy forzada»: el borde rojo del selector sigue marcando la pista que entra en el solape de bandas, sin efecto en el contento).
+- Nada conocido, salvo lo aplazado: recolorear sin coste.
 
 ### Cómo se trabaja
 

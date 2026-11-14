@@ -120,7 +120,8 @@ describe('Esquiadores con nivel', () => {
 
   it('tabla de aburrimiento: una pista un nivel por debajo no aburre; dos niveles, un punto por bajada', () => {
     // Rojos en una azul (un nivel por debajo): nadie se aburre.
-    const rojos = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 0, 1, 0] }, ENTRADA, crearAzar(2));
+    // Sin colas saturadas (también restan contento): aquí solo se mira el aburrimiento.
+    const rojos = new Simulacion(redAzul(), { ...P, mezclaNiveles: [0, 0, 1, 0], aforoCola: 1000 }, ENTRADA, crearAzar(2));
     correr(rojos, 150);
     expect(rojos.quejas.aburrimiento).toBe(0);
     for (const p of rojos.perfiles.values()) expect(p.contento).toBe(3);
@@ -196,14 +197,32 @@ describe('Contento y variedad', () => {
 });
 
 describe('Cola saturada', () => {
-  it('por encima del aforo el anillo se llena, echa enfadado al último y baja a la mitad', () => {
+  it('por encima del aforo el anillo se llena; lleno, toda la cola pierde un punto y el anillo vuelve a 0', () => {
     const red = redAzul();
     const sim = new Simulacion(red, { ...P, mezclaNiveles: [0, 1, 0, 0], llegadasPorMinuto: 600, aforoCola: 3, tiempoAnillo: 5, aguanteMinimo: 1e6, aguanteMaximo: 1e6 }, ENTRADA, crearAzar(8));
-    let maximo = 0;
-    correr(sim, 30, () => (maximo = Math.max(maximo, sim.anillos[0] ?? 0)));
+    // Hasta justo antes de llenarse el anillo por primera vez.
+    let anterior = 0;
+    let colaAntes: number[] = [];
+    for (let t = 0; t < 30; t += DT) {
+      colaAntes = [...(sim.colas[0] ?? [])];
+      const contentos = new Map(colaAntes.map((id) => [id, sim.perfiles.get(id)!.contento]));
+      anterior = sim.anillos[0] ?? 0;
+      sim.paso(DT);
+      if (anterior > 0.9 && (sim.anillos[0] ?? 0) < 0.1) {
+        // Se ha llenado en este paso: los que esperaban pierden un punto.
+        for (const id of colaAntes) {
+          const p = sim.perfiles.get(id);
+          if (p && sim.esquiadores.get(id)?.estado === 'cola') expect(p.contento).toBe(contentos.get(id)! - 1);
+        }
+        expect(sim.anillos[0]).toBeLessThan(0.1);
+        break;
+      }
+    }
+    expect(anterior).toBeGreaterThan(0.9);
+    // Si sigue saturada, se llena otra vez: al tercer anillo se van enfadados.
+    correr(sim, 30);
     expect(sim.quejas.cola).toBeGreaterThan(0);
-    expect(maximo).toBeLessThan(1); // al llenarse baja a la mitad en el mismo paso
-    expect(sim.anillos[0]).toBeGreaterThanOrEqual(0);
+    for (const p of sim.perfiles.values()) expect(p.contento).toBeGreaterThan(0);
   });
 
   it('con la cola por debajo del aforo el anillo no se llena', () => {

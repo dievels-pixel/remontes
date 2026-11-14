@@ -4,7 +4,7 @@
 // tiempo y un contento de 3 puntos (ver «Esquiadores: aguante, contento y
 // pago» en la especificación). Solo baja por pistas de su nivel o más
 // fáciles; se va cansado al agotar su aguante y enfadado si su contento
-// llega a 0 o le echa una cola saturada.
+// llega a 0 (por aburrimiento o por colas saturadas).
 // Lógica pura: ni DOM ni canvas.
 import { mezclaEn, tasaEn, type ParametrosAfluencia } from './afluencia';
 import type { Azar } from './azar';
@@ -53,6 +53,12 @@ export interface ParametrosSimulacion {
   afluencia?: ParametrosAfluencia;
   /** Velocidad por la carretera de acceso (m/s de juego), si hay carretera. */
   velocidadCarretera?: number;
+  /**
+   * Medidor de quejas (derrota): cada enfadado suma 1 y se vacía solo a
+   * `vaciadoPorMinuto`; al llegar a `capacidad`, se acaba la partida. Sin él,
+   * la partida no termina (pruebas).
+   */
+  medidor?: { capacidad: number; vaciadoPorMinuto: number };
 }
 
 /**
@@ -128,6 +134,12 @@ export class Simulacion {
   readonly quejasPorNivel = [0, 0, 0, 0];
   /** Esquiadores que han llegado por la carretera desde el principio. */
   llegados = 0;
+  /** Medidor de quejas (en quejas): sube 1 por enfadado y se vacía despacio. */
+  medidorQuejas = 0;
+  /** Se ha llenado el medidor de quejas: la simulación ya no avanza. */
+  terminada = false;
+  /** Enfadados por punto (-1: la plaza), para señalar el cuello de botella. */
+  readonly enfadosPorNodo = new Map<number, number>();
   /** Marchas enfadadas recientes (las de los últimos segundos), para dibujarlas. */
   readonly marchasEnfadadas: MarchaEnfadada[] = [];
   tiempo = 0;
@@ -187,6 +199,17 @@ export class Simulacion {
     return suma.map((x, i) => (n[i] > 0 ? x / n[i] : null));
   }
 
+  /** Presentes de cada nivel con 1 punto de contento: a un punto de irse. */
+  aPuntoDeIrsePorNivel(): number[] {
+    const n = [0, 0, 0, 0];
+    if (this.p.contentoInicial <= 1) return n;
+    for (const id of this.esquiadores.keys()) {
+      const p = this.perfiles.get(id);
+      if (p && p.contento === 1) n[p.nivel]++;
+    }
+    return n;
+  }
+
   /** Esquiadores presentes de cada nivel (verde, azul, roja, negra). */
   porNivel(): number[] {
     const n = [0, 0, 0, 0];
@@ -194,8 +217,23 @@ export class Simulacion {
     return n;
   }
 
+  /** Fracción llena del medidor de quejas (0 a 1); 0 si no hay medidor. */
+  get fraccionQuejas(): number {
+    return this.p.medidor ? Math.min(1, this.medidorQuejas / this.p.medidor.capacidad) : 0;
+  }
+
+  /** Punto con más enfadados (-1: la plaza), o null si no hay ninguno. */
+  cuelloDeBotella(): number | null {
+    let mejor: number | null = null;
+    let max = 0;
+    for (const [nodo, n] of this.enfadosPorNodo) if (n > max) [mejor, max] = [nodo, n];
+    return mejor;
+  }
+
   paso(dt: number): void {
+    if (this.terminada) return;
     this.tiempo += dt;
+    if (this.p.medidor) this.medidorQuejas = Math.max(0, this.medidorQuejas - (dt * this.p.medidor.vaciadoPorMinuto) / 60);
     this.sincronizarRemontes();
     this.generarLlegadas(dt);
     this.moverRemontes(dt);
@@ -243,6 +281,11 @@ export class Simulacion {
     this.quejas[causa]++;
     const nivel = this.perfiles.get(id)?.nivel;
     if (nivel !== undefined) this.quejasPorNivel[nivel]++;
+    this.enfadosPorNodo.set(nodo, (this.enfadosPorNodo.get(nodo) ?? 0) + 1);
+    if (this.p.medidor) {
+      this.medidorQuejas += 1;
+      if (this.medidorQuejas >= this.p.medidor.capacidad) this.terminada = true;
+    }
     this.marchasEnfadadas.push({ nodo, tiempo: this.tiempo });
     this.irse(id);
   }
@@ -258,8 +301,10 @@ export class Simulacion {
 
   /**
    * Cola saturada: con más gente que el aforo, el anillo del remonte se llena
-   * en `tiempoAnillo` segundos (y se vacía al mismo ritmo si baja). Lleno, el
-   * último de la cola se va enfadado y el anillo baja a la mitad.
+   * en `tiempoAnillo` segundos (y se vacía al mismo ritmo si baja). Lleno,
+   * todos los que esperan en esa cola pierden 1 punto de contento (los que se
+   * quedan a 0 se van enfadados) y el anillo vuelve a 0: si la cola sigue
+   * saturada, empieza otra vez.
    */
   private llenarAnillos(dt: number): void {
     const { aforoCola, tiempoAnillo } = this.p;
@@ -268,9 +313,16 @@ export class Simulacion {
       const sube = cola.length > aforoCola;
       this.anillos[r.id] = Math.max(0, this.anillos[r.id] + (sube ? dt : -dt) / tiempoAnillo);
       if (this.anillos[r.id] >= 1) {
-        const ultimo = cola.pop();
-        if (ultimo !== undefined) this.irseEnfadado(ultimo, r.desde, 'cola');
-        this.anillos[r.id] = 0.5;
+        this.anillos[r.id] = 0;
+        for (const id of [...cola]) {
+          const perfil = this.perfiles.get(id);
+          if (!perfil) continue;
+          perfil.contento -= 1;
+          if (perfil.contento <= 0) {
+            cola.splice(cola.indexOf(id), 1);
+            this.irseEnfadado(id, r.desde, 'cola');
+          }
+        }
       }
     }
   }
@@ -361,7 +413,7 @@ export class Simulacion {
 
   /** Lo mejor que puede hacer un esquiador de ese nivel desde un punto (ver Red.mejorGustoDesde). */
   private gustoDesde(nodo: number, nivel: number): number {
-    return this.red.mejorGustoDesde(nodo, nivel, this.p.gustoPorDiferencia, this.p.descuentoPorRemonte);
+    return this.red.mejorGustoDesde(nodo, nivel, this.p.gustoPorDiferencia, this.p.descuentoPorRemonte, this.p.factorRepeticion);
   }
 
   private caminarABase(id: number, origen: Punto, bases: number[]): void {
@@ -442,7 +494,9 @@ export class Simulacion {
     const o = this.elegir(opciones, (op) => {
       if ('remonte' in op) return this.pesoRemonte(op.remonte, nivel);
       if ('andar' in op) return this.gustoDesde(op.andar, nivel) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
-      return pesoPista(nivel, this.red.dificultad(op.pista), perfil.recientes.includes(op.pista.id), this.colaEnNodo(op.pista.hasta), this.p);
+      // Una pista forzada pesa como una repetida: se usa, pero no divierte.
+      const repetida = perfil.recientes.includes(op.pista.id) || this.red.forzada(op.pista);
+      return pesoPista(nivel, this.red.dificultad(op.pista), repetida, this.colaEnNodo(op.pista.hasta), this.p);
     });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);
@@ -465,7 +519,9 @@ export class Simulacion {
     const perfil = this.perfiles.get(id);
     if (!perfil) return true;
     const diferencia = perfil.nivel - this.red.dificultad(pista);
-    const variedad = !perfil.recientes.includes(pista.id);
+    // Una pista forzada cuenta como repetida: no da variedad (ni recupera
+    // contento ni, cuando haya pago, sube el multiplicador), pero no resta.
+    const variedad = !perfil.recientes.includes(pista.id) && !this.red.forzada(pista);
     if (diferencia >= 2) perfil.contento -= diferencia - 1;
     else if (diferencia === 0 && variedad) perfil.contento = Math.min(this.p.contentoInicial, perfil.contento + 1);
     perfil.recientes.push(pista.id);
