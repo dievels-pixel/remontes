@@ -84,7 +84,7 @@ interface DeslizadorSim {
   escribir: (p: ParametrosSim, v: number) => void;
 }
 
-type ClaveSim = 'llegadasPorMinuto' | 'aguanteMinimo' | 'aguanteMaximo' | 'memoriaVariedad' | 'aforoCola' | 'tiempoAnillo';
+type ClaveSim = 'aguanteMinimo' | 'aguanteMaximo' | 'memoriaVariedad' | 'aforoCola' | 'tiempoAnillo';
 
 const sim = (clave: ClaveSim, nombre: string, min: number, max: number, paso: number, decimales: number): DeslizadorSim => ({
   nombre,
@@ -96,23 +96,25 @@ const sim = (clave: ClaveSim, nombre: string, min: number, max: number, paso: nu
   escribir: (p, v) => (p[clave] = v),
 });
 
-/** Peso de un nivel en la mezcla de llegadas (se normaliza al sortear). */
-const peso = (nivel: number, nombre: string): DeslizadorSim => ({
+type ClaveAfluencia = 'tasaInicial' | 'incremento' | 'intervalo';
+
+/** Parámetro de la curva de afluencia (la mezcla por minutos solo se cambia en config.ts). */
+const afl = (clave: ClaveAfluencia, nombre: string, min: number, max: number, paso: number): DeslizadorSim => ({
   nombre,
-  min: 0,
-  max: 1,
-  paso: 0.05,
-  decimales: 2,
-  leer: (p) => p.mezclaNiveles[nivel],
-  escribir: (p, v) => (p.mezclaNiveles = p.mezclaNiveles.map((x, i) => (i === nivel ? v : x))),
+  min,
+  max,
+  paso,
+  decimales: 0,
+  leer: (p) => p.afluencia?.[clave] ?? 0,
+  escribir: (p, v) => {
+    if (p.afluencia) p.afluencia[clave] = v;
+  },
 });
 
 const DESLIZADORES_SIM: DeslizadorSim[] = [
-  peso(0, 'Peso verdes'),
-  peso(1, 'Peso azules'),
-  peso(2, 'Peso rojos'),
-  peso(3, 'Peso negros'),
-  sim('llegadasPorMinuto', 'Llegadas/min', 5, 120, 5, 0),
+  afl('tasaInicial', 'Llegadas/min al abrir', 1, 60, 1),
+  afl('incremento', 'Llegadas/min por escalón', 0, 20, 1),
+  afl('intervalo', 'Escalón cada (s)', 15, 300, 15),
   sim('aguanteMinimo', 'Aguante mín. (s)', 30, 600, 10, 0),
   sim('aguanteMaximo', 'Aguante máx. (s)', 30, 900, 10, 0),
   sim('memoriaVariedad', 'Memoria variedad', 1, 4, 1, 0),
@@ -219,7 +221,8 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   // Esquiadores: niveles y diversión. Se aplican al momento, sin recalcular.
   const parametros = juego.parametrosSim;
-  const inicialesSim = { ...parametros, mezclaNiveles: [...parametros.mezclaNiveles] };
+  const copiaSim = (p: typeof parametros) => ({ ...p, mezclaNiveles: [...p.mezclaNiveles], afluencia: p.afluencia && { ...p.afluencia } });
+  const inicialesSim = copiaSim(parametros);
   const tituloSim = document.createElement('h3');
   tituloSim.textContent = 'Esquiadores';
   cuerpo.append(tituloSim);
@@ -264,7 +267,12 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
       n[p.nivel]++;
     }
     const medio = NIVELES.map((nombre, i) => `${nombre} ${n[i] ? coma(suma[i] / n[i], 1) : '–'}`).join(', ');
+    const mezcla = s.mezclaActual;
+    const totalMezcla = mezcla.reduce((x, y) => x + y, 0) || 1;
+    const llegan = NIVELES.map((nombre, i) => `${nombre} ${Math.round((100 * mezcla[i]) / totalMezcla)} %`).join(', ');
     desglose.textContent =
+      `Abierta ${Math.floor(s.tiempoAbierta / 60)}:${String(Math.floor(s.tiempoAbierta % 60)).padStart(2, '0')}, ` +
+      `${coma(s.llegadasPorMinuto, 0)} llegadas/min (${llegan}). ` +
       `Quejas: ${s.enfadados} (aburrimiento ${s.quejas.aburrimiento}, cola ${s.quejas.cola}, sin pistas de su nivel ${s.quejas.sinPistas}). ` +
       `Cansados: ${s.cansados}. Contento medio (de ${parametros.contentoInicial}): ${medio}.`;
   };
@@ -278,7 +286,9 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   copiar.addEventListener('click', async () => {
     const claves = Object.keys(CONFIG.esquiador);
     const colas = `  colas: {\n    aforo: ${parametros.aforoCola},\n    tiempoAnillo: ${parametros.tiempoAnillo},\n  },`;
-    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + textoConfigEsquiador({ ...parametros }, claves) + '\n\n' + colas);
+    const a = parametros.afluencia;
+    const afluencia = a ? `  afluencia: {\n    intervalo: ${a.intervalo},\n    tasaInicial: ${a.tasaInicial},\n    incremento: ${a.incremento},\n  },` : '';
+    const ok = await copiarTexto(textoConfigPista({ ...pista }) + '\n\n' + afluencia + '\n\n' + textoConfigEsquiador({ ...parametros }, claves) + '\n\n' + colas);
     copiar.textContent = ok ? 'Copiado' : 'No se pudo copiar';
     setTimeout(() => (copiar.textContent = 'Copiar valores'), 1500);
   });
@@ -286,7 +296,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
   restablecer.textContent = 'Restablecer';
   restablecer.addEventListener('click', () => {
     Object.assign(pista, { ...iniciales, bandas: copiarBandas(iniciales.bandas) });
-    Object.assign(parametros, { ...inicialesSim, mezclaNiveles: [...inicialesSim.mezclaNiveles] });
+    Object.assign(parametros, copiaSim(inicialesSim));
     refrescos.forEach((f) => f());
     recalcular();
   });
@@ -294,7 +304,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
 
   const nota = document.createElement('div');
   nota.className = 'nota';
-  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista, esquiador y colas. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
+  nota.textContent = `Herramienta temporal de calibración. Toca una pista para ver su color, s y pendiente; a trazos cortos, las que ya no caben en su color. «Copiar valores» copia los bloques pista, afluencia (sin la mezcla), esquiador y colas. En config.ts: onda ${CONFIG.pista.longitudOnda} m, s máx. ${coma(CONFIG.pista.sinuosidadMaxima, 2)}.`;
   cuerpo.append(botones, nota);
   montarEditorMapa(juego, cuerpo);
 

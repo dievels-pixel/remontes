@@ -1,6 +1,6 @@
 # Diseño del juego de remontes y pistas de esquí
 
-Actualizado: 2026-11-12
+Actualizado: 2026-11-14
 
 ## Resumen para empezar a programar
 
@@ -123,6 +123,13 @@ El juego empieza en el pie de pistas: una plaza con varios puntos de inicio (bas
 - Mezcla de niveles: la fija la curva del tiempo (hipótesis: al principio mayoría de verdes y azules, y más peso de rojos y negros con el tiempo). Es independiente de las pistas que construya el jugador; si la demanda dependiera de la oferta, no habría reto en equilibrar los colores. Conviene contrastar las proporciones con datos reales de estaciones. Más adelante se podría probar un boca a boca suave (los satisfechos de un color atraen un poco más de ese color, con tope de ±20% y lento), solo si el juego resulta demasiado rígido.
 - Edificios: casas y hoteles alrededor de la plaza son solo decoración y no entran en la mecánica. Aparecen cuando la curva cruza un umbral, en un hueco predefinido y con una pequeña animación, como señal visual de que la afluencia sube. El nuevo nivel de afluencia se aplica unos 15 segundos después, como margen de reacción (igual que una estación nueva en Mini Metro). Cuando se llenan los huecos, los edificios mejoran de aspecto (casa, hotel, gran hotel).
 - Fase posterior: cuando la estación crezca mucho, puede haber varias carreteras de acceso, es decir, varios puntos de entrada.
+
+Implementado (2026-11-14, v38; valores provisionales en `src/config.ts`, bloque `afluencia`):
+
+- La curva va por escalones. El reloj es el de la estación abierta: empieza cuando hay algún remonte en servicio (antes no llega nadie). Cada minuto sube un escalón: aparece un edificio y, 15 s después, la afluencia pasa a la del escalón nuevo (12 llegadas por minuto al abrir y 3 más por escalón, sin tope).
+- La mezcla de niveles se da en algunos minutos y se interpola entre ellos; cambia a la vez que la tasa. Al abrir, 60 % verdes y 40 % azules; los rojos entran hacia el minuto 4 y los negros hacia el 8; desde el minuto 14, 30/30/22/18.
+- Carretera: recta desde el borde lateral del mapa más cercano hasta el borde de la plaza, algo por debajo de su centro. La calcula el juego a partir de la plaza (no es un dato del mapa). Los esquiadores la recorren como puntos de su color; su aguante empieza a contar al entrar en la plaza.
+- Edificios: 8 huecos en un anillo dentro de la plaza (dentro, para no chocar con pistas ni puntos), sin tapar la entrada de la carretera, que se llenan de arriba abajo. Uno por escalón; llenos los huecos, mejoran en el mismo orden a hotel y a gran hotel. Aparecen creciendo con un pequeño rebote.
 
 ## Construcción y economía
 
@@ -422,6 +429,9 @@ Para que no se reintroduzca por error:
 - [ ] Umbrales de pendiente por color: contrastar con valores de referencia reales.
 - [ ] Contraste de las texturas del terreno y de la legibilidad de puntos y pistas: ajustar probando en el móvil.
 - [ ] Orientación de pantalla.
+- [ ] Curva de afluencia (v38, provisional): escalón cada 60 s, 12 llegadas por minuto al abrir y 3 más por escalón, sin tope; mezcla por minutos 60/40/0/0 → 50/35/15/0 (min 4) → 40/30/20/10 (min 8) → 30/30/22/18 (min 14). Por calibrar con la simulación (etapa 7).
+- [ ] Cuándo empieza a correr el reloj de la afluencia. Provisional (v38): con el primer remonte en servicio, y solo mientras haya alguno.
+- [ ] Carretera y huecos de edificios como dato del mapa (`mapa.json`) en vez de calculados a partir de la plaza. Provisional (v38): calculados.
 - [ ] Esquiador sin ninguna pista de su nivel o inferior en la estación (un verde sin verdes no puede bajar por nada). Provisional, implementado (v29): llega igual (la afluencia no depende de lo construido) y se va enfadado al llegar, con queja «sin pistas de su nivel».
 - [ ] Cuándo se va un esquiador cuyo contento llega a 0. Provisional, implementado (v29): al terminar la bajada, en el punto al que llega.
 - [ ] Dónde se va un esquiador cansado. Provisional (v29): en el primer punto al que llega tras agotar su aguante, sin bajar a la plaza.

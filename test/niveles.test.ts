@@ -11,6 +11,9 @@ const P: ParametrosSimulacion = {
   intervaloBolitas: CONFIG.remonte.intervaloBolitas,
   capacidadBolita: CONFIG.remonte.capacidad,
   ...CONFIG.esquiador,
+  // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
+  llegadasPorMinuto: 30,
+  mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
   // Elección de ruta fijada aquí (no los valores provisionales de config.ts).
   gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
   factorRepeticion: 0.3,

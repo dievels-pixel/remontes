@@ -4,6 +4,7 @@
 // Gestos: arrastrar desde un punto hacia otro más alto construye un remonte;
 // hacia uno más bajo, una pista (al soltar se elige el color).
 import { CONFIG } from './config';
+import { edificios, escalonVisible, huecosPlaza, trazarCarretera, type Edificio } from './core/afluencia';
 import { MapaAlturas } from './core/alturas';
 import { crearAzar } from './core/azar';
 import { copiarBandas, type ColorPista } from './core/colores';
@@ -81,6 +82,10 @@ export class Juego {
   definicion: DefinicionNodo[];
   /** Plaza del pie de pistas: entrada de esquiadores y obstáculo para las pistas. */
   readonly plaza: Mapa['datos']['plaza'];
+  /** Carretera de acceso, del borde del mapa a la plaza (el último punto es la entrada). */
+  readonly carretera: Punto[];
+  /** Huecos de los edificios decorativos, en el orden en que se llenan. */
+  readonly huecos: Punto[];
   /** Pendiente local a partir de la cual el terreno es roca (el panel de ajustes la cambia). */
   umbralRoca: number = CONFIG.terreno.umbralRoca;
   /** Límites del editor del mapa de pruebas. */
@@ -114,6 +119,8 @@ export class Juego {
     this.alturas = mapa.alturas;
     this.definicion = datos.nodos.map((d) => ({ ...d }));
     this.plaza = datos.plaza;
+    this.carretera = trazarCarretera(datos.plaza, datos.ancho);
+    this.huecos = huecosPlaza(datos.plaza, this.carretera[this.carretera.length - 1], CONFIG.afluencia.huecosEdificios);
     this.limitesMapa = {
       ancho: datos.ancho,
       alto: datos.alto,
@@ -140,7 +147,14 @@ export class Juego {
       intervaloBolitas: remonte.intervaloBolitas,
       capacidadBolita: remonte.capacidad,
       ...CONFIG.esquiador,
-      mezclaNiveles: [...CONFIG.esquiador.mezclaNiveles],
+      // Con la curva de afluencia, estos dos no se usan (la curva manda).
+      llegadasPorMinuto: CONFIG.afluencia.tasaInicial,
+      mezclaNiveles: [...CONFIG.afluencia.mezcla[0].pesos],
+      afluencia: {
+        ...CONFIG.afluencia,
+        mezcla: CONFIG.afluencia.mezcla.map((m) => ({ minuto: m.minuto, pesos: [...m.pesos] })),
+      },
+      velocidadCarretera: CONFIG.afluencia.velocidadCarretera,
       aforoCola: CONFIG.colas.aforo,
       tiempoAnillo: CONFIG.colas.tiempoAnillo,
     };
@@ -148,7 +162,14 @@ export class Juego {
   }
 
   private nuevaSimulacion(): Simulacion {
-    return new Simulacion(this.red, this.parametrosSim, this.plaza, crearAzar(12345));
+    const entrada = this.carretera[this.carretera.length - 1];
+    return new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(12345), this.carretera);
+  }
+
+  /** Edificios decorativos de la plaza según el tiempo de estación abierta. */
+  edificios(): Edificio[] {
+    const a = this.parametrosSim.afluencia ?? CONFIG.afluencia;
+    return edificios(escalonVisible(this.sim.tiempoAbierta, a), this.huecos.length, CONFIG.afluencia.gradoMaximoEdificios, a.intervalo);
   }
 
   // ---- Editor del mapa de pruebas (?ajustes) ----

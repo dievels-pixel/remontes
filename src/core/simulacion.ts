@@ -6,7 +6,9 @@
 // fáciles; se va cansado al agotar su aguante y enfadado si su contento
 // llega a 0 o le echa una cola saturada.
 // Lógica pura: ni DOM ni canvas.
+import { mezclaEn, tasaEn, type ParametrosAfluencia } from './afluencia';
 import type { Azar } from './azar';
+import { Polilinea } from './polilinea';
 import type { Hecho, Red, Remonte, Pista } from './red';
 import { distancia, type Punto } from './vector';
 
@@ -43,6 +45,14 @@ export interface ParametrosSimulacion {
   aforoCola: number;
   /** Segundos que tarda el anillo en llenarse (y en vaciarse) por completo. */
   tiempoAnillo: number;
+  /**
+   * Curva de afluencia en función del tiempo de estación abierta. Si está,
+   * manda sobre `llegadasPorMinuto` y `mezclaNiveles` (que quedan para las
+   * pruebas con caudal constante).
+   */
+  afluencia?: ParametrosAfluencia;
+  /** Velocidad por la carretera de acceso (m/s de juego), si hay carretera. */
+  velocidadCarretera?: number;
 }
 
 /**
@@ -62,6 +72,7 @@ export function pesoPista(nivel: number, dificultad: number, reciente: boolean, 
 export type CausaQueja = 'aburrimiento' | 'cola' | 'sinPistas';
 
 export type Esquiador =
+  | { id: number; estado: 'carretera'; recorrido: number }
   | { id: number; estado: 'andando'; origen: Punto; hacia: number; recorrido: number; largo: number }
   | { id: number; estado: 'cola'; nodo: number; remonte: number }
   | { id: number; estado: 'remonte'; remonte: number }
@@ -107,6 +118,13 @@ export class Simulacion {
   /** Marchas enfadadas recientes (las de los últimos segundos), para dibujarlas. */
   readonly marchasEnfadadas: MarchaEnfadada[] = [];
   tiempo = 0;
+  /**
+   * Segundos con la estación abierta (algún remonte en servicio): el reloj de
+   * la curva de afluencia. Antes de abrir no llega nadie.
+   */
+  tiempoAbierta = 0;
+  /** Carretera de acceso; sin ella, los esquiadores aparecen en la entrada. */
+  readonly carretera: Polilinea | null;
   private temporizadores: number[] = [];
   private llegadasPendientes = 0;
   private siguienteId = 0;
@@ -116,7 +134,20 @@ export class Simulacion {
     readonly p: ParametrosSimulacion,
     readonly entrada: Punto,
     private readonly azar: Azar,
-  ) {}
+    carretera?: readonly Punto[],
+  ) {
+    this.carretera = carretera && carretera.length >= 2 ? new Polilinea([...carretera]) : null;
+  }
+
+  /** Llegadas por minuto ahora (de la curva, si la hay). */
+  get llegadasPorMinuto(): number {
+    return this.p.afluencia ? tasaEn(this.tiempoAbierta, this.p.afluencia) : this.p.llegadasPorMinuto;
+  }
+
+  /** Mezcla de niveles de los que llegan ahora (de la curva, si la hay). */
+  get mezclaActual(): readonly number[] {
+    return this.p.afluencia ? mezclaEn(this.tiempoAbierta, this.p.afluencia) : this.p.mezclaNiveles;
+  }
 
   get poblacion(): number {
     return this.esquiadores.size;
@@ -225,7 +256,7 @@ export class Simulacion {
   }
 
   private sortearNivel(): number {
-    const m = this.p.mezclaNiveles;
+    const m = this.mezclaActual;
     const total = m.reduce((a, b) => a + b, 0);
     let r = this.azar() * total;
     for (let i = 0; i < m.length; i++) {
@@ -240,24 +271,38 @@ export class Simulacion {
       this.llegadasPendientes = 0;
       return;
     }
-    this.llegadasPendientes += (dt * this.p.llegadasPorMinuto) / 60;
+    this.tiempoAbierta += dt;
+    this.llegadasPendientes += (dt * this.llegadasPorMinuto) / 60;
     while (this.llegadasPendientes >= 1) {
       this.llegadasPendientes -= 1;
       const nivel = this.sortearNivel();
       const id = this.siguienteId++;
-      const { aguanteMinimo: a, aguanteMaximo: b } = this.p;
-      this.perfiles.set(id, { nivel, contento: this.p.contentoInicial, cansadoEn: this.tiempo + a + this.azar() * (b - a), recientes: [] });
-      const bases = this.basesPara(nivel);
-      // La afluencia no depende de lo construido: viene igual. Si para su
-      // nivel no hay ninguna bajada, se va enfadado al llegar (PROVISIONAL:
-      // decisión abierta de la especificación).
-      if (bases.length === 0) {
-        this.esquiadores.set(id, { id, estado: 'andando', origen: { ...this.entrada }, hacia: -1, recorrido: 0, largo: 0 });
-        this.irseEnfadado(id, -1, 'sinPistas');
-        continue;
-      }
-      this.caminarABase(id, this.entrada, bases);
+      this.perfiles.set(id, { nivel, contento: this.p.contentoInicial, cansadoEn: Infinity, recientes: [] });
+      // Por la carretera hasta la plaza; sin carretera, ya está en ella.
+      if (this.carretera) this.esquiadores.set(id, { id, estado: 'carretera', recorrido: 0 });
+      else this.llegarAPlaza(id);
     }
+  }
+
+  /**
+   * Entra en la plaza: empieza a contar su aguante y va a una base. La
+   * afluencia no depende de lo construido: viene igual.
+   */
+  private llegarAPlaza(id: number): void {
+    const perfil = this.perfiles.get(id);
+    if (!perfil) return;
+    const { aguanteMinimo: a, aguanteMaximo: b } = this.p;
+    perfil.cansadoEn = this.tiempo + a + this.azar() * (b - a);
+    const nivel = perfil.nivel;
+    const bases = this.basesPara(nivel);
+    // Si para su nivel no hay ninguna bajada, se va enfadado al llegar (PROVISIONAL:
+    // decisión abierta de la especificación).
+    if (bases.length === 0) {
+      this.esquiadores.set(id, { id, estado: 'andando', origen: { ...this.entrada }, hacia: -1, recorrido: 0, largo: 0 });
+      this.irseEnfadado(id, -1, 'sinPistas');
+      return;
+    }
+    this.caminarABase(id, this.entrada, bases);
   }
 
   /** Lo mejor que puede hacer un esquiador de ese nivel desde un punto (ver Red.mejorGustoDesde). */
@@ -404,6 +449,10 @@ export class Simulacion {
 
   private moverEsquiador(e: Esquiador, dt: number): void {
     switch (e.estado) {
+      case 'carretera':
+        e.recorrido += (this.p.velocidadCarretera ?? this.p.velocidadAndando) * dt;
+        if (!this.carretera || e.recorrido >= this.carretera.longitud) this.llegarAPlaza(e.id);
+        break;
       case 'andando':
         e.recorrido += this.p.velocidadAndando * dt;
         if (e.recorrido >= e.largo) this.decidir(e.id, e.hacia, false);

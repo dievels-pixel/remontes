@@ -99,12 +99,33 @@ export const CONFIG = {
     distanciaMinimaPistas: 40, // m
   },
 
-  // Esquiadores. PROVISIONAL: la afluencia creciente llega en la etapa 4; aquí
-  // entra un caudal constante hasta un tope.
+  // Afluencia: curva por escalones en función del tiempo con la estación
+  // abierta (desde que hay algún remonte en servicio), sin depender de lo
+  // construido. Cada `intervalo` s aparece un edificio en la plaza y, `retraso`
+  // s después, se aplica el escalón nuevo. Ver src/core/afluencia.ts.
+  // PROVISIONAL todo salvo el retraso (15 s en la especificación): por
+  // calibrar con la simulación.
+  afluencia: {
+    intervalo: 60, // s entre escalones
+    retraso: 15, // s entre el edificio y la afluencia nueva
+    tasaInicial: 12, // llegadas por minuto al abrir
+    incremento: 3, // llegadas por minuto más en cada escalón
+    // Mezcla de niveles (pesos de verdes, azules, rojos y negros) en algunos
+    // minutos; se interpola entre ellos y se mantiene tras el último. Al
+    // principio, mayoría de verdes y azules; rojos desde unos 4 minutos y
+    // negros desde unos 8.
+    mezcla: [
+      { minuto: 0, pesos: [0.6, 0.4, 0, 0] },
+      { minuto: 4, pesos: [0.5, 0.35, 0.15, 0] },
+      { minuto: 8, pesos: [0.4, 0.3, 0.2, 0.1] },
+      { minuto: 14, pesos: [0.3, 0.3, 0.22, 0.18] },
+    ],
+    velocidadCarretera: 150, // m/s de juego por la carretera de acceso
+    huecosEdificios: 8, // huecos alrededor de la plaza
+    gradoMaximoEdificios: 2, // casa, hotel, gran hotel
+  },
+
   esquiador: {
-    // Afluencia constante hasta la etapa 4 (curva en función del tiempo).
-    // PROVISIONAL.
-    llegadasPorMinuto: 30,
     velocidadAndando: 60, // m/s de juego en la plaza
     // Al llegar a una base se puede ir andando a una base contigua si su cola
     // compensa. PROVISIONAL.
@@ -113,9 +134,6 @@ export const CONFIG = {
     // v = base + factor · pendiente
     velocidadBasePista: 70,
     factorPendiente: 380,
-    // Proporción de verdes, azules, rojos y negros entre los que llegan.
-    // PROVISIONAL: en la etapa 4 la fija la curva del tiempo.
-    mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
     // Aguante (s de juego), al azar entre los dos valores: al agotarlo el
     // esquiador se va cansado, sin queja. Hipótesis de la especificación: de
     // 3 a 6 minutos. PROVISIONAL.

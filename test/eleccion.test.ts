@@ -31,6 +31,8 @@ const P: ParametrosSimulacion = {
   intervaloBolitas: 0.9,
   capacidadBolita: 1,
   ...CONFIG.esquiador,
+  // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
+  mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
   llegadasPorMinuto: 30,
   aguanteMinimo: 1e6,
   aguanteMaximo: 1e6,

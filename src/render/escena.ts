@@ -19,6 +19,10 @@ const COLOR = {
   proyecto: 'rgba(38, 42, 49, 0.6)',
   esquiador: '#262a31',
   plaza: 'rgba(240, 236, 226, 0.75)',
+  carretera: 'rgba(128, 132, 136, 0.55)',
+  // Casa, hotel y gran hotel: tonos apagados para que no compitan con los puntos.
+  edificio: ['#b8a58c', '#a39588', '#8e837d'],
+  tejado: ['#8f7b63', '#7b6e63', '#665c57'],
   valido: '#2f9e6a',
   invalido: '#b9473b',
   forzada: '#e8908a', // borde rojo suave del selector: color empinado para su nivel
@@ -82,12 +86,25 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.drawImage(terreno, 0, terreno.height - 1, terreno.width, 1, esquina.x, esquina.y + hT - 1, wT, alto - esquina.y - hT + 1);
   }
 
-  // Plaza del pie de pistas.
+  // Carretera de acceso y plaza del pie de pistas, con sus edificios.
+  ctx.save();
+  ctx.strokeStyle = COLOR.carretera;
+  ctx.lineWidth = Math.max(3, 26 * camara.escala);
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  juego.carretera.forEach((p, i) => {
+    const q = P(p);
+    if (i === 0) ctx.moveTo(q.x, q.y);
+    else ctx.lineTo(q.x, q.y);
+  });
+  ctx.stroke();
+  ctx.restore();
   const plaza = P(juego.plaza);
   ctx.fillStyle = COLOR.plaza;
   ctx.beginPath();
   ctx.arc(plaza.x, plaza.y, juego.plaza.radio * camara.escala, 0, Math.PI * 2);
   ctx.fill();
+  dibujarEdificios(ctx, juego, P, camara.escala);
 
   // Pistas.
   ctx.lineCap = 'round';
@@ -249,6 +266,9 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     switch (e.estado) {
       case 'cola':
         q = puntoEnRacimo(red.remontes[e.remonte].estacionDesde);
+        break;
+      case 'carretera':
+        if (sim.carretera) q = P(sim.carretera.puntoEn(e.recorrido));
         break;
       case 'andando':
         q = P(interpolar(e.origen, red.nodo(e.hacia), Math.min(e.recorrido / e.largo, 1)));
@@ -697,6 +717,43 @@ function mezclar(a: string, b: string, t: number): string {
 }
 
 /** Color de un esquiador: el de su nivel (la especificación descarta cambiarlo con el contento). */
+/** Lado (m) de cada grado de edificio: casa, hotel, gran hotel. */
+const LADO_EDIFICIO = [30, 40, 50];
+/** Segundos (de estación abierta) que dura la animación al aparecer o mejorar. */
+const DURACION_EDIFICIO = 0.7;
+
+/**
+ * Edificios decorativos alrededor de la plaza: un bloque con tejado a dos
+ * aguas visto desde arriba (la cumbrera como línea). Al aparecer o mejorar
+ * crecen con un pequeño rebote.
+ */
+function dibujarEdificios(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Punto) => Punto, escala: number): void {
+  const t = juego.sim.tiempoAbierta;
+  ctx.save();
+  for (const e of juego.edificios()) {
+    const h = juego.huecos[e.hueco];
+    if (!h) continue;
+    const c = P(h);
+    const u = Math.min(1, Math.max(0, (t - e.desde) / DURACION_EDIFICIO));
+    // Crece de 0 a 1 con un rebote suave (ease-out-back).
+    const k = 1.7;
+    const crece = 1 + (k + 1) * Math.pow(u - 1, 3) + k * Math.pow(u - 1, 2);
+    const lado = Math.max(5, LADO_EDIFICIO[Math.min(e.grado, LADO_EDIFICIO.length - 1)] * escala) * crece;
+    const w = lado * (1 + 0.3 * e.grado);
+    const hh = lado;
+    ctx.fillStyle = COLOR.edificio[Math.min(e.grado, 2)];
+    ctx.fillRect(c.x - w / 2, c.y - hh / 2, w, hh);
+    ctx.strokeStyle = COLOR.tejado[Math.min(e.grado, 2)];
+    ctx.lineWidth = Math.max(1, lado * 0.08);
+    ctx.strokeRect(c.x - w / 2, c.y - hh / 2, w, hh);
+    ctx.beginPath();
+    ctx.moveTo(c.x - w / 2, c.y);
+    ctx.lineTo(c.x + w / 2, c.y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function colorEsquiador(perfil: Perfil | undefined): string {
   return perfil ? COLOR_PISTA[COLORES[perfil.nivel]] : COLOR.esquiador;
 }

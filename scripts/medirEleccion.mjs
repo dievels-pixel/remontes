@@ -22,6 +22,11 @@ const datos = leerDatosMapa(JSON.parse(readFileSync('mapas/gran-dominio/mapa.jso
 const png = decodificarPngGris(readFileSync('mapas/gran-dominio/alturas.png'));
 const j = new Juego({ datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) });
 const red = j.red;
+// Caudal y mezcla constantes (los de antes de la curva de afluencia), para
+// que las cifras se puedan comparar entre versiones.
+j.parametrosSim.afluencia = undefined;
+j.parametrosSim.llegadasPorMinuto = 30;
+j.parametrosSim.mezclaNiveles = [0.35, 0.35, 0.2, 0.1];
 const nodo = (x, y) => red.nodos.find((n) => n.x === x && n.y === y).id;
 
 // Remontes desde la plaza: a la cima central, a dos intermedios de media
