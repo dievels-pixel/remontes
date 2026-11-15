@@ -616,7 +616,7 @@ export class Juego {
     const s = this.sim;
     return (
       `Monedas: ${Math.floor(s.monedas)} · Ingresos: +${Math.round(s.ingresosPorMinuto)}/min\n` +
-      `Mantenimiento: −${Math.round(s.mantenimientoPorMinuto)}/min\n` +
+      `Mantenimiento: −${Math.round(s.mantenimientoPorMinuto)}/min · Con diversión: ${s.fraccionConDiversion === null ? '–' : `${Math.round(s.fraccionConDiversion * 100)} %`}\n` +
       `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`
     );
   }

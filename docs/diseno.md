@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-15 (v44: prueba de cobrar menos las bajadas que no divierten; sin cambio de reglas). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-15 (v45: las bajadas que no divierten pagan la mitad, a prueba). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -350,7 +350,7 @@ Actualizado el 2026-11-15 (v44: prueba de cobrar menos las bajadas que no divier
   - factor 1: 14:04 / 14:01 / 10:41; divierten el 71 % de las bajadas; cobrado 4971;
   - factor 0,5: 14:07 / 13:55 / 9:33; divierten el 55 %; cobrado 3754 (−25 %), gastado casi igual (se recorta sobre todo el sobrante);
   - factor 0: 11:09 / 12:00 / 8:37; cobrado 1374 (−72 %): con uno o dos remontes al principio casi todo se repite y no entra dinero.
-  El jugador automático no sabe buscar variedad (el estilo `variado` no sube el porcentaje que divierte), así que el incentivo solo se puede valorar jugando. Pendiente de que el usuario elija el valor.
+  El jugador automático no sabe buscar variedad (el estilo `variado` no sube el porcentaje que divierte), así que el incentivo solo se puede valorar jugando. En v45 el usuario eligió 0,5, a prueba («más adelante vemos si lo dejamos»), con «Con diversión: N %» en pantalla (`Simulacion.fraccionConDiversion`, bajadas del último minuto).
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)

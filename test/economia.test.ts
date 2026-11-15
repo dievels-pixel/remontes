@@ -123,6 +123,7 @@ describe('Simulación con economía', () => {
     const v = sim.perfiles.get(1)!.variedades;
     expect(bajar()).toBeCloseTo(tarifa * (1 + PAGO.multiplicadorVariedad * v) * 0.5);
     expect(sim.bajadasPorDiversion[1]).toBeGreaterThanOrEqual(1);
+    expect(sim.fraccionConDiversion).toBeLessThan(1);
   });
 
   it('una telesilla sube el doble de gente que un telesquí; una telecabina, el cuádruple', () => {

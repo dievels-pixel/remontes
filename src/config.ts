@@ -52,8 +52,8 @@ export const CONFIG = {
     tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra (especificación)
     multiplicadorVariedad: 0.1, // la especificación decía 0,2: inflaba los ingresos
     // Fracción que paga una bajada que no divierte (repetida, forzada o que le
-    // aburre). En prueba (v44): 1 paga igual que las demás.
-    factorSinDiversion: 1,
+    // aburre). Decidido por el usuario en v45, a prueba: la mitad.
+    factorSinDiversion: 0.5,
     // Mantenimiento de cada remonte, por minuto: longitud × porMetroYMinuto ×
     // factor del tipo. Se paga se use o no; las monedas no bajan de 0. Crece
     // más que la capacidad (1, 2, 4 personas frente a 1, 4, 10 de coste), así

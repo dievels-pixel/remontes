@@ -157,7 +157,7 @@ export class Simulacion {
   /** Todo lo cobrado por bajadas desde el principio. */
   ingresosTotales = 0;
   /** Cobros del último minuto (instante, cantidad), para los ingresos por minuto. */
-  private cobros: { t: number; c: number }[] = [];
+  private cobros: { t: number; c: number; divierte: boolean }[] = [];
   /** Medidor de quejas (en quejas): sube 1 por enfadado y se vacía despacio. */
   medidorQuejas = 0;
   /** Se ha llenado el medidor de quejas: la simulación ya no avanza. */
@@ -259,6 +259,17 @@ export class Simulacion {
     let n = 0;
     for (const c of this.cobros) n += c.c;
     return n;
+  }
+
+  /**
+   * Fracción de las bajadas del último minuto que han divertido (las demás
+   * pagan menos), o null si no ha habido ninguna.
+   */
+  get fraccionConDiversion(): number | null {
+    if (this.cobros.length === 0) return null;
+    let n = 0;
+    for (const c of this.cobros) if (c.divierte) n++;
+    return n / this.cobros.length;
   }
 
   /** Mantenimiento de todos los remontes (monedas por minuto). */
@@ -645,7 +656,7 @@ export class Simulacion {
             const c = pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago) * (divierte ? 1 : (this.p.pago.factorSinDiversion ?? 1));
             this.monedas += c;
             this.ingresosTotales += c;
-            this.cobros.push({ t: this.tiempo, c });
+            this.cobros.push({ t: this.tiempo, c, divierte });
           }
           if (!this.contentar(e.id, pista)) this.irseEnfadado(e.id, pista.hasta, 'aburrimiento');
           else this.decidir(e.id, pista.hasta);
