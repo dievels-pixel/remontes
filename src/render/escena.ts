@@ -439,12 +439,13 @@ function dibujarRemonte(ctx: CanvasRenderingContext2D, a: Punto, b: Punto, color
 
 /**
  * Bolita de un remonte con sus pasajeros, del tamaño justo para ellos:
- * telesquí, un círculo con 1; telesilla, un óvalo con 2 en fila a lo largo
- * del cable; telecabina, un cuadrado de bordes redondeados con 4 (2 × 2).
+ * telesquí, un círculo con 1; telesilla, una cápsula (dos semicírculos unidos
+ * por dos rectas tangentes) con 2, atravesada al cable, como una silla; telecabina, un cuadrado de bordes redondeados con 4 (2 × 2).
  */
 function dibujarBolita(ctx: CanvasRenderingContext2D, q: Punto, angulo: number, tipo: number, pasajeros: string[]): void {
   const d = 2.6; // separación de los puntos respecto al centro
-  const sitios: Punto[] = tipo === 0 ? [{ x: 0, y: 0 }] : tipo === 1 ? [{ x: -d, y: 0 }, { x: d, y: 0 }] : [{ x: -d, y: -d }, { x: d, y: -d }, { x: -d, y: d }, { x: d, y: d }];
+  // El eje x va a lo largo del cable: los dos de la telesilla, en el eje y.
+  const sitios: Punto[] = tipo === 0 ? [{ x: 0, y: 0 }] : tipo === 1 ? [{ x: 0, y: -d }, { x: 0, y: d }] : [{ x: -d, y: -d }, { x: d, y: -d }, { x: -d, y: d }, { x: d, y: d }];
   ctx.save();
   ctx.translate(q.x, q.y);
   ctx.rotate(angulo);
@@ -453,7 +454,7 @@ function dibujarBolita(ctx: CanvasRenderingContext2D, q: Punto, angulo: number, 
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   if (tipo === 0) ctx.arc(0, 0, 4, 0, Math.PI * 2);
-  else if (tipo === 1) ctx.ellipse(0, 0, 6.6, 4, 0, 0, Math.PI * 2);
+  else if (tipo === 1) ctx.roundRect(-4, -6.6, 8, 13.2, 4); // radio = medio ancho: semicírculos y rectas tangentes
   else ctx.roundRect(-6, -6, 12, 12, 3.5);
   ctx.fill();
   ctx.stroke();
