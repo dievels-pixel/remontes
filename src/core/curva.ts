@@ -47,9 +47,13 @@ function parametrosIrregulares(semilla: number, ondas: number) {
 
 const MUESTRAS_POR_ONDA = 28;
 
-/** Curva con la forma dada y amplitud de serpentina `a` (m). */
-export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitudPedida: number): Polilinea {
-  const amplitud = Math.max(amplitudPedida, forma.temblor ?? 0);
+/**
+ * Términos de la curva que no dependen de la amplitud de la serpentina, para
+ * no recalcularlos en cada paso de la bisección. trazarPista y la medida de
+ * longitud de la bisección usan exactamente las mismas operaciones, así que
+ * dan los mismos números.
+ */
+function prepararCurva(a: Punto, b: Punto, forma: FormaPista) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const d = Math.hypot(dx, dy);
@@ -62,17 +66,55 @@ export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitudPedid
   // con irregularidad 1) sin dejar de crecer, y la amplitud varía hasta ±40 %.
   const beta = (0.5 * forma.ondas) / ir.m;
   const tanGiro = Math.tan(((forma.giro ?? 0) * Math.PI) / 180);
-  const puntos: Punto[] = [];
+  const n = muestras + 1;
+  const T = new Float64Array(n); // t
+  const LS = new Float64Array(n); // lado · sen(πt)
+  const C = new Float64Array(n); // 1 − cos(fase)
+  const MOD = new Float64Array(n); // modulación de la amplitud
+  const G = new Float64Array(n); // gancho del giro de salida
   for (let i = 0; i <= muestras; i++) {
     const t = i / muestras;
     const fase = 2 * Math.PI * forma.ondas * t + irr * beta * Math.sin(2 * Math.PI * ir.m * t + ir.fase1);
-    const amp = amplitud * (1 + 0.4 * irr * Math.sin(2 * Math.PI * ir.m2 * t + ir.fase2));
-    const desp =
-      forma.lado * Math.sin(Math.PI * t) * (forma.abombamiento * d + amp * (1 - Math.cos(fase))) +
-      forma.lado * tanGiro * d * t * (1 - t) ** 3;
-    puntos.push({ x: a.x + dx * t + nx * desp, y: a.y + dy * t + ny * desp });
+    T[i] = t;
+    LS[i] = forma.lado * Math.sin(Math.PI * t);
+    C[i] = 1 - Math.cos(fase);
+    MOD[i] = 1 + 0.4 * irr * Math.sin(2 * Math.PI * ir.m2 * t + ir.fase2);
+    G[i] = forma.lado * tanGiro * d * t * (1 - t) ** 3;
   }
-  return new Polilinea(puntos);
+  const abombado = forma.abombamiento * d;
+  const temblor = forma.temblor ?? 0;
+  const punto = (i: number, amplitud: number): Punto => {
+    const amp = amplitud * MOD[i];
+    const desp = LS[i] * (abombado + amp * C[i]) + G[i];
+    return { x: a.x + dx * T[i] + nx * desp, y: a.y + dy * T[i] + ny * desp };
+  };
+  return {
+    n,
+    /** Puntos de la curva con amplitud de serpentina pedida (al menos el temblor). */
+    puntos(amplitudPedida: number): Punto[] {
+      const amplitud = Math.max(amplitudPedida, temblor);
+      const r: Punto[] = [];
+      for (let i = 0; i < n; i++) r.push(punto(i, amplitud));
+      return r;
+    },
+    /** Longitud de esa curva, sumada como en Polilinea, sin guardar los puntos. */
+    longitud(amplitudPedida: number): number {
+      const amplitud = Math.max(amplitudPedida, temblor);
+      let L = 0;
+      let p = punto(0, amplitud);
+      for (let i = 1; i < n; i++) {
+        const q = punto(i, amplitud);
+        L = L + Math.hypot(q.x - p.x, q.y - p.y);
+        p = q;
+      }
+      return L;
+    },
+  };
+}
+
+/** Curva con la forma dada y amplitud de serpentina `a` (m). */
+export function trazarPista(a: Punto, b: Punto, forma: FormaPista, amplitudPedida: number): Polilinea {
+  return new Polilinea(prepararCurva(a, b, forma).puntos(amplitudPedida));
 }
 
 /** Sinuosidad mínima de una forma: la de la curva con la serpentina mínima (el temblor). */
@@ -87,18 +129,20 @@ export function sinuosidadMinima(a: Punto, b: Punto, forma: FormaPista): number 
 export function pistaConSinuosidad(a: Punto, b: Punto, forma: FormaPista, s: number, tolerancia = 0.002): Polilinea | null {
   const d = Math.hypot(b.x - a.x, b.y - a.y);
   const objetivo = s * d;
+  // La bisección solo mide longitudes; la curva se construye una vez al final.
+  const curva = prepararCurva(a, b, forma);
   let lo = forma.temblor ?? 0; // la bisección busca a partir del temblor
   let hi = Math.max(d, lo); // amplitud máxima razonable
-  if (trazarPista(a, b, forma, lo).longitud > objetivo * (1 + tolerancia)) return null;
-  if (trazarPista(a, b, forma, hi).longitud < objetivo) return null;
-  let mejor = trazarPista(a, b, forma, lo);
+  if (curva.longitud(lo) > objetivo * (1 + tolerancia)) return null;
+  if (curva.longitud(hi) < objetivo) return null;
+  let elegida = lo;
   for (let i = 0; i < 60; i++) {
     const m = (lo + hi) / 2;
-    mejor = trazarPista(a, b, forma, m);
-    const err = mejor.longitud / objetivo - 1;
+    elegida = m;
+    const err = curva.longitud(m) / objetivo - 1;
     if (Math.abs(err) <= tolerancia) break;
     if (err < 0) lo = m;
     else hi = m;
   }
-  return mejor;
+  return new Polilinea(curva.puntos(elegida));
 }

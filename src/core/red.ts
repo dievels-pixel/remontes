@@ -158,6 +158,14 @@ export type MotivoTrazado = 'pisa-plaza' | 'pisa-roca' | 'muy-cerca' | 'cruza-pi
 /** Construcción registrada en el historial. */
 export type Hecho = { tipo: 'remonte'; remonte: Remonte; estacionesNuevas: number } | { tipo: 'pista'; pista: Pista };
 
+/** Ejecuta un cálculo por pasos hasta el final y devuelve su resultado. */
+function terminar<T>(g: Generator<void, T>): T {
+  for (;;) {
+    const r = g.next();
+    if (r.done) return r.value;
+  }
+}
+
 /** Metros entre comprobaciones del terreno a lo largo de una pista (ver pisaTerrenoProhibido). */
 const PASO_TERRENO = 20;
 
@@ -334,18 +342,43 @@ export class Red {
    * guarda hasta que cambia la red o los parámetros de pista.
    */
   alcanzablePorPista(id: number): boolean {
+    return terminar(this.pasosAlcanzablePorPista(id));
+  }
+
+  /**
+   * alcanzablePorPista por pasos: se detiene tras cada origen probado (para el
+   * calentamiento en segundo plano, que no debe bloquear un fotograma). Si la
+   * red cambia a medias, abandona sin guardar nada.
+   */
+  *pasosAlcanzablePorPista(id: number): Generator<void, boolean> {
     const clave = JSON.stringify(this.reglas.pista);
     if (this.cacheAlcanzables?.version !== this.version || this.cacheAlcanzables.clave !== clave) {
       this.cacheAlcanzables = { version: this.version, clave, valores: new Map() };
     }
     const cache = this.cacheAlcanzables.valores;
-    let r = cache.get(id);
-    if (r === undefined) {
-      const llegadas = new Set(this.remontes.map((x) => x.hasta));
-      r = [...llegadas].some((a) => this.nodos[a].cota > this.nodos[id].cota && this.pistaPosible(a, id));
-      cache.set(id, r);
+    const guardado = cache.get(id);
+    if (guardado !== undefined) return guardado;
+    const version = this.version;
+    const llegadas = new Set(this.remontes.map((x) => x.hasta));
+    let r = false;
+    for (const a of llegadas) {
+      if (this.nodos[a].cota > this.nodos[id].cota && this.pistaPosible(a, id)) {
+        r = true;
+        break;
+      }
+      yield;
+      if (this.version !== version) return false;
     }
+    cache.set(id, r);
     return r;
+  }
+
+  /** puedeArrancar por pasos (ver pasosAlcanzablePorPista). */
+  *pasosPuedeArrancar(id: number): Generator<void, boolean> {
+    const tipo = this.nodos[id].tipo;
+    if (tipo === 'cima') return false;
+    if (tipo === 'base' || this.estacionesDe(id).length > 0 || this.pistas.some((p) => p.hasta === id)) return true;
+    return yield* this.pasosAlcanzablePorPista(id);
   }
 
   /** ¿Cabe alguna pista limpia de `desde` a `hasta`, aunque `hasta` aún no sea viable? */
@@ -366,6 +399,14 @@ export class Red {
    * más cercanos y se guarda hasta que cambia la red.
    */
   llegadaConBajada(id: number): boolean {
+    return terminar(this.pasosLlegadaConBajada(id));
+  }
+
+  /**
+   * llegadaConBajada por pasos: se detiene tras cada destino probado (ver
+   * pasosAlcanzablePorPista). Mismo resultado y misma caché.
+   */
+  *pasosLlegadaConBajada(id: number): Generator<void, boolean> {
     const activas = this.pistasActivas();
     if (this.pistas.some((p) => p.desde === id && activas.has(p.id))) return true;
     // De ese punto ya sube un remonte en servicio: se sigue hacia arriba.
@@ -375,15 +416,23 @@ export class Red {
       this.cacheBajadas = { version: this.version, clave, valores: new Map() };
     }
     const cache = this.cacheBajadas.valores;
-    let r = cache.get(id);
-    if (r === undefined) {
-      const n = this.nodos[id];
-      const candidatos = this.nodos
-        .filter((b) => b.id !== id && b.cota < n.cota && this.viable(b.id))
-        .sort((a, b) => distancia(a, n) - distancia(b, n));
-      r = candidatos.some((b) => this.pistaPosible(id, b.id, false));
-      cache.set(id, r);
+    const guardado = cache.get(id);
+    if (guardado !== undefined) return guardado;
+    const version = this.version;
+    const n = this.nodos[id];
+    const candidatos = this.nodos
+      .filter((b) => b.id !== id && b.cota < n.cota && this.viable(b.id))
+      .sort((a, b) => distancia(a, n) - distancia(b, n));
+    let r = false;
+    for (const b of candidatos) {
+      if (this.pistaPosible(id, b.id, false)) {
+        r = true;
+        break;
+      }
+      yield;
+      if (this.version !== version) return false;
     }
+    cache.set(id, r);
     return r;
   }
 

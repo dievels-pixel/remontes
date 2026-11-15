@@ -62,24 +62,48 @@ function iniciar(mapa: Mapa): void {
   // Solo en desarrollo: acceso desde la consola y las pruebas de navegador.
   if (import.meta.env.DEV) Object.assign(window, { juego, camara });
 
+  // Solo en desarrollo: tiempos de cada fotograma (ms) para medir el
+  // rendimiento (scripts/medirRendimiento.cjs).
+  const rendimiento = { simulacion: [] as number[], calentar: [] as number[], dibujo: [] as number[], pasos: [] as number[] };
+  if (import.meta.env.DEV) Object.assign(window, { rendimiento });
+
   // Paso fijo de simulación, independiente de la frecuencia de pantalla.
   const DT = 1 / 60;
   let anterior = performance.now();
+  let ultimoFotograma = anterior;
   let acumulado = 0;
   function fotograma(ahora: number): void {
     acumulado += Math.min((ahora - anterior) / 1000, 0.25) * juego.velocidad * CONFIG.tiempo.escala;
     anterior = ahora;
+    const t0 = performance.now();
+    let pasos = 0;
     while (acumulado >= DT) {
       juego.paso(DT);
       acumulado -= DT;
+      pasos++;
     }
+    const t1 = performance.now();
     // En segundo plano, unos milisegundos: lo que pedirá el próximo arrastre.
     juego.calentar();
+    const t2 = performance.now();
     if (claveTerreno.alturas !== juego.alturas || claveTerreno.umbral !== juego.umbralRoca) {
       terreno = crearTerreno(juego.alturas, juego.umbralRoca);
       claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
     }
     dibujar(ctx, juego, camara, terreno, ancho, alto);
+    // Medias móviles para el panel de ajustes (cuestan nada).
+    const intervalo = ahora - ultimoFotograma;
+    ultimoFotograma = ahora;
+    if (intervalo > 0 && intervalo < 1000) juego.rendimiento.fps += (1000 / intervalo - juego.rendimiento.fps) * 0.05;
+    juego.rendimiento.ms += (performance.now() - t0 - juego.rendimiento.ms) * 0.05;
+    if (import.meta.env.DEV) {
+      rendimiento.simulacion.push(t1 - t0);
+      rendimiento.calentar.push(t2 - t1);
+      rendimiento.dibujo.push(performance.now() - t2);
+      rendimiento.pasos.push(pasos);
+      // Solo los últimos minutos: no crecer sin límite en una sesión larga.
+      if (rendimiento.pasos.length > 7200) for (const v of Object.values(rendimiento)) v.splice(0, 3600);
+    }
     requestAnimationFrame(fotograma);
   }
   requestAnimationFrame(fotograma);

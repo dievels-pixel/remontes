@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-15 (v45: las bajadas que no divierten pagan la mitad, a prueba). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-15 (v46: etapa 5, rendimiento con 300-370 esquiadores). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -351,6 +351,12 @@ Actualizado el 2026-11-15 (v45: las bajadas que no divierten pagan la mitad, a p
   - factor 0,5: 14:07 / 13:55 / 9:33; divierten el 55 %; cobrado 3754 (−25 %), gastado casi igual (se recorta sobre todo el sobrante);
   - factor 0: 11:09 / 12:00 / 8:37; cobrado 1374 (−72 %): con uno o dos remontes al principio casi todo se repite y no entra dinero.
   El jugador automático no sabe buscar variedad (el estilo `variado` no sube el porcentaje que divierte), así que el incentivo solo se puede valorar jugando. En v45 el usuario eligió 0,5, a prueba («más adelante vemos si lo dejamos»), con «Con diversión: N %» en pantalla (`Simulacion.fraccionConDiversion`, bajadas del último minuto).
+- **Etapa 5, rendimiento (v46):** medido con `node scripts/medirRendimiento.cjs [frenado de CPU] [llegadas/min]` (con `npx vite` en marcha): «Gran dominio», 5 remontes, 17 pistas y 300-370 esquiadores, en un Pixel 7 emulado con la CPU frenada ×4. Simulación (~0,1 ms por paso) y dibujo (~5 ms) iban sobrados; el problema era el calentamiento de cachés: tareas de hasta 625 ms con la CPU frenada (164 ms sin frenar), es decir, tirones de medio segundo tras cada obra. Arreglado sin cambiar ningún resultado:
+  - índice espacial de tramos (`IndiceTramos` en `src/core/confluencia.ts`, rejilla de 100 m) para los cruces y acercamientos de `primerEncuentro`, `pistasCruzadas` y `demasiadoCerca`, que comparaban todo con todo; se reutiliza mientras los trazados sean los mismos (prueba de equivalencia en `test/indiceTramos.test.ts`);
+  - la bisección de la sinuosidad (`pistaConSinuosidad`) solo mide longitudes con los términos precalculados y construye la curva una vez (idéntica bit a bit: comprobado en 2000 casos al azar contra la versión anterior);
+  - `llegadaConBajada` y `alcanzablePorPista` tienen versión por pasos (`pasosLlegadaConBajada`, `pasosPuedeArrancar`): el calentamiento se detiene entre candidato y candidato; el arrastre las ejecuta enteras, con el mismo resultado y la misma caché.
+  Resultado: calentamiento completo de 2,1 s a 0,4 s de cálculo; peor pausa de 164 a 8 ms sin frenar y de 625 a 33 ms frenada ×4; arrastre sin calentar, pistas desde la cima de 370 ms (v35) a 114 ms. En el entorno emulado los fotogramas/s (7-8 frenado, 30-36 sin frenar) los limita pintar el lienzo sin GPU, no el juego (20 ms por fotograma frenado); en un móvil real hay que mirarlo: el panel `?ajustes` muestra ahora fotogramas/s y milisegundos de juego por fotograma (`Juego.rendimiento`, medias móviles que pone `main.ts`). En desarrollo, `window.rendimiento` guarda los tiempos de cada fotograma.
+  Pendiente de la etapa 5: la prueba de legibilidad de puntos y pistas (3 o 4 combinaciones de contorno y suavidad con 200 puntos).
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
@@ -365,7 +371,7 @@ Pasos, cada uno jugable antes del siguiente:
 6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo (el nivel nuevo se aplica 15 s después). Hecho (v38); edificios quitados en v39.
 7. Etapa 6 (economía y derrota): hecha en v40 y v41, adelantada a la 5 a petición del usuario.
 8. Pendiente de la calibración (v42): comprobar jugando si el dinero de final de partida se gasta; si no, otro sumidero (por ejemplo, mantenimiento creciente con la afluencia) o afluencia más lenta. Afinar el jugador automático para que abra más rojas y negras.
-9. Etapa 5: prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas. Siguiente, junto con la calibración del balance (afluencia, medidor, precios y tarifas) jugando o con la simulación.
+9. Etapa 5: rendimiento hecho (v46); falta la prueba de legibilidad. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas. Siguiente, junto con la calibración del balance (afluencia, medidor, precios y tarifas) jugando o con la simulación.
 
 ### Pendiente que contradice la especificación
 

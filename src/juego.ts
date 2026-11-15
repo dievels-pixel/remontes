@@ -112,6 +112,12 @@ export class Juego {
    * tocar una pista abierta muestra su color, sinuosidad y pendiente.
    */
   modoAjustes = false;
+  /**
+   * Medias móviles del bucle (las pone main.ts): fotogramas por segundo y
+   * milisegundos de juego por fotograma (simulación, calentamiento y dibujo).
+   * Para el panel de ajustes.
+   */
+  rendimiento = { fps: 0, ms: 0 };
   infoPista: { pista: number; punto: Punto } | null = null;
 
   constructor(readonly mapa: Mapa) {
@@ -358,7 +364,7 @@ export class Juego {
 
   /** Punto de la última obra: el calentamiento empieza por lo más cercano a él. */
   private ultimaObra: number | null = null;
-  private calentamiento: { version: number; tareas: TareaCalentamiento[]; siguiente: number } | null = null;
+  private calentamiento: { version: number; tareas: TareaCalentamiento[]; siguiente: number; enCurso: Generator<void, boolean> | null } | null = null;
 
   /** ¿Ha terminado el calentamiento para la versión actual de la red? */
   get calentado(): boolean {
@@ -380,13 +386,19 @@ export class Juego {
     const inicio = performance.now();
     if (this.calentamiento?.version !== this.red.version) {
       const obra = this.ultimaObra !== null && this.red.nodos[this.ultimaObra] ? this.red.nodo(this.ultimaObra) : this.plaza;
-      this.calentamiento = { version: this.red.version, tareas: tareasCalentamiento(this.red, obra, CONFIG.calentamiento.destinosPorOrigen), siguiente: 0 };
+      this.calentamiento = { version: this.red.version, tareas: tareasCalentamiento(this.red, obra, CONFIG.calentamiento.destinosPorOrigen), siguiente: 0, enCurso: null };
     }
     const c = this.calentamiento;
-    while (c.siguiente < c.tareas.length && performance.now() - inicio < ms) {
+    // Las tareas de bajada y de arranque prueban muchos candidatos: van por
+    // pasos (un candidato cada vez) para no bloquear un fotograma entero.
+    while ((c.enCurso || c.siguiente < c.tareas.length) && performance.now() - inicio < ms) {
+      if (c.enCurso) {
+        if (c.enCurso.next().done) c.enCurso = null;
+        continue;
+      }
       const t = c.tareas[c.siguiente++];
-      if (t.tipo === 'bajada') this.red.llegadaConBajada(t.nodo);
-      else if (t.tipo === 'arranque') this.red.puedeArrancar(t.nodo);
+      if (t.tipo === 'bajada') c.enCurso = this.red.pasosLlegadaConBajada(t.nodo);
+      else if (t.tipo === 'arranque') c.enCurso = this.red.pasosPuedeArrancar(t.nodo);
       else this.evaluarPista(t.desde, t.hasta);
     }
   }

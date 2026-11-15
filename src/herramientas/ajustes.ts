@@ -288,6 +288,7 @@ export function montarPanelAjustes(juego: Juego, alCambiarAltura: (px: number) =
     desglose.textContent =
       `Abierta ${Math.floor(s.tiempoAbierta / 60)}:${String(Math.floor(s.tiempoAbierta % 60)).padStart(2, '0')}, ` +
       `${coma(s.llegadasPorMinuto, 0)} llegadas/min (${llegan}). ` +
+      `${coma(juego.rendimiento.fps, 0)} fotogramas/s, ${coma(juego.rendimiento.ms, 1)} ms de juego por fotograma, ${s.poblacion} esquiadores. ` +
       `Medidor ${coma(s.medidorQuejas, 1)} de ${parametros.medidor?.capacidad ?? "–"}. Quejas: ${s.enfadados} (aburrimiento ${s.quejas.aburrimiento}, cola ${s.quejas.cola}, sin pistas de su nivel ${s.quejas.sinPistas}). ` +
       `Cansados: ${s.cansados}. Contento medio (de ${parametros.contentoInicial}): ${medio}.`;
   };

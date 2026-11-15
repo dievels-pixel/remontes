@@ -64,6 +64,116 @@ export function puntoMasCercano(l: Polilinea, p: Punto): { d: number; s: number 
   return mejor;
 }
 
+/**
+ * Índice espacial de los tramos de varias polilíneas: una rejilla en la que
+ * cada tramo se apunta en las casillas que toca su caja. Sirve para comparar
+ * un tramo o un punto solo con los tramos cercanos en vez de con todos (antes
+ * se comparaba todo con todo y era lo que más tardaba al evaluar una pista).
+ * Los candidatos salen en el mismo orden que el recorrido completo (polilínea
+ * k y tramo j crecientes), así que los resultados, desempates incluidos, son
+ * los mismos.
+ */
+export class IndiceTramos {
+  /** Índice global del primer tramo de cada polilínea (el tramo j es el que acaba en el punto j). */
+  private readonly inicio: number[] = [];
+  private readonly k: number[] = [];
+  private readonly j: number[] = [];
+  private readonly celdas = new Map<number, number[]>();
+  private readonly marca: Int32Array;
+  private consulta = 0;
+
+  constructor(
+    readonly lineas: readonly Polilinea[],
+    private readonly celda = 100,
+  ) {
+    let g = 0;
+    lineas.forEach((l, k) => {
+      this.inicio.push(g);
+      for (let j = 1; j < l.puntos.length; j++, g++) {
+        this.k.push(k);
+        this.j.push(j);
+        const a = l.puntos[j - 1];
+        const b = l.puntos[j];
+        this.recorrer(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y), (c) => {
+          let lista = this.celdas.get(c);
+          if (!lista) this.celdas.set(c, (lista = []));
+          lista.push(g);
+        });
+      }
+    });
+    this.marca = new Int32Array(g);
+  }
+
+  private recorrer(x0: number, y0: number, x1: number, y1: number, f: (c: number) => void): void {
+    const c = this.celda;
+    const i0 = Math.floor(x0 / c), i1 = Math.floor(x1 / c), j0 = Math.floor(y0 / c), j1 = Math.floor(y1 / c);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) f((i + 10000) * 20000 + (j + 10000));
+  }
+
+  /**
+   * Tramos cuya caja comparte casilla con el rectángulo dado, ordenados por
+   * polilínea y tramo: { k, j } (el tramo j va del punto j-1 al j).
+   */
+  candidatos(x0: number, y0: number, x1: number, y1: number): { k: number; j: number }[] {
+    const id = ++this.consulta;
+    const gs: number[] = [];
+    this.recorrer(x0, y0, x1, y1, (c) => {
+      const lista = this.celdas.get(c);
+      if (!lista) return;
+      for (const g of lista) {
+        if (this.marca[g] === id) continue;
+        this.marca[g] = id;
+        gs.push(g);
+      }
+    });
+    gs.sort((a, b) => a - b);
+    return gs.map((g) => ({ k: this.k[g], j: this.j[g] }));
+  }
+
+  /**
+   * Punto más cercano a p de la polilínea k entre los candidatos dados (los de
+   * esa polilínea, en orden): igual que puntoMasCercano si el más cercano está
+   * dentro del rectángulo consultado; si no hay candidatos, d = Infinity.
+   */
+  static masCercano(l: Polilinea, js: readonly number[], p: Punto): { d: number; s: number } {
+    let mejor = { d: Infinity, s: 0 };
+    for (const j of js) {
+      const a = l.puntos[j - 1];
+      const b = l.puntos[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 > 0 ? Math.min(Math.max(((p.x - a.x) * dx + (p.y - a.y) * dy) / l2, 0), 1) : 0;
+      const d = Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
+      if (d < mejor.d) mejor = { d, s: l.acumulada[j - 1] + t * (l.acumulada[j] - l.acumulada[j - 1]) };
+    }
+    return mejor;
+  }
+}
+
+/**
+ * Índice de los trazados de estas pistas: se reutiliza el último mientras sean
+ * exactamente los mismos objetos (casi siempre, todas las pistas de la red),
+ * porque se consulta varias veces por cada pista que se evalúa.
+ */
+let ultimoIndice: IndiceTramos | null = null;
+function indiceDe(existentes: readonly { trazado: Polilinea }[]): IndiceTramos {
+  const u = ultimoIndice;
+  if (u && u.lineas.length === existentes.length && existentes.every((e, k) => e.trazado === u.lineas[k])) return u;
+  return (ultimoIndice = new IndiceTramos(existentes.map((e) => e.trazado)));
+}
+
+/** Agrupa candidatos { k, j } (ya ordenados) por polilínea: k → tramos j. */
+function porLinea(cands: { k: number; j: number }[]): Map<number, number[]> {
+  const m = new Map<number, number[]>();
+  for (const { k, j } of cands) {
+    let js = m.get(k);
+    if (!js) m.set(k, (js = []));
+    js.push(j);
+  }
+  return m;
+}
+
 /** Caja que envuelve la polilínea, ampliada un margen. */
 function caja(l: Polilinea, m: number) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -89,13 +199,21 @@ export function primerEncuentro(
 ): { s: number; pista: PistaExistente; sPista: number } | null {
   const pp = propio.puntos;
   const cajas = existentes.map((e) => caja(e.trazado, distanciaMinima));
+  const indice = indiceDe(existentes);
   for (let i = 1; i < pp.length; i++) {
     if (propio.acumulada[i] < margenInicio) continue;
     let mejor: { s: number; pista: PistaExistente; sPista: number } | null = null;
-    existentes.forEach((e, k) => {
-      const ep = e.trazado.puntos;
-      for (let j = 1; j < ep.length; j++) {
-        const c = corte(pp[i - 1], pp[i], ep[j - 1], ep[j]);
+    // Solo los tramos cerca de este (la caja del tramo, ampliada la distancia
+    // mínima, cubre los cortes y el acercamiento del punto i).
+    const a = pp[i - 1];
+    const b = pp[i];
+    const m = distanciaMinima;
+    const cerca = porLinea(indice.candidatos(Math.min(a.x, b.x) - m, Math.min(a.y, b.y) - m, Math.max(a.x, b.x) + m, Math.max(a.y, b.y) + m));
+    for (const [k, js] of cerca) {
+      const e = existentes[k];
+      for (const j of js) {
+        const ep = e.trazado.puntos;
+        const c = corte(a, b, ep[j - 1], ep[j]);
         if (!c) continue;
         const s = propio.acumulada[i - 1] + c.t * (propio.acumulada[i] - propio.acumulada[i - 1]);
         if (s < margenInicio) continue;
@@ -104,11 +222,11 @@ export function primerEncuentro(
       }
       // Acercamiento: el punto i a menos de la distancia mínima.
       const cj = cajas[k];
-      if (distanciaMinima > 0 && pp[i].x >= cj.x0 && pp[i].x <= cj.x1 && pp[i].y >= cj.y0 && pp[i].y <= cj.y1) {
-        const m = puntoMasCercano(e.trazado, pp[i]);
-        if (m.d < distanciaMinima && (!mejor || propio.acumulada[i] < mejor.s)) mejor = { s: propio.acumulada[i], pista: e, sPista: m.s };
+      if (distanciaMinima > 0 && b.x >= cj.x0 && b.x <= cj.x1 && b.y >= cj.y0 && b.y <= cj.y1) {
+        const mc = IndiceTramos.masCercano(e.trazado, js, b);
+        if (mc.d < distanciaMinima && (!mejor || propio.acumulada[i] < mejor.s)) mejor = { s: propio.acumulada[i], pista: e, sPista: mc.s };
       }
-    });
+    }
     if (mejor) return mejor;
   }
   return null;
@@ -208,25 +326,23 @@ export function pistasCruzadas(
     s < margen ||
     s > L - margen ||
     (conf.compartido !== null && s > conf.compartido.inicio - 3 * radioAcuerdo && s < conf.compartido.fin + 2 * radioAcuerdo);
-  let n = 0;
-  for (const e of existentes) {
-    const et = e.trazado;
-    const visible = (s: number) => !e.compartido || s < e.compartido.inicio || s > e.compartido.fin;
-    let cruza = false;
-    for (let i = 1; i < t.puntos.length && !cruza; i++) {
-      const sMedio = (t.acumulada[i - 1] + t.acumulada[i]) / 2;
-      if (excluido(sMedio)) continue;
-      for (let j = 1; j < et.puntos.length; j++) {
-        if (!visible((et.acumulada[j - 1] + et.acumulada[j]) / 2)) continue;
-        if (corte(t.puntos[i - 1], t.puntos[i], et.puntos[j - 1], et.puntos[j])) {
-          cruza = true;
-          break;
-        }
-      }
+  // Con el índice: para cada tramo propio, solo los tramos existentes cerca.
+  const indice = indiceDe(existentes);
+  const cruzadas = new Set<number>();
+  for (let i = 1; i < t.puntos.length; i++) {
+    const sMedio = (t.acumulada[i - 1] + t.acumulada[i]) / 2;
+    if (excluido(sMedio)) continue;
+    const a = t.puntos[i - 1];
+    const b = t.puntos[i];
+    for (const { k, j } of indice.candidatos(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y))) {
+      if (cruzadas.has(k)) continue;
+      const e = existentes[k];
+      const et = e.trazado;
+      const visible = !e.compartido || (et.acumulada[j - 1] + et.acumulada[j]) / 2 < e.compartido.inicio || (et.acumulada[j - 1] + et.acumulada[j]) / 2 > e.compartido.fin;
+      if (visible && corte(a, b, et.puntos[j - 1], et.puntos[j])) cruzadas.add(k);
     }
-    if (cruza) n++;
   }
-  return n;
+  return cruzadas.size;
 }
 
 /**
@@ -248,12 +364,15 @@ export function demasiadoCerca(
     s < margen ||
     s > L - margen ||
     (conf.compartido !== null && s > conf.compartido.inicio - 3 * radioAcuerdo && s < conf.compartido.fin + 2 * radioAcuerdo);
-  for (const e of existentes) {
-    const cj = caja(e.trazado, distancia);
-    for (let i = 0; i < t.puntos.length; i++) {
-      const q = t.puntos[i];
-      if (excluido(t.acumulada[i]) || q.x < cj.x0 || q.x > cj.x1 || q.y < cj.y0 || q.y > cj.y1) continue;
-      const m = puntoMasCercano(e.trazado, q);
+  // Con el índice: para cada punto, solo los tramos a menos de `distancia`
+  // (si el más cercano de una pista está más lejos, no cuenta de todos modos).
+  const indice = indiceDe(existentes);
+  for (let i = 0; i < t.puntos.length; i++) {
+    const q = t.puntos[i];
+    if (excluido(t.acumulada[i])) continue;
+    for (const [k, js] of porLinea(indice.candidatos(q.x - distancia, q.y - distancia, q.x + distancia, q.y + distancia))) {
+      const e = existentes[k];
+      const m = IndiceTramos.masCercano(e.trazado, js, q);
       const visible = !e.compartido || m.s < e.compartido.inicio || m.s > e.compartido.fin;
       if (visible && m.d < distancia) return true;
     }
