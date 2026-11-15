@@ -152,6 +152,10 @@ export class Simulacion {
    * simulación).
    */
   monedas = 0;
+  /** Bajadas que han divertido y que no (repetidas, forzadas o aburridas). */
+  readonly bajadasPorDiversion = [0, 0];
+  /** Todo lo cobrado por bajadas desde el principio. */
+  ingresosTotales = 0;
   /** Cobros del último minuto (instante, cantidad), para los ingresos por minuto. */
   private cobros: { t: number; c: number }[] = [];
   /** Medidor de quejas (en quejas): sube 1 por enfadado y se vacía despacio. */
@@ -635,8 +639,12 @@ export class Simulacion {
           // Cobra la bajada (aunque después se vaya enfadado: la ha hecho).
           const perfil = this.perfiles.get(e.id);
           if (this.p.pago && perfil) {
-            const c = pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago);
+            // Divierte si es nueva para él, no forzada y no le aburre.
+            const divierte = !perfil.recientes.includes(pista.id) && !this.red.forzada(pista) && perfil.nivel - this.red.dificultad(pista) < 2;
+            this.bajadasPorDiversion[divierte ? 0 : 1]++;
+            const c = pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago) * (divierte ? 1 : (this.p.pago.factorSinDiversion ?? 1));
             this.monedas += c;
+            this.ingresosTotales += c;
             this.cobros.push({ t: this.tiempo, c });
           }
           if (!this.contentar(e.id, pista)) this.irseEnfadado(e.id, pista.hasta, 'aburrimiento');

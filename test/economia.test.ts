@@ -103,6 +103,28 @@ describe('Simulación con economía', () => {
     expect(llena.ingresosPorMinuto).toBeCloseTo(llena.monedas - antes, 0);
   });
 
+  it('una bajada que no divierte (repetida) paga solo la fracción indicada', () => {
+    const red = estacion();
+    const pago = { ...PAGO, factorSinDiversion: 0.5 };
+    const sim = new Simulacion(red, { ...P, llegadasPorMinuto: 0, pago }, { x: 150, y: 3100 }, crearAzar(4));
+    // Un solo esquiador, a mano, que repite la única pista.
+    sim.perfiles.set(1, { nivel: 3, contento: 1000, cansadoEn: 1e9, recientes: [], variedades: 0 });
+    const tarifa = PAGO.tarifas[nivelDe(red.pistas[0].color)];
+    const bajar = () => {
+      sim.esquiadores.set(1, { id: 1, estado: 'pista', pista: 0, recorrido: 1e9 });
+      const antes = sim.monedas;
+      sim.paso(DT);
+      return sim.monedas - antes;
+    };
+    const dif = 3 - red.dificultad(red.pistas[0]);
+    // La primera es nueva: divierte salvo que le aburra (dos niveles o más por debajo).
+    expect(bajar()).toBeCloseTo(dif >= 2 ? tarifa * 0.5 : tarifa);
+    // La segunda, repetida: la mitad (con el multiplicador que lleve).
+    const v = sim.perfiles.get(1)!.variedades;
+    expect(bajar()).toBeCloseTo(tarifa * (1 + PAGO.multiplicadorVariedad * v) * 0.5);
+    expect(sim.bajadasPorDiversion[1]).toBeGreaterThanOrEqual(1);
+  });
+
   it('una telesilla sube el doble de gente que un telesquí; una telecabina, el cuádruple', () => {
     const subidos = (tipo: number) => {
       const red = estacion();

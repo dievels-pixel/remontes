@@ -148,7 +148,7 @@ export class Juego {
       capacidadBolita: remonte.capacidad,
       capacidadPorTipo: [...remonte.capacidadPorTipo],
       factorVelocidadPorTipo: [...remonte.factorVelocidadPorTipo],
-      pago: { tarifas: [...CONFIG.economia.tarifas], multiplicadorVariedad: CONFIG.economia.multiplicadorVariedad },
+      pago: { tarifas: [...CONFIG.economia.tarifas], multiplicadorVariedad: CONFIG.economia.multiplicadorVariedad, factorSinDiversion: CONFIG.economia.factorSinDiversion },
       mantenimiento: { porMetroYMinuto: CONFIG.economia.mantenimiento.porMetroYMinuto, factorPorTipo: [...CONFIG.economia.mantenimiento.factorPorTipo] },
       ...CONFIG.esquiador,
       // Con la curva de afluencia, estos dos no se usan (la curva manda).

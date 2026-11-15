@@ -17,6 +17,11 @@ export interface ParametrosPago {
   tarifas: readonly number[];
   /** Lo que sube el pago por cada bajada con variedad que lleva el esquiador. */
   multiplicadorVariedad: number;
+  /**
+   * Fracción que paga una bajada que no divierte (repetida, forzada o que le
+   * aburre): 1 paga igual, 0 no paga. Sin él, 1.
+   */
+  factorSinDiversion?: number;
 }
 
 export interface ParametrosMantenimiento {

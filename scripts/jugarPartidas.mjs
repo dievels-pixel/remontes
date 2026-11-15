@@ -143,7 +143,13 @@ function jugar(estilo, semilla) {
 
   function decidir() {
     // Cada medio minuto, una pista más si hay dónde (no cuesta dinero).
-    if (Math.round(sim.tiempo) % 30 === 0) abrirMas();
+    // El estilo «variado» abre una cada 10 s y dos a la vez: más variedad.
+    if (estilo === 'variado') {
+      if (Math.round(sim.tiempo) % 10 === 0) {
+        abrirMas();
+        abrirMas();
+      }
+    } else if (Math.round(sim.tiempo) % 30 === 0) abrirMas();
     if (estilo !== 'soloAmplia') {
       const conCola = red.remontes
         .map((r) => ({ r, cola: sim.colas[r.id]?.length ?? 0 }))
@@ -189,10 +195,11 @@ function jugar(estilo, semilla) {
       );
     }
   }
-  return { filas, monedasEn, tiempo: sim.tiempoAbierta, terminada: sim.terminada, mejoras, gastado, satisfechos: sim.cansados, enfadados: sim.enfadados };
+  const [si, no] = sim.bajadasPorDiversion;
+  return { filas, monedasEn, divierten: si / Math.max(1, si + no), ingresosTotales: sim.ingresosTotales, tiempo: sim.tiempoAbierta, terminada: sim.terminada, mejoras, gastado, satisfechos: sim.cansados, enfadados: sim.enfadados };
 }
 
-const estilos = estiloPedido === 'todos' ? ['equilibrado', 'mejoraTodo', 'soloAmplia'] : [estiloPedido];
+const estilos = estiloPedido === 'todos' ? ['equilibrado', 'mejoraTodo', 'soloAmplia'] : estiloPedido.split(',');
 const reloj = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 for (const estilo of estilos) {
   const t0 = performance.now();
@@ -203,7 +210,7 @@ for (const estilo of estilos) {
   for (const r of partidas) {
     console.log(
       `${r.terminada ? 'Derrota' : 'Sigue'} a los ${reloj(r.tiempo)}. Satisfechos ${r.satisfechos}, enfadados ${r.enfadados}, mejoras ${r.mejoras}, gastado ${Math.round(r.gastado)}, ` +
-        `monedas a los 6/10/14 min: ${r.monedasEn.join('/')}.`,
+        `monedas a los 6/10/14 min: ${r.monedasEn.join('/')}, divierten ${Math.round(r.divierten * 100)} %, cobrado ${Math.round(r.ingresosTotales)}.`,
     );
   }
   const tiempos = partidas.map((r) => r.tiempo).sort((a, b) => a - b);

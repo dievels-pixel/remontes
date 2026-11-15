@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-15 (v43: telesillas como cápsula atravesada al cable). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-15 (v44: prueba de cobrar menos las bajadas que no divierten; sin cambio de reglas). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -346,6 +346,11 @@ Actualizado el 2026-11-15 (v43: telesillas como cápsula atravesada al cable). L
   - 0,12, 300, 0,05, 0,01: 12:16 / 7:00 / 7:00;
   - elegida, 0,1, 300, 0,1, 0,006: 14:04 / 14:59 / 10:41, dinero justo hasta el minuto 10-12.
   Limitaciones del jugador automático: hacia el minuto 6-10 deja de encontrar dónde ampliar y el dinero se acumula; pierde sobre todo por aburrimiento de rojos y negros (abre pocas rojas y negras) y por colas.
+- **Prueba: cobrar menos las bajadas que no divierten (v44, sin decidir).** Parámetro `CONFIG.economia.factorSinDiversion` (fracción que paga una bajada repetida, forzada o que aburre; queda en 1, como antes) y recuento `Simulacion.bajadasPorDiversion` e `ingresosTotales`. Estilo `variado` en `npm run jugar` (abre más pistas). Resultados (7 partidas, mediana; equilibrado / variado / solo amplía; cobrado total del equilibrado):
+  - factor 1: 14:04 / 14:01 / 10:41; divierten el 71 % de las bajadas; cobrado 4971;
+  - factor 0,5: 14:07 / 13:55 / 9:33; divierten el 55 %; cobrado 3754 (−25 %), gastado casi igual (se recorta sobre todo el sobrante);
+  - factor 0: 11:09 / 12:00 / 8:37; cobrado 1374 (−72 %): con uno o dos remontes al principio casi todo se repite y no entra dinero.
+  El jugador automático no sabe buscar variedad (el estilo `variado` no sube el porcentaje que divierte), así que el incentivo solo se puede valorar jugando. Pendiente de que el usuario elija el valor.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
