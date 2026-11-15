@@ -13,7 +13,8 @@
     "mapa:dos-valles": "node scripts/generarMapaDosValles.ts",
     "mapa:gran-dominio": "node scripts/generarMapaGranDominio.ts",
     "medir:arrastre": "node scripts/medirArrastre.mjs",
-    "medir:eleccion": "node scripts/medirEleccion.mjs"
+    "medir:eleccion": "node scripts/medirEleccion.mjs",
+    "jugar": "node scripts/jugarPartidas.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

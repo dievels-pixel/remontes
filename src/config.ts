@@ -41,13 +41,25 @@ export const CONFIG = {
   // metro × factor del tipo; mejorar paga la diferencia y deshacer devuelve lo
   // pagado. Cada bajada paga la tarifa del color de la pista × (1 +
   // multiplicadorVariedad × bajadas con variedad que lleva el esquiador).
-  // Factores y tarifas, de la especificación; PROVISIONAL todo.
+  // Calibrado en v42 con partidas automáticas (npm run jugar): con estos
+  // valores el dinero va justo los primeros 10-12 minutos y un jugador que
+  // mejora donde hay cola aguanta unos 14 min (mediana de 7), uno que nunca
+  // mejora, unos 11. PROVISIONAL: por ajustar jugando.
   economia: {
-    monedasIniciales: 100,
-    precioPorMetro: 0.04, // un telesquí de 1500 m cuesta 60
+    monedasIniciales: 300,
+    precioPorMetro: 0.1, // un telesquí de 1500 m cuesta 150
     factorPrecioPorTipo: [1, 2.5, 5],
-    tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra
-    multiplicadorVariedad: 0.2,
+    tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra (especificación)
+    multiplicadorVariedad: 0.1, // la especificación decía 0,2: inflaba los ingresos
+    // Mantenimiento de cada remonte, por minuto: longitud × porMetroYMinuto ×
+    // factor del tipo. Se paga se use o no; las monedas no bajan de 0. Crece
+    // más que la capacidad (1, 2, 4 personas frente a 1, 4, 10 de coste), así
+    // que mejorar un remonte sin cola pierde dinero: un telesquí de 1200 m
+    // cuesta 7/min; como telecabina, 72/min.
+    mantenimiento: {
+      porMetroYMinuto: 0.006,
+      factorPorTipo: [1, 4, 10],
+    },
   },
 
   // Estaciones: cada emplazamiento se desdobla en estaciones pegadas, una por

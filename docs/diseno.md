@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-15 (v41: economía, mejora de remontes, tiempo más rápido y forzadas sin marca). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-15 (v42: mantenimiento y calibración de la economía con partidas automáticas). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 
@@ -339,6 +339,13 @@ Actualizado el 2026-11-15 (v41: economía, mejora de remontes, tiempo más rápi
 - **Cambios pedidos tras la v38 (v39):** fuera los edificios (código y huecos borrados; queda el retraso de 15 s de cada escalón). Carretera desde el sureste serpenteando (`trazarCarretera(plaza, ancho, alto)`). Al final de la carretera, cada esquiador elige un remonte de la plaza con el peso de la elección de ruta (`Simulacion.llegarAPlaza`, `remontesDePlazaPara`, `pesoRemonte`) y va directo a su cola (`remonte` en el estado `andando`; si al llegar ya no sirve, decide en la base). Contadores por color en dos filas (presentes; barra de contento medio y enfadados del nivel, `contentoMedioPorNivel` y `quejasPorNivel`) y, arriba, «Llegados: N (x/min)» (`Simulacion.llegados`). Reserva inferior de la cámara de 88 a 106 px.
 - **Contento y fin de partida (v40):** el anillo lleno resta 1 punto a toda la cola y vuelve a 0 (`Simulacion.llenarAnillos`); una pista forzada (`Red.forzada`, el borde rojo del selector) cuenta como repetida al recuperar contento (`contentar`) y al elegir (`decidir` y `Red.mejorGustoDesde` con `factorForzada`); medidor de quejas (`ParametrosSimulacion.medidor`, `medidorQuejas`, `fraccionQuejas`, `terminada`; sin medidor no se pierde, para las pruebas) y enfadados por punto (`enfadosPorNodo`, `cuelloDeBotella`). Dibujo: barra de quejas bajo el texto de arriba, tinte de la plaza por encima del aviso, rayado blanco en las forzadas (quitado en v41), parpadeo blanco de los que están a un punto de irse (`aPuntoDeIrsePorNivel` en los contadores) y panel final con «Nueva partida» (recarga la página). En `?ajustes`, capacidad y vaciado del medidor. Pruebas en `test/contento.test.ts` y `test/niveles.test.ts`. Adelanta de la etapa 6 el medidor y la derrota; la economía sigue pendiente.
 - **Economía y mejora de remontes (v41, etapa 6):** precios y pago en `src/core/economia.ts`; `Remonte.tipo` (0 telesquí, 1 telesilla, 2 telecabina) y `Red.mejorarRemonte` (no cambia la versión de la red); en la simulación, capacidad y velocidad por tipo (`capacidadPorTipo`, `factorVelocidadPorTipo`, `velocidadDe`, `capacidadDe`), `monedas` y `Perfil.variedades` para el pago (`pago`; sin él no se cobra). En `Juego`: `precioRemonteEntre`, `precioArrastre`, cobro al soltar, devolución al deshacer, `pulsacionLarga` (sobre el cable; si el dedo había empezado un arrastre desde un punto sin moverse, vale si está más cerca del cable que del punto) y la pregunta `mejora` con `confirmarMejora` y `cancelarMejora`. Pulsación larga de 500 ms en `src/input/puntero.ts`. Bolitas con forma por tipo (`dibujarBolita`). Tiempo: `CONFIG.tiempo.escala` = 2 (el antiguo 2× es el nuevo 1×) y velocidades 1×, 2× y 0,5×. Pruebas en `test/economia.test.ts`.
+- **Mantenimiento y calibración (v42):** `mantenimientoRemonte` en `src/core/economia.ts`; la simulación lo cobra en cada paso (`ParametrosSimulacion.mantenimiento`, `mantenimientoPorMinuto`; las monedas no bajan de 0) y lleva los cobros del último minuto (`ingresosPorMinuto`). Arriba, tres renglones (monedas e ingresos, mantenimiento, llegados) y el medidor; reserva superior de 64 a 90 px. `npm run jugar -- [equilibrado|mejoraTodo|soloAmplia|todos] ['{json sobre CONFIG}'] [minutos] [partidas]` (`scripts/jugarPartidas.mjs`) juega partidas sin pantalla en «Gran dominio» con un jugador automático y da, por minuto, monedas, ingresos, mantenimiento, remontes por tipo, pistas por color, gente, cola máxima y quejas, y la mediana de supervivencia. Combinaciones probadas (5 a 7 partidas cada una; mediana del equilibrado / mejora todo / solo amplía):
+  - v41 sin mantenimiento: 14:43 / 12:29 / 11:17, con más de 10 000 monedas sin gastar a los 17 min;
+  - 0,08 por metro, 250 iniciales, multiplicador 0,1, mantenimiento 0,005 (1/4/10): 15:03 / 16:08 / –, el dinero se acumula;
+  - 0,1, 250, 0,1, 0,008: 12:52 / 6:40 / 6:40, quien no reacciona a la primera cola pierde en el minuto 6;
+  - 0,12, 300, 0,05, 0,01: 12:16 / 7:00 / 7:00;
+  - elegida, 0,1, 300, 0,1, 0,006: 14:04 / 14:59 / 10:41, dinero justo hasta el minuto 10-12.
+  Limitaciones del jugador automático: hacia el minuto 6-10 deja de encontrar dónde ampliar y el dinero se acumula; pierde sobre todo por aburrimiento de rojos y negros (abre pocas rojas y negras) y por colas.
 - **Herramienta temporal:** panel `?ajustes` (pistas, esquiadores y mapa de pruebas).
 
 ### Plan acordado (2026-11-12)
@@ -352,7 +359,8 @@ Pasos, cada uno jugable antes del siguiente:
 5. Etapa 3 rehecha según la especificación. Hecho (v29): aguante, contento de 3 puntos con la tabla, variedad, aforo de cola 6 con anillo de 20 s que expulsa al último, destello al irse enfadado, puntos siempre del color de su nivel, sin «No vienen» ni tope de población; contadores por nivel encima de los botones y «Cansados / Enfadados» arriba; en `?ajustes`, desglose de quejas por causa y contento medio por nivel. La penalización de «muy forzada» sigue aplazada con el paso 2.
 6. Etapa 4: carretera, curvas de afluencia y de mezcla solo en función del tiempo (el nivel nuevo se aplica 15 s después). Hecho (v38); edificios quitados en v39.
 7. Etapa 6 (economía y derrota): hecha en v40 y v41, adelantada a la 5 a petición del usuario.
-8. Etapa 5: prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas. Siguiente, junto con la calibración del balance (afluencia, medidor, precios y tarifas) jugando o con la simulación.
+8. Pendiente de la calibración (v42): comprobar jugando si el dinero de final de partida se gasta; si no, otro sumidero (por ejemplo, mantenimiento creciente con la afluencia) o afluencia más lenta. Afinar el jugador automático para que abra más rojas y negras.
+9. Etapa 5: prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas. Siguiente, junto con la calibración del balance (afluencia, medidor, precios y tarifas) jugando o con la simulación.
 
 ### Pendiente que contradice la especificación
 

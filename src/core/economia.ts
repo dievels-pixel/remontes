@@ -19,6 +19,22 @@ export interface ParametrosPago {
   multiplicadorVariedad: number;
 }
 
+export interface ParametrosMantenimiento {
+  /** Monedas por metro (en planta) y minuto de juego de un telesquí. */
+  porMetroYMinuto: number;
+  /** Factor de mantenimiento de cada tipo (telesquí, telesilla, telecabina). */
+  factorPorTipo: readonly number[];
+}
+
+/**
+ * Mantenimiento de un remonte (monedas por minuto de juego): se paga siempre,
+ * se use o no, y crece con el tipo más que la capacidad para que mejorar un
+ * remonte sin cola no compense.
+ */
+export function mantenimientoRemonte(longitud: number, tipo: number, p: ParametrosMantenimiento): number {
+  return longitud * p.porMetroYMinuto * p.factorPorTipo[tipo];
+}
+
 /** Precio de un remonte de esa longitud (m, en planta) y tipo: entero, redondeado hacia arriba. */
 export function precioRemonte(longitud: number, tipo: number, p: ParametrosPrecios): number {
   return Math.ceil(longitud * p.precioPorMetro * p.factorPrecioPorTipo[tipo]);

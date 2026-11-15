@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { nivelDe } from '../src/core/colores';
-import { pagoBajada, precioMejora, precioRemonte, TIPO_MAXIMO } from '../src/core/economia';
+import { mantenimientoRemonte, pagoBajada, precioMejora, precioRemonte, TIPO_MAXIMO } from '../src/core/economia';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
 import { Juego } from '../src/juego';
 import { abrir, conValoresClasicos, mapaInicial, redPequena } from './apoyo';
@@ -19,6 +19,12 @@ describe('Precios y pago', () => {
     expect(precioMejora(1500, 0, PRECIOS)).toBe(90);
     expect(precioMejora(1500, 1, PRECIOS)).toBe(150);
     expect(precioRemonte(1501, 0, PRECIOS)).toBe(61); // redondeo hacia arriba
+  });
+
+  it('mantenimiento por longitud y tipo: mejorar un remonte lo encarece más que su capacidad', () => {
+    const M = { porMetroYMinuto: 0.006, factorPorTipo: [1, 4, 10] };
+    expect(mantenimientoRemonte(1000, 0, M)).toBeCloseTo(6);
+    expect(mantenimientoRemonte(1000, 2, M)).toBeCloseTo(60);
   });
 
   it('pago por color de la pista con el multiplicador de variedad', () => {
@@ -74,6 +80,27 @@ describe('Simulación con economía', () => {
     }
     expect(sim.bajadasCompletadas).toBe(1);
     expect(sim.monedas - antes).toBe(PAGO.tarifas[nivelDe(red.pistas[0].color)]);
+  });
+
+  it('el mantenimiento se cobra siempre (también sin gente), sin bajar de 0; los ingresos se cuentan por minuto', () => {
+    const M = { porMetroYMinuto: 0.01, factorPorTipo: [1, 4, 10] };
+    const red = estacion();
+    const vacia = new Simulacion(red, { ...P, llegadasPorMinuto: 0, mantenimiento: M }, { x: 150, y: 3100 }, crearAzar(1));
+    vacia.monedas = 1000;
+    const porMinuto = mantenimientoRemonte(red.remontes[0].longitud, 0, M);
+    expect(vacia.mantenimientoPorMinuto).toBeCloseTo(porMinuto);
+    correr(vacia, 60);
+    expect(vacia.monedas).toBeCloseTo(1000 - porMinuto, 0);
+    vacia.monedas = 1;
+    correr(vacia, 60);
+    expect(vacia.monedas).toBe(0);
+    // Con gente: los ingresos del último minuto suman lo cobrado en él.
+    const llena = new Simulacion(estacion(), { ...P, llegadasPorMinuto: 60 }, { x: 150, y: 3100 }, crearAzar(3));
+    correr(llena, 90);
+    expect(llena.ingresosPorMinuto).toBeGreaterThan(0);
+    const antes = llena.monedas;
+    correr(llena, 60);
+    expect(llena.ingresosPorMinuto).toBeCloseTo(llena.monedas - antes, 0);
   });
 
   it('una telesilla sube el doble de gente que un telesquí; una telecabina, el cuádruple', () => {

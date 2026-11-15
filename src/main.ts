@@ -30,7 +30,7 @@ function iniciar(mapa: Mapa): void {
    * botones o la zona de gestos del navegador (costaba tocarlos). Con el panel
    * de ajustes abierto, la de arriba crece hasta el panel.
    */
-  const RESERVA_ARRIBA = 64; // dos líneas de texto de ayuda
+  const RESERVA_ARRIBA = 90; // tres líneas de texto (monedas, mantenimiento, llegados) y el medidor de quejas
   const RESERVA_ABAJO = 106; // botones de deshacer y velocidad, y encima los contadores por nivel (dos filas)
   const reserva = { arriba: RESERVA_ARRIBA, abajo: RESERVA_ABAJO };
 

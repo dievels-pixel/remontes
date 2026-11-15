@@ -633,7 +633,8 @@ function dibujarTextos(ctx: CanvasRenderingContext2D, juego: Juego, ancho: numbe
   ctx.textBaseline = 'top';
   let y = 12;
   for (const [i, t] of lineas.entries()) {
-    const partes = partirTexto(ctx, t, Math.min(ancho - 32, 520));
+    // Un salto de línea en el texto separa renglones; cada uno se parte si no cabe.
+    const partes = t.split('\n').flatMap((r) => partirTexto(ctx, r, Math.min(ancho - 32, 520)));
     for (const p of partes) {
       const w = ctx.measureText(p).width;
       ctx.fillStyle = 'rgba(241, 243, 244, 0.85)';

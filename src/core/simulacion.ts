@@ -8,7 +8,7 @@
 // Lógica pura: ni DOM ni canvas.
 import { mezclaEn, tasaEn, type ParametrosAfluencia } from './afluencia';
 import { nivelDe } from './colores';
-import { pagoBajada, type ParametrosPago } from './economia';
+import { mantenimientoRemonte, pagoBajada, type ParametrosMantenimiento, type ParametrosPago } from './economia';
 import type { Azar } from './azar';
 import { Polilinea } from './polilinea';
 import type { Hecho, Red, Remonte, Pista } from './red';
@@ -67,6 +67,8 @@ export interface ParametrosSimulacion {
   factorVelocidadPorTipo?: readonly number[];
   /** Pago por bajada; sin él no se cobra (pruebas). */
   pago?: ParametrosPago;
+  /** Mantenimiento de los remontes; sin él no se paga (pruebas). */
+  mantenimiento?: ParametrosMantenimiento;
 }
 
 /**
@@ -144,8 +146,14 @@ export class Simulacion {
   readonly quejasPorNivel = [0, 0, 0, 0];
   /** Esquiadores que han llegado por la carretera desde el principio. */
   llegados = 0;
-  /** Monedas: suben con cada bajada y se gastan en remontes (fuera de la simulación). */
+  /**
+   * Monedas: suben con cada bajada, bajan con el mantenimiento de los
+   * remontes (nunca por debajo de 0) y se gastan en remontes (fuera de la
+   * simulación).
+   */
   monedas = 0;
+  /** Cobros del último minuto (instante, cantidad), para los ingresos por minuto. */
+  private cobros: { t: number; c: number }[] = [];
   /** Medidor de quejas (en quejas): sube 1 por enfadado y se vacía despacio. */
   medidorQuejas = 0;
   /** Se ha llenado el medidor de quejas: la simulación ya no avanza. */
@@ -242,9 +250,27 @@ export class Simulacion {
     return mejor;
   }
 
+  /** Ingresos del último minuto de juego (monedas por minuto). */
+  get ingresosPorMinuto(): number {
+    let n = 0;
+    for (const c of this.cobros) n += c.c;
+    return n;
+  }
+
+  /** Mantenimiento de todos los remontes (monedas por minuto). */
+  get mantenimientoPorMinuto(): number {
+    const m = this.p.mantenimiento;
+    if (!m) return 0;
+    let n = 0;
+    for (const r of this.red.remontes) n += mantenimientoRemonte(r.longitud, r.tipo, m);
+    return n;
+  }
+
   paso(dt: number): void {
     if (this.terminada) return;
     this.tiempo += dt;
+    if (this.p.mantenimiento) this.monedas = Math.max(0, this.monedas - (this.mantenimientoPorMinuto * dt) / 60);
+    while (this.cobros.length > 0 && this.tiempo - this.cobros[0].t > 60) this.cobros.shift();
     if (this.p.medidor) this.medidorQuejas = Math.max(0, this.medidorQuejas - (dt * this.p.medidor.vaciadoPorMinuto) / 60);
     this.sincronizarRemontes();
     this.generarLlegadas(dt);
@@ -608,7 +634,11 @@ export class Simulacion {
           this.bajadasCompletadas++;
           // Cobra la bajada (aunque después se vaya enfadado: la ha hecho).
           const perfil = this.perfiles.get(e.id);
-          if (this.p.pago && perfil) this.monedas += pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago);
+          if (this.p.pago && perfil) {
+            const c = pagoBajada(nivelDe(pista.color), perfil.variedades, this.p.pago);
+            this.monedas += c;
+            this.cobros.push({ t: this.tiempo, c });
+          }
           if (!this.contentar(e.id, pista)) this.irseEnfadado(e.id, pista.hasta, 'aburrimiento');
           else this.decidir(e.id, pista.hasta);
         }

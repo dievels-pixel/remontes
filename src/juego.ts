@@ -149,6 +149,7 @@ export class Juego {
       capacidadPorTipo: [...remonte.capacidadPorTipo],
       factorVelocidadPorTipo: [...remonte.factorVelocidadPorTipo],
       pago: { tarifas: [...CONFIG.economia.tarifas], multiplicadorVariedad: CONFIG.economia.multiplicadorVariedad },
+      mantenimiento: { porMetroYMinuto: CONFIG.economia.mantenimiento.porMetroYMinuto, factorPorTipo: [...CONFIG.economia.mantenimiento.factorPorTipo] },
       ...CONFIG.esquiador,
       // Con la curva de afluencia, estos dos no se usan (la curva manda).
       llegadasPorMinuto: CONFIG.afluencia.tasaInicial,
@@ -613,6 +614,10 @@ export class Juego {
     const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
     if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
     const s = this.sim;
-    return `Monedas: ${Math.floor(s.monedas)} · Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`;
+    return (
+      `Monedas: ${Math.floor(s.monedas)} · Ingresos: +${Math.round(s.ingresosPorMinuto)}/min\n` +
+      `Mantenimiento: −${Math.round(s.mantenimientoPorMinuto)}/min\n` +
+      `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`
+    );
   }
 }
