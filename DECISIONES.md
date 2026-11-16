@@ -20,3 +20,13 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 11. **El atractivo de un remonte es la suma de lo que hay arriba**, no lo mejor, y las pistas nuevas para el esquiador pesan más. Es la forma más simple de que la gente se reparta sin reglas de reparto.
 12. **Afluencia con término cuadrático.** Subir solo la pendiente lineal acortaba también el principio.
 13. **`scripts/jugarPartidas.mjs` se sustituye** por `src/bots/` (con tipos y pruebas) y `npm run calibrar`.
+
+## Fase 2
+
+14. **Un día dura 240 s de juego** (2 minutos reales a 1×) y la puntuación son los días completos. Así una partida razonable son unos 9 días y los retos de «sobrevivir N días» tienen números manejables.
+15. **Los avisos cortos se quedan.** «Aprendizaje sin texto» se aplica a la enseñanza (no hay textos de ayuda ni ventanas de tutorial), pero cuando algo no se puede hacer sigue saliendo un aviso de una línea con el motivo: sin él, los fallos de trazado no se entienden.
+16. **Los cobros se agrupan.** Con cientos de bajadas por minuto, un «+N» por bajada taparía el mapa: las que llegan al mismo punto en medio segundo suman en un solo número.
+17. **En horizontal se empieza acercado al pie de pistas.** Los mapas son más altos que anchos; entero en una pantalla apaisada se ve muy pequeño. Se puede alejar con el pellizco.
+18. **La guía se guarda como hecha** al mejorar un remonte o a los diez minutos de juego, lo que ocurra antes.
+19. **Hasta la fase 4, «Menú» y «volver» empiezan otra partida** (aún no hay menú al que volver).
+20. **Rendimiento: 60 fps se comprobó como tiempo de cálculo por fotograma**, no como fotogramas reales: el entorno de pruebas pinta sin GPU. Con 330 a 370 esquiadores y la CPU frenada ×4, simulación más dibujo son unos 8 ms; el precálculo tras cada obra alarga algunos fotogramas durante unos segundos.

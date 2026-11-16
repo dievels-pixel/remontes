@@ -133,6 +133,22 @@ export interface Perfil {
   hechas?: Set<number>;
 }
 
+/**
+ * Lo que acaba de pasar en la simulación, para las animaciones y el sonido.
+ * Quien dibuja vacía la lista en cada fotograma; sin nadie que la vacíe
+ * (partidas sin pantalla) se recorta sola.
+ */
+export type EventoSim =
+  /** Una bajada cobrada al llegar a `nodo`. */
+  | { tipo: 'cobro'; nodo: number; cantidad: number }
+  /** Una bolita con gente llega a la estación de arriba. */
+  | { tipo: 'bolita'; remonte: number; pasajeros: number }
+  /** Se va satisfecho (cansado) o enfadado en `nodo` (-1: la plaza). */
+  | { tipo: 'cansado'; nodo: number; nivel: number }
+  | { tipo: 'enfadado'; nodo: number; nivel: number }
+  /** El anillo de la cola de un remonte se ha llenado. */
+  | { tipo: 'anillo'; remonte: number };
+
 /** Un esquiador que se acaba de ir enfadado, para el destello rojo. */
 export interface MarchaEnfadada {
   nodo: number;
@@ -168,6 +184,10 @@ export class Simulacion {
    * simulación).
    */
   monedas = 0;
+  /** Eventos recientes (ver EventoSim). */
+  readonly eventos: EventoSim[] = [];
+  /** Bajadas completadas por nivel del esquiador (verde, azul, roja, negra). */
+  readonly bajadasPorNivel = [0, 0, 0, 0];
   /** Bajadas que han divertido y que no (repetidas, forzadas o aburridas). */
   readonly bajadasPorDiversion = [0, 0];
   /** Todo lo cobrado por bajadas desde el principio. */
@@ -340,8 +360,16 @@ export class Simulacion {
     this.perfiles.delete(id);
   }
 
-  private irseCansado(id: number): void {
-    if (this.esquiadores.has(id)) this.cansados++;
+  private emitir(e: EventoSim): void {
+    this.eventos.push(e);
+    if (this.eventos.length > 400) this.eventos.splice(0, 200);
+  }
+
+  private irseCansado(id: number, nodo: number): void {
+    if (this.esquiadores.has(id)) {
+      this.cansados++;
+      this.emitir({ tipo: 'cansado', nodo, nivel: this.perfiles.get(id)?.nivel ?? 0 });
+    }
     this.irse(id);
   }
 
@@ -356,6 +384,7 @@ export class Simulacion {
       if (this.medidorQuejas >= this.p.medidor.capacidad) this.terminada = true;
     }
     this.marchasEnfadadas.push({ nodo, tiempo: this.tiempo });
+    this.emitir({ tipo: 'enfadado', nodo, nivel: nivel ?? 0 });
     this.irse(id);
   }
 
@@ -383,6 +412,7 @@ export class Simulacion {
       this.anillos[r.id] = Math.max(0, this.anillos[r.id] + (sube ? dt : -dt) / tiempoAnillo);
       if (this.anillos[r.id] >= 1) {
         this.anillos[r.id] = 0;
+        this.emitir({ tipo: 'anillo', remonte: r.id });
         for (const id of [...cola]) {
           const perfil = this.perfiles.get(id);
           if (!perfil) continue;
@@ -559,7 +589,7 @@ export class Simulacion {
       return;
     }
     if (this.tiempo >= perfil.cansadoEn) {
-      this.irseCansado(id);
+      this.irseCansado(id, nodo);
       return;
     }
     const enBase = this.red.nodo(nodo).tipo === 'base';
@@ -666,6 +696,7 @@ export class Simulacion {
       }
       while (bolitas.length > 0 && bolitas[0].recorrido >= r.longitud) {
         const b = bolitas.shift()!;
+        if (b.pasajeros.length > 0) this.emitir({ tipo: 'bolita', remonte: r.id, pasajeros: b.pasajeros.length });
         for (const id of b.pasajeros) this.decidir(id, r.hasta);
       }
     }
@@ -695,6 +726,7 @@ export class Simulacion {
         e.recorrido += this.velocidadEnPista(pista) * dt;
         if (e.recorrido >= pista.trazado.longitud) {
           this.bajadasCompletadas++;
+          this.bajadasPorNivel[this.perfiles.get(e.id)?.nivel ?? 0]++;
           // Cobra la bajada (aunque después se vaya enfadado: la ha hecho).
           const perfil = this.perfiles.get(e.id);
           if (this.p.pago && perfil) {
@@ -705,6 +737,7 @@ export class Simulacion {
             this.monedas += c;
             this.ingresosTotales += c;
             this.cobros.push({ t: this.tiempo, c, divierte });
+            this.emitir({ tipo: 'cobro', nodo: pista.hasta, cantidad: c });
           }
           if (!this.contentar(e.id, pista)) this.irseEnfadado(e.id, pista.hasta, 'aburrimiento');
           else this.decidir(e.id, pista.hasta);

@@ -324,7 +324,7 @@ Vista en planta estilizada (no ilustración en perspectiva), limpia, suave y rel
 - Texturas zonificadas por altitud: valle con bosque denso, zona media con bosque más ralo, zona alta con roca y nieve por encima del límite del arbolado. La roca aparece también donde la pendiente del mapa de alturas es fuerte, con el mismo umbral que la máscara de terreno esquiable (ver "Relieve y terreno esquiable"): lo que se ve como roca es lo que no se puede esquiar.
 - Contraste bajo en las texturas para que los esquiadores (puntos pequeños) y las líneas se lean bien. El bosque en un verde grisáceo y apagado, para que no compita con las pistas verdes.
 - Sin agua al principio. Más adelante se decidirá si es decorativa o si condiciona el trazado de pistas.
-- Ciclo de día muy lento: un tinte sobre el fondo del amanecer al atardecer. Es solo visual y sirve como unidad de puntuación (días sobrevividos); no hay cierre de jornada ni salida masiva.
+- Ciclo de día muy lento: un tinte sobre el fondo del amanecer al atardecer. Es solo visual y sirve como unidad de puntuación (días sobrevividos); no hay cierre de jornada ni salida masiva. Implementado (ver «Acabado»).
 - Técnica: un mapa de alturas en escala de grises (dibujado a mano o generado con ruido) del que salen las cotas de los nodos, el degradado y el sombreado. Árboles y rocas como marcas diminutas colocadas una sola vez al cargar el mapa y dibujadas todas de golpe.
 
 ## Sonido
@@ -409,6 +409,16 @@ Notas técnicas:
 - Puntos que toman su símbolo al usarse (salida o llegada, sin paradas intermedias; v34); remontes que arrancan en la plaza, en puntos a los que podría llegar una pista o en el final de una pista (que se convierten en base) o en cualquier punto en uso que no sea cima (desdoblándose); remontes encadenados desde una llegada; de las cimas no arranca ninguno. Estaciones que se desdoblan (hasta 3 por emplazamiento), remontes que no se cruzan, cambio de base andando, deshacer y velocidad 1×/2×/0,5× (v41).
 - Pistas provisionales encadenadas: de un final de pista (aunque esté en espera) sale otra; la cadena se activa al enlazar su final con un remonte conectado (v34).
 - Mapas en `mapas/<nombre>/` (PNG de alturas de 8 bits y JSON); el inicial lo genera un script, no el juego.
+
+## Acabado: animación, sonido e interfaz (2026-11-16)
+
+- **Respuesta a cada acción.** El cable de un remonte nuevo crece desde la salida y sus estaciones aparecen con un pequeño rebote; una pista se traza de arriba abajo y brilla un instante (también al pasar de espera a activa); al entrar en servicio, el remonte pasa del gris a la tinta; al mejorarlo, un pulso lo recorre; las bolitas crecen al salir y encogen al llegar; los cobros suben desde el punto como «+N» (sumando las bajadas seguidas) y el número de monedas rueda hasta su valor; quien se va satisfecho sube y se desvanece con su color, y quien se va enfadado deja un destello rojo; el anillo de cola late cerca de llenarse y destella al llenarse. Paneles, avisos y marcas de destino entran y salen con un fundido. Todo va en tiempo real, también en pausa.
+- **Ciclo de día.** Un tinte lento sobre el terreno (amanecer cálido, día, atardecer, noche azulada). Un día dura 240 s de juego (2 minutos reales a 1×). Arriba a la derecha, «Día N» con una esfera que marca la hora. La puntuación son los días completos sobrevividos.
+- **Sonido.** Notas de marimba en do mayor pentatónica con Web Audio: bolita que llega arriba (tenue), remonte construido (de la nota de abajo a la de arriba), pista abierta (tres notas que bajan), mejora (acorde que sube), enfado (nota grave) y derrota. El tono sale de la cota del punto. Un ambiente grave muy tenue de fondo, que se apaga algo con el medidor de quejas alto. Botón de silencio, que se recuerda.
+- **Tiempo.** Pausa, 1× y 2×. En pausa se puede construir.
+- **Interfaz.** Arriba: monedas, medidor de quejas y día; debajo, un renglón pequeño con ingresos, mantenimiento, diversión, llegadas y satisfechos. Abajo: barra de kilómetros por color, contadores por nivel y botones (deshacer, volver, sonido, pausa, velocidad). La misma disposición sirve para dibujar y para tocar, en vertical y en horizontal (en horizontal se empieza acercado al pie de pistas).
+- **Aprendizaje sin texto.** En la primera partida, un «dedo» fantasma repite el gesto que toca: arrastrar de una base a un punto más alto, arrastrar de la llegada hacia abajo, elegir color (los posibles laten) y, con la primera cola, mantener pulsado el remonte. Se da por aprendida al mejorar un remonte o a los diez minutos de juego. Ya no hay textos de ayuda; quedan los avisos cortos de por qué algo no se puede hacer.
+- **Fin de partida.** La vista se aleja al mapa entero y lo coloca por encima del panel; el punto donde más esquiadores se han ido enfadados late en rojo; el panel da los días sobrevividos, satisfechos y enfadados, los retos y los botones «Repetir» y «Menú». Repetir no recarga la página.
 
 ## Calibración (2026-11-16)
 

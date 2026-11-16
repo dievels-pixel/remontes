@@ -119,9 +119,6 @@ export function jugarPartida(mapa: Mapa, estrategia: Estrategia, opciones: Opcio
   let tiposAntes = 0;
   let sumaAbajo = 0;
   let muestrasAbajo = 0;
-  const bajadasPorNivel = [0, 0, 0, 0];
-  // Las bajadas por nivel se cuentan mirando quién deja de estar en una pista.
-  let enPista = new Map<number, number>();
 
   const porTipo = () => {
     const n = [0, 0, 0];
@@ -139,11 +136,6 @@ export function jugarPartida(mapa: Mapa, estrategia: Estrategia, opciones: Opcio
       tiposAntes = tipos;
     }
     j.paso(dt);
-    // Bajadas completadas por nivel.
-    const ahora = new Map<number, number>();
-    for (const e of sim.esquiadores.values()) if (e.estado === 'pista') ahora.set(e.id, sim.perfiles.get(e.id)?.nivel ?? 0);
-    for (const [id, nivel] of enPista) if (!ahora.has(id)) bajadasPorNivel[nivel]++;
-    enPista = ahora;
     if (sim.fraccionQuejas < 0.5) ultimoBajoMitad = sim.tiempoAbierta;
     else pasoMitad = true;
     if (sim.tiempoAbierta <= gracia) enfadadosEnGracia = sim.enfadados;
@@ -184,7 +176,7 @@ export function jugarPartida(mapa: Mapa, estrategia: Estrategia, opciones: Opcio
     pistas: porColor(),
     pistasForzadas: red.pistas.filter((p) => red.forzada(p)).length,
     mejoras,
-    bajadasPorNivel,
+    bajadasPorNivel: [...sim.bajadasPorNivel],
     monedas: Math.floor(sim.monedas),
     abajo: mitad.length > 0 ? mitad.reduce((x, m) => x + m.abajo, 0) / mitad.length : muestrasAbajo > 0 ? sumaAbajo / muestrasAbajo : 0,
     divierten: si / Math.max(1, si + no),

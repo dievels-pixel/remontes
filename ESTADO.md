@@ -17,7 +17,7 @@ Este archivo se actualiza al cerrar cada fase (ver «Fases de acabado» al final
 | 7. Simulación sin gráficos para calibrar | Hecha (fase 1) | `npm run calibrar`, `src/bots/`, criterios en `CALIBRACION.md`. |
 | 8. Indicadores en pantalla | Hecha (fase 1) | Contadores por color y barra de kilómetros de pista por color con la mezcla de llegadas. |
 | 9. Cruces con enlaces automáticos | Hecha | Confluencias con acuerdo tangente y límite de cruces. |
-| 10. Pulido visual y sonoro | Sin empezar | Sin sonido, sin ciclo de día, sin animaciones de respuesta, terreno con degradado sencillo. |
+| 10. Pulido visual y sonoro | Hecha en lo esencial (fase 2) | Animaciones, ciclo de día y música. El terreno sigue con degradado y sombreado sencillos, sin texturas de bosque. |
 | 11. Fases posteriores | Sin empezar | Varias carreteras, agua, averías, boca a boca. |
 
 ## Partida automática (estado actual)
@@ -64,7 +64,14 @@ Qué falla o aburre:
 |---|---|
 | 0. Auditoría | Hecha (este documento) |
 | 1. Cerrar el núcleo y calibrarlo | Hecha: ver `CALIBRACION.md`. Elección de ruta por novedad y suma, periodo de gracia, afluencia acelerada, barra de kilómetros por color, jugadores automáticos en `src/bots/` y `npm run calibrar`. |
-| 2. Animación, sonido y sensación | Pendiente |
+| 2. Animación, sonido y sensación | Hecha: animaciones (`src/render/efectos.ts`), mundo e interfaz separados (`escena.ts`, `interfaz.ts`), música (`src/audio/`), guía sin texto (`src/render/guia.ts`), pausa y 1×/2×, ciclo de día, fin de partida y pantalla de partida que se crea y se destruye sin recargar (`src/partida.ts`, `src/main.ts`). |
 | 3. Niveles y retos | Pendiente |
 | 4. Pantalla inicial | Pendiente |
 | 5. Cierre | Pendiente |
+
+## Pendiente tras la fase 2
+
+- El precálculo en segundo plano tras cada obra todavía alarga algunos fotogramas (cada tarea, hasta unos 8 ms en un ordenador).
+- Sin señal secundaria para daltonismo (fase 4, ajustes).
+- La prueba de legibilidad de puntos y pistas de la etapa 5 no se hizo como pantalla de prueba: los puntos llevan ya contorno claro fino.
+- Los errores «Nueva partida recarga la página» y «textos de ayuda largos» de la auditoría están resueltos.

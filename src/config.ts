@@ -17,10 +17,17 @@ export const CONFIG = {
   },
 
   // Tiempo: segundos de juego por segundo real a la velocidad «1×» (v41: el
-  // antiguo 2× pasa a ser el normal). Los botones dan 1×, 2× y 0,5×.
+  // antiguo 2× pasa a ser el normal). Los botones dan pausa, 1× y 2×.
   tiempo: {
     escala: 2,
-    velocidades: [1, 2, 0.5],
+    velocidades: [1, 2],
+  },
+
+  // Ciclo de día: solo visual (un tinte del amanecer a la noche) y unidad de
+  // puntuación (días sobrevividos). No hay cierre de jornada. Un día dura
+  // 2 minutos reales a 1×, así que una partida razonable son unos 9 días.
+  dia: {
+    duracion: 240, // s de juego
   },
 
   // Remontes. Se construye siempre un telesquí y se mejora a telesilla y a

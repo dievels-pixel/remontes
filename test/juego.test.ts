@@ -27,14 +27,23 @@ describe('Juego: arrastre y velocidad', () => {
     expect(j.nodoEn(j.posicionEstacion(nueva, sep), 40, sep)).toBe(bases[0].id);
   });
 
-  it('la velocidad cicla entre 1×, 2× y 0,5×', () => {
+  it('la velocidad cicla entre 1× y 2×, y la pausa detiene el tiempo sin impedir construir', () => {
     const j = new Juego(mapaInicial());
     const vistas = [j.velocidad];
     for (let i = 0; i < 3; i++) {
       j.cambiarVelocidad();
       vistas.push(j.velocidad);
     }
-    expect(vistas).toEqual([...CONFIG.tiempo.velocidades, CONFIG.tiempo.velocidades[0]]);
+    expect(vistas).toEqual([1, 2, 1, 2]);
+    expect(j.pausado).toBe(false);
+    j.alternarPausa();
+    expect(j.pausado).toBe(true);
+    // En pausa se puede construir.
+    j.sim.monedas = 1e6;
+    const base = j.red.nodos.find((n) => n.tipo === 'base')!;
+    const destino = j.red.nodos.find((n) => n.cota > base.cota && j.red.puedeConstruirRemonte(base.id, n.id) === 'ok')!;
+    expect(j.construirRemonte(base.id, destino.id)).toBe('ok');
+    expect(j.eventos.some((e) => e.tipo === 'remonte')).toBe(true);
   });
 
   it('arrastrar de una llegada hacia un punto más bajo abre el selector y elegir color abre la pista', () => {

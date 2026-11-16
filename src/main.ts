@@ -1,110 +1,97 @@
-import { CONFIG } from './config';
+// Arranque: un lienzo, un bucle y una pantalla activa (por ahora, la partida;
+// el menú llega en la fase 4). Las pantallas se crean y se destruyen sin
+// recargar la página; el cambio entre ellas es un fundido.
+import { Musica } from './audio/musica';
 import { cargarMapa, MAPA_POR_DEFECTO } from './cargarMapa';
-import { conectarPuntero } from './input/puntero';
 import type { Mapa } from './core/mapa';
-import { Juego } from './juego';
-import { Camara } from './render/camara';
-import { dibujar } from './render/escena';
-import { crearTerreno } from './render/terreno';
+import { PantallaPartida, type Pantalla } from './partida';
 
-// El mapa (PNG de alturas y JSON de nodos) se carga antes de empezar.
-cargarMapa(new URLSearchParams(location.search).get('mapa') ?? MAPA_POR_DEFECTO).then(iniciar, (e: unknown) => {
-  document.body.textContent = `No se ha podido cargar el mapa: ${e instanceof Error ? e.message : String(e)}`;
-});
+const lienzo = document.getElementById('juego') as HTMLCanvasElement;
+const ctx = lienzo.getContext('2d')!;
+const musica = new Musica();
+let pantalla: Pantalla | null = null;
+let ancho = 0;
+let alto = 0;
+/** Fundido entre pantallas: 1 negro del todo, 0 nada. */
+let velo = 1;
+let pendiente: (() => Pantalla) | null = null;
 
-function iniciar(mapa: Mapa): void {
-  const lienzo = document.getElementById('juego') as HTMLCanvasElement;
-  const ctx = lienzo.getContext('2d')!;
-  const juego = new Juego(mapa);
-  const camara = new Camara();
-  // El fondo se rehace si cambian las alturas (cota máx. del editor) o el
-  // umbral de roca (panel de ajustes).
-  let terreno = crearTerreno(juego.alturas, juego.umbralRoca);
-  let claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
-  let ancho = 0;
-  let alto = 0;
+// Solo en desarrollo: tiempos de cada fotograma (ms) para medir el
+// rendimiento (scripts/medirRendimiento.cjs).
+const rendimiento = { simulacion: [] as number[], calentar: [] as number[], dibujo: [] as number[], pasos: [] as number[] };
+if (import.meta.env.DEV) Object.assign(window, { rendimiento });
 
-  /**
-   * Franjas de pantalla libres arriba y abajo: el mapa se encaja entre ellas
-   * para que los puntos de los bordes no queden bajo el texto de ayuda, los
-   * botones o la zona de gestos del navegador (costaba tocarlos). Con el panel
-   * de ajustes abierto, la de arriba crece hasta el panel.
-   */
-  const RESERVA_ARRIBA = 90; // tres líneas de texto (monedas, mantenimiento, llegados) y el medidor de quejas
-  const RESERVA_ABAJO = 124; // botones de deshacer y velocidad, y encima los contadores por nivel (dos filas)
-  const reserva = { arriba: RESERVA_ARRIBA, abajo: RESERVA_ABAJO };
+function redimensionar(): void {
+  const dpr = window.devicePixelRatio || 1;
+  ancho = lienzo.clientWidth;
+  alto = lienzo.clientHeight;
+  lienzo.width = Math.round(ancho * dpr);
+  lienzo.height = Math.round(alto * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pantalla?.redimensionar(ancho, alto);
+}
+window.addEventListener('resize', redimensionar);
 
-  function redimensionar(): void {
-    const dpr = window.devicePixelRatio || 1;
-    ancho = lienzo.clientWidth;
-    alto = lienzo.clientHeight;
-    lienzo.width = Math.round(ancho * dpr);
-    lienzo.height = Math.round(alto * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    camara.ajustar(ancho, alto, juego.mapa.datos.ancho, juego.mapa.datos.alto, reserva.arriba, reserva.abajo);
-  }
-  window.addEventListener('resize', redimensionar);
-  redimensionar();
-  conectarPuntero(lienzo, juego, camara);
+/** Cambia de pantalla con un fundido: se oscurece, se cambia y se aclara. */
+function cambiar(crear: () => Pantalla): void {
+  pendiente = crear;
+}
 
-  // Herramienta temporal de calibración: solo con ?ajustes en la dirección.
-  if (new URLSearchParams(location.search).has('ajustes')) {
-    juego.modoAjustes = true;
-    import('./herramientas/ajustes').then((m) =>
-      m.montarPanelAjustes(juego, (arriba) => {
-        // Con el panel abierto, el mapa se encaja debajo de él y por encima de
-        // los botones, para no tapar nada mientras se ajusta.
-        reserva.arriba = Math.max(arriba, RESERVA_ARRIBA);
-        redimensionar();
-      }),
-    );
-  }
-  // Solo en desarrollo: acceso desde la consola y las pruebas de navegador.
-  if (import.meta.env.DEV) Object.assign(window, { juego, camara });
+function poner(crear: () => Pantalla): void {
+  pantalla?.destruir();
+  pantalla = crear();
+  pantalla.redimensionar(ancho, alto);
+  if (import.meta.env.DEV && pantalla instanceof PantallaPartida) Object.assign(window, { juego: pantalla.juego, camara: pantalla.camara, partida: pantalla });
+}
 
-  // Solo en desarrollo: tiempos de cada fotograma (ms) para medir el
-  // rendimiento (scripts/medirRendimiento.cjs).
-  const rendimiento = { simulacion: [] as number[], calentar: [] as number[], dibujo: [] as number[], pasos: [] as number[] };
-  if (import.meta.env.DEV) Object.assign(window, { rendimiento });
+function partida(mapa: Mapa): () => Pantalla {
+  return () =>
+    new PantallaPartida(lienzo, mapa, {
+      sonido: musica,
+      alSalir: () => cambiar(partida(mapa)),
+      alRepetir: () => cambiar(partida(mapa)),
+    });
+}
 
-  // Paso fijo de simulación, independiente de la frecuencia de pantalla.
-  const DT = 1 / 60;
-  let anterior = performance.now();
-  let ultimoFotograma = anterior;
-  let acumulado = 0;
-  function fotograma(ahora: number): void {
-    acumulado += Math.min((ahora - anterior) / 1000, 0.25) * juego.velocidad * CONFIG.tiempo.escala;
-    anterior = ahora;
-    const t0 = performance.now();
-    let pasos = 0;
-    while (acumulado >= DT) {
-      juego.paso(DT);
-      acumulado -= DT;
-      pasos++;
+let anterior = performance.now();
+function fotograma(ahora: number): void {
+  const dt = Math.min((ahora - anterior) / 1000, 0.25);
+  anterior = ahora;
+  // Fundido: hacia negro si hay cambio pendiente; al llegar, se cambia.
+  if (pendiente) {
+    velo = Math.min(1, velo + dt / 0.25);
+    if (velo >= 1) {
+      poner(pendiente);
+      pendiente = null;
     }
-    const t1 = performance.now();
-    // En segundo plano, unos milisegundos: lo que pedirá el próximo arrastre.
-    juego.calentar();
-    const t2 = performance.now();
-    if (claveTerreno.alturas !== juego.alturas || claveTerreno.umbral !== juego.umbralRoca) {
-      terreno = crearTerreno(juego.alturas, juego.umbralRoca);
-      claveTerreno = { alturas: juego.alturas, umbral: juego.umbralRoca };
-    }
-    dibujar(ctx, juego, camara, terreno, ancho, alto);
-    // Medias móviles para el panel de ajustes (cuestan nada).
-    const intervalo = ahora - ultimoFotograma;
-    ultimoFotograma = ahora;
-    if (intervalo > 0 && intervalo < 1000) juego.rendimiento.fps += (1000 / intervalo - juego.rendimiento.fps) * 0.05;
-    juego.rendimiento.ms += (performance.now() - t0 - juego.rendimiento.ms) * 0.05;
-    if (import.meta.env.DEV) {
-      rendimiento.simulacion.push(t1 - t0);
-      rendimiento.calentar.push(t2 - t1);
-      rendimiento.dibujo.push(performance.now() - t2);
-      rendimiento.pasos.push(pasos);
+  } else velo = Math.max(0, velo - dt / 0.35);
+  if (pantalla) {
+    pantalla.fotograma(ctx, dt);
+    if (import.meta.env.DEV && pantalla instanceof PantallaPartida) {
+      const t = pantalla.tiempos;
+      rendimiento.simulacion.push(t.simulacion);
+      rendimiento.calentar.push(t.calentar);
+      rendimiento.dibujo.push(t.dibujo);
+      rendimiento.pasos.push(t.pasos);
       // Solo los últimos minutos: no crecer sin límite en una sesión larga.
       if (rendimiento.pasos.length > 7200) for (const v of Object.values(rendimiento)) v.splice(0, 3600);
     }
-    requestAnimationFrame(fotograma);
+  }
+  if (velo > 0.005) {
+    ctx.fillStyle = `rgba(169, 182, 184, ${velo.toFixed(3)})`;
+    ctx.fillRect(0, 0, ancho, alto);
   }
   requestAnimationFrame(fotograma);
 }
+
+// El mapa (PNG de alturas y JSON de nodos) se carga antes de empezar.
+cargarMapa(new URLSearchParams(location.search).get('mapa') ?? MAPA_POR_DEFECTO).then(
+  (mapa) => {
+    redimensionar();
+    poner(partida(mapa));
+    requestAnimationFrame(fotograma);
+  },
+  (e: unknown) => {
+    document.body.textContent = `No se ha podido cargar el mapa: ${e instanceof Error ? e.message : String(e)}`;
+  },
+);

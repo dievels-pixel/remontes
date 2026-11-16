@@ -11,7 +11,7 @@ import { CONFIG } from '../config';
 import type { Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from '../render/camara';
-import { layoutMejora, layoutSelector, rectBotonDeshacer, rectBotonVelocidad, rectNuevaPartida } from '../render/escena';
+import { dentro as enRect, disponer, layoutFin, layoutMejora, layoutSelector, type NombreBoton } from '../render/interfaz';
 
 /** Píxeles que se puede mover el dedo sobre el fondo sin dejar de ser un toque. */
 const UMBRAL_TOQUE = 8;
@@ -26,7 +26,26 @@ type Modo =
   /** Tras un pellizco, hasta que se levantan todos los dedos no se hace nada. */
   | { tipo: 'espera' };
 
-export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara: Camara): void {
+/** Lo que la entrada necesita de la pantalla de partida. */
+export interface ReceptorEntrada {
+  juego: Juego;
+  camara: Camara;
+  /** Primer gesto del usuario (para arrancar el audio). */
+  alTocar(): void;
+  alBoton(nombre: NombreBoton): void;
+  /** Botones del panel de fin de partida. */
+  alFin(boton: 'repetir' | 'menu'): void;
+  /** Número de retos que muestra el panel final (para su disposición). */
+  retosEnFin(): number;
+  /** El panel final ya ha entrado y acepta toques. */
+  finListo(): boolean;
+}
+
+/** Conecta los gestos al lienzo; devuelve la función que los desconecta. */
+export function conectarPuntero(lienzo: HTMLCanvasElement, receptor: ReceptorEntrada): () => void {
+  const { juego, camara } = receptor;
+  const corte = new AbortController();
+  const opciones = { signal: corte.signal };
   const punteros = new Map<number, Punto>();
   let modo: Modo = { tipo: 'nada' };
   let temporizadorLarga: ReturnType<typeof setTimeout> | null = null;
@@ -49,6 +68,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
 
   lienzo.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    receptor.alTocar();
     const p = enPantalla(e);
     punteros.set(e.pointerId, p);
     lienzo.setPointerCapture(e.pointerId);
@@ -64,21 +84,23 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
 
     const r = lienzo.getBoundingClientRect();
     const dentro = (b: { x: number; y: number; ancho: number; alto: number }) => p.x >= b.x && p.x <= b.x + b.ancho && p.y >= b.y && p.y <= b.y + b.alto;
-    // Partida terminada: solo vale el botón «Nueva partida».
+    // Partida terminada: solo valen los botones del panel final.
     if (juego.terminada) {
-      if (dentro(rectNuevaPartida(r.width, r.height))) juego.nuevaPartida();
+      if (receptor.finListo()) {
+        const fin = layoutFin(r.width, r.height, receptor.retosEnFin());
+        if (dentro(fin.repetir)) receptor.alFin('repetir');
+        else if (dentro(fin.menu)) receptor.alFin('menu');
+      }
       modo = { tipo: 'espera' };
       return;
     }
-    if (dentro(rectBotonVelocidad(r.width, r.height))) {
-      juego.cambiarVelocidad();
-      modo = { tipo: 'espera' };
-      return;
-    }
-    if (dentro(rectBotonDeshacer(r.height))) {
-      juego.deshacer();
-      modo = { tipo: 'espera' };
-      return;
+    const d = disponer(r.width, r.height);
+    for (const nombre of Object.keys(d.botones) as NombreBoton[]) {
+      if (enRect(p, d.botones[nombre])) {
+        receptor.alBoton(nombre);
+        modo = { tipo: 'espera' };
+        return;
+      }
     }
     // Con la pregunta de mejora abierta, el toque es para ella.
     if (juego.mejora) {
@@ -128,7 +150,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
         modo = { tipo: 'espera' };
       }
     }, PULSACION_LARGA);
-  });
+  }, opciones);
 
   lienzo.addEventListener('pointermove', (e) => {
     if (!punteros.has(e.pointerId)) return;
@@ -152,7 +174,7 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       modo.distancia = ahora.distancia;
       modo.medio = ahora.medio;
     }
-  });
+  }, opciones);
 
   const terminar = (e: PointerEvent, cancelado: boolean) => {
     if (!punteros.has(e.pointerId)) return;
@@ -176,8 +198,8 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
     }
     if (punteros.size === 0) modo = { tipo: 'nada' };
   };
-  lienzo.addEventListener('pointerup', (e) => terminar(e, false));
-  lienzo.addEventListener('pointercancel', (e) => terminar(e, true));
+  lienzo.addEventListener('pointerup', (e) => terminar(e, false), opciones);
+  lienzo.addEventListener('pointercancel', (e) => terminar(e, true), opciones);
 
   lienzo.addEventListener(
     'wheel',
@@ -185,7 +207,11 @@ export function conectarPuntero(lienzo: HTMLCanvasElement, juego: Juego, camara:
       e.preventDefault();
       camara.zoom(Math.exp(-e.deltaY * 0.0015), enPantalla(e));
     },
-    { passive: false },
+    { passive: false, signal: corte.signal },
   );
-  lienzo.addEventListener('contextmenu', (e) => e.preventDefault());
+  lienzo.addEventListener('contextmenu', (e) => e.preventDefault(), opciones);
+  return () => {
+    anularLarga();
+    corte.abort();
+  };
 }

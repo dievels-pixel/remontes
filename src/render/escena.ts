@@ -1,8 +1,8 @@
-// Dibujo de la escena en Canvas 2D. Tamaños en px CSS, posiciones en metros
-// convertidas con la cámara.
+// Dibujo del mundo en Canvas 2D (terreno, pistas, remontes, puntos y
+// esquiadores). Tamaños en px CSS, posiciones en metros convertidas con la
+// cámara. La interfaz (barras, botones y paneles) está en interfaz.ts.
 import { CONFIG } from '../config';
-import { COLORES, pistaForzada, type ColorPista } from '../core/colores';
-import { fracciones, kmPorColor } from '../core/indicadores';
+import { COLORES, type ColorPista } from '../core/colores';
 import type { Perfil } from '../core/simulacion';
 import { desplazamientoPista as calcularDesplazamiento } from '../core/desplazamiento';
 import type { Polilinea } from '../core/polilinea';
@@ -11,9 +11,10 @@ import { interpolar, type Punto } from '../core/vector';
 import type { Juego } from '../juego';
 import type { Camara } from './camara';
 import { vistaPunto } from '../core/visibilidad';
+import { DURACION, frenar, limitar01, rebotar, tinteDia, type Efectos } from './efectos';
 import { COLOR_FONDO } from './terreno';
 
-const COLOR = {
+export const COLOR = {
   tinta: '#262a31',
   remonteParado: '#8b9298',
   hueco: '#f1f3f4',
@@ -27,6 +28,8 @@ const COLOR = {
   colaVacia: '#8b9298',
   colaLlena: '#d0453a',
   vacio: '#8b9298', // punto aún sin usar
+  mejora: '#f2b84b', // pulso al mejorar un remonte
+  moneda: '#8a5a00', // texto de los cobros
 };
 
 export const COLOR_PISTA: Record<ColorPista, string> = {
@@ -36,14 +39,12 @@ export const COLOR_PISTA: Record<ColorPista, string> = {
   negra: '#1d2026',
 };
 
-const RADIO_NODO = 9;
+export const RADIO_NODO = 9;
 /** Radio de un punto aún sin usar: más pequeño que una estación. */
 const RADIO_VACIO = 5.5;
-/** Segundos que dura el destello rojo de un esquiador que se va enfadado. */
-const DURACION_DESTELLO = 0.8;
 const RADIO_PUNTO = 2.2;
 
-export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number): void {
+export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Camara, terreno: HTMLCanvasElement, ancho: number, alto: number, fx: Efectos): void {
   const { red, sim } = juego;
   const P = (p: Punto) => camara.aPantalla(p);
   // Desplazamiento en pantalla de cada pista hacia sus estaciones de salida y
@@ -84,6 +85,20 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     ctx.drawImage(terreno, 0, terreno.height - 1, terreno.width, 1, esquina.x, esquina.y + hT - 1, wT, alto - esquina.y - hT + 1);
   }
 
+  // Y en pantallas más anchas (móvil en horizontal), la primera y la última
+  // columna hacia los lados.
+  if (esquina.x > 0) {
+    ctx.drawImage(terreno, 0, 0, 1, terreno.height, 0, esquina.y, esquina.x + 1, hT);
+    ctx.drawImage(terreno, terreno.width - 1, 0, 1, terreno.height, esquina.x + wT - 1, esquina.y, ancho - esquina.x - wT + 1, hT);
+  }
+
+  // Ciclo de día: un tinte muy lento sobre el terreno (solo visual).
+  const tinte = tinteDia(juego.horaDelDia);
+  if (tinte.a > 0.005) {
+    ctx.fillStyle = `rgba(${tinte.r}, ${tinte.g}, ${tinte.b}, ${tinte.a.toFixed(3)})`;
+    ctx.fillRect(0, 0, ancho, alto);
+  }
+
   // Carretera de acceso y plaza del pie de pistas.
   ctx.save();
   ctx.strokeStyle = COLOR.carretera;
@@ -104,7 +119,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.fill();
   // Aviso del medidor de quejas: la plaza se tiñe de rojo con un pulso lento.
   if (sim.fraccionQuejas >= CONFIG.quejas.aviso) {
-    const pulso = 0.5 + 0.5 * Math.sin(performance.now() / 500);
+    const pulso = 0.5 + 0.5 * Math.sin(fx.ahora * 2);
     ctx.fillStyle = `rgba(208, 69, 58, ${0.18 + 0.17 * pulso})`;
     ctx.fill();
   }
@@ -122,9 +137,18 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     if (espera) ctx.setLineDash([9, 7]);
     else if (p.fueraDeRango) ctx.setLineDash([3, 4]);
     ctx.globalAlpha = espera ? 0.7 : 1;
-    dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido, desplazamientoPista(p));
+    // Recién abierta, se traza de arriba abajo.
+    const trazada = frenar(fx.progreso(`pista:${p.id}`, DURACION.pista));
+    dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido, desplazamientoPista(p), trazada);
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
+    // Al abrirse o al pasar de espera a activa: un brillo que se apaga.
+    const brillo = Math.min(fx.progreso(`pista:${p.id}`, DURACION.pista + DURACION.activacion), fx.progreso(`activa:${p.id}`, DURACION.activacion));
+    if (brillo < 1) {
+      ctx.globalAlpha = (1 - brillo) * 0.55;
+      dibujarTrazado(ctx, p.trazado, P, '#ffffff', 3 + 6 * (1 - brillo), p.compartido, desplazamientoPista(p), trazada);
+      ctx.globalAlpha = 1;
+    }
   }
 
   // Pista por abrir con el selector de color abierto: su trazado previsto, a trazos.
@@ -139,17 +163,42 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     const enServicio = red.enServicio(r);
     const a = PE(red.estaciones[r.estacionDesde]);
     const b2 = PE(red.estaciones[r.estacionHasta]);
-    dibujarRemonte(ctx, a, b2, enServicio ? COLOR.tinta : COLOR.remonteParado);
+    // Recién construido, el cable crece desde la salida; al entrar en
+    // servicio pasa del gris a la tinta; al mejorarlo, un pulso lo recorre.
+    const crecido = frenar(fx.progreso(`remonte:${r.id}`, DURACION.remonte));
+    const punta = interpolar(a, b2, crecido);
+    const servicio = enServicio ? fx.progreso(`servicio:${r.id}`, 0.5) : 0;
+    dibujarRemonte(ctx, a, punta, enServicio ? mezclar(COLOR.remonteParado, COLOR.tinta, servicio) : COLOR.remonteParado);
+    const mejora = fx.progreso(`mejora:${r.id}`, DURACION.mejora);
+    if (mejora < 1) {
+      ctx.save();
+      ctx.globalAlpha = (1 - mejora) * 0.8;
+      ctx.strokeStyle = COLOR.mejora;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 6 + 10 * (1 - mejora);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      const frente = interpolar(a, b2, frenar(mejora * 1.6));
+      ctx.lineTo(frente.x, frente.y);
+      ctx.stroke();
+      ctx.restore();
+    }
     const angulo = Math.atan2(b2.y - a.y, b2.x - a.x);
+    // Las bolitas salen de la estación de abajo y la de arriba se las traga:
+    // crecen al salir y encogen al llegar.
+    const margen = Math.min(90, r.longitud * 0.2);
     for (const b of sim.bolitas[r.id] ?? []) {
       const q = interpolar(a, b2, b.recorrido / r.longitud);
-      dibujarBolita(ctx, q, angulo, r.tipo, b.pasajeros.map((id) => colorEsquiador(sim.perfiles.get(id))));
+      const escala = frenar(Math.min(b.recorrido, r.longitud - b.recorrido) / margen);
+      if (escala > 0.05) dibujarBolita(ctx, q, angulo, r.tipo, b.pasajeros.map((id) => colorEsquiador(sim.perfiles.get(id))), escala);
     }
   }
 
   // Vista previa del arrastre.
   const arr = juego.arrastre;
   if (arr) dibujarArrastre(ctx, juego, P, PE);
+  // Las marcas de los destinos entran y salen con suavidad.
+  const marcas = fx.valor('marcas');
 
   // Puntos. Solo se ve lo útil en cada momento (las reglas no cambian):
   // - siempre, con su cota: los puntos en uso (con estaciones) y los de la plaza;
@@ -164,6 +213,12 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     if (vista.tipo === 'oculto') continue;
     const marca = vista.marca;
     const posiciones = red.estacionesDe(n.id).map((e) => ({ e, c: PE(e) }));
+    // Un punto sin usar que solo se ve durante el arrastre aparece poco a poco.
+    const soloMarca = posiciones.length === 0 && marca !== null && !juego.modoAjustes;
+    if (soloMarca) {
+      ctx.save();
+      ctx.globalAlpha = marcas;
+    }
     const vacio = posiciones.length === 0;
     // Un punto con estaciones está en uso (también una base nueva en media
     // ladera, a la que aún no llega ningún remonte): se dibuja pleno.
@@ -173,7 +228,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     // por cualquier triángulo baja por cualquier pista): sus estaciones van
     // dentro de una misma cápsula para que se lea así.
     if (posiciones.length > 1) dibujarCapsula(ctx, posiciones.map((p) => p.c), opacidad(activo, marca));
-    for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca);
+    for (const { e, c } of posiciones) dibujarEstacion(ctx, e.tipo, c, activo, marca, rebotar(fx.progreso(`estacion:${e.id}`, DURACION.estacion)));
     const derecha = vacio ? { c: P(n) } : posiciones.reduce((m, p) => (p.c.x > m.c.x ? p : m));
     const radio = vacio ? RADIO_VACIO : RADIO_NODO;
     ctx.save();
@@ -186,6 +241,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     const tipo = juego.modoAjustes && vacio ? ` ${n.tipo === 'base' ? 'B' : n.tipo === 'cima' ? 'C' : 'I'}` : '';
     ctx.fillText(`${n.cota}${tipo}`, derecha.c.x + radio + 4, derecha.c.y - radio - 2);
     ctx.restore();
+    if (soloMarca) ctx.restore();
   }
 
 
@@ -218,24 +274,45 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
 
   // Anillo de cola en la estación de salida de cada remonte: se llena cuando
   // la cola pasa del aforo y pasa del gris al rojo, como el temporizador de
-  // las estaciones de Mini Metro. Lleno, echa al último de la cola.
+  // las estaciones de Mini Metro. Lleno, toda la cola pierde un punto: un
+  // destello lo marca.
   for (const r of red.remontes) {
     const f = sim.anillos[r.id] ?? 0;
-    if (f > 0 || (sim.colas[r.id]?.length ?? 0) > sim.p.aforoCola) dibujarAnilloCola(ctx, PE(red.estaciones[r.estacionDesde]), f);
+    const c = PE(red.estaciones[r.estacionDesde]);
+    if (f > 0 || (sim.colas[r.id]?.length ?? 0) > sim.p.aforoCola) dibujarAnilloCola(ctx, c, f, fx.ahora);
+    const lleno = fx.progreso(`anillo:${r.id}`, 0.6);
+    if (lleno < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - lleno;
+      ctx.strokeStyle = COLOR.colaLlena;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, RADIO_NODO + 6 + frenar(lleno) * 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
-  // Destello rojo donde se acaba de ir un esquiador enfadado.
-  for (const m of sim.marchasEnfadadas) {
-    const t = (sim.tiempo - m.tiempo) / DURACION_DESTELLO;
-    if (t < 0 || t > 1) continue;
-    const c = P(m.nodo >= 0 ? red.nodo(m.nodo) : juego.plaza);
+  // Despedidas: quien se va satisfecho sube y se desvanece con su color;
+  // quien se va enfadado deja un destello rojo.
+  for (const m of fx.salidas) {
+    const t = limitar01((fx.ahora - m.inicio) / DURACION.salida);
+    const c = P(m.nodo >= 0 && red.nodos[m.nodo] ? red.nodo(m.nodo) : juego.plaza);
     ctx.save();
     ctx.globalAlpha = 1 - t;
-    ctx.strokeStyle = COLOR.colaLlena;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, RADIO_NODO + 4 + t * 14, 0, Math.PI * 2);
-    ctx.stroke();
+    if (m.enfadado) {
+      ctx.strokeStyle = COLOR.colaLlena;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, RADIO_NODO + 4 + frenar(t) * 16, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      const ang = m.fase * 2.4;
+      ctx.fillStyle = COLOR_PISTA[COLORES[m.nivel]];
+      ctx.beginPath();
+      ctx.arc(c.x + Math.cos(ang) * (RADIO_NODO + 5), c.y + Math.sin(ang) * (RADIO_NODO + 5) - frenar(t) * 16, RADIO_PUNTO * (1 - 0.4 * t), 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -253,134 +330,88 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     const c = PE(red.estaciones[estacion]);
     return { x: c.x + Math.cos(ang) * rad, y: c.y + Math.sin(ang) * rad };
   };
-  const parpadeo = Math.floor(performance.now() / 300) % 2 === 0;
+  // Por lotes: un trazo por color (con 300 puntos, uno a uno se nota).
+  const parpadeo = Math.floor(fx.ahora / 0.3) % 2 === 0;
+  const lotes: number[][] = [[], [], [], [], []]; // cuatro niveles y los que parpadean en blanco
   for (const e of sim.esquiadores.values()) {
-    let q: Punto | null = null;
+    let x = 0;
+    let y = 0;
     switch (e.estado) {
-      case 'cola':
-        q = puntoEnRacimo(red.remontes[e.remonte].estacionDesde);
+      case 'cola': {
+        const q = puntoEnRacimo(red.remontes[e.remonte].estacionDesde);
+        x = q.x;
+        y = q.y;
         break;
-      case 'carretera':
-        if (sim.carretera) q = P(sim.carretera.puntoEn(e.recorrido));
+      }
+      case 'carretera': {
+        if (!sim.carretera) continue;
+        const q = P(sim.carretera.puntoEn(e.recorrido));
+        x = q.x;
+        y = q.y;
         break;
-      case 'andando':
-        q = P(interpolar(e.origen, red.nodo(e.hacia), Math.min(e.recorrido / e.largo, 1)));
+      }
+      case 'andando': {
+        const q = P(interpolar(e.origen, e.hacia >= 0 ? red.nodo(e.hacia) : juego.plaza, Math.min(e.recorrido / (e.largo || 1), 1)));
+        x = q.x;
+        y = q.y;
         break;
-      case 'pista':
-        {
-          // Sobre la misma curva desplazada hacia las estaciones que se dibuja.
-          const pi = red.pistas[e.pista];
-          const base = P(pi.trazado.puntoEn(e.recorrido));
-          const d = desplazamientoPista(pi)(e.recorrido);
-          q = { x: base.x + d.x, y: base.y + d.y };
-        }
+      }
+      case 'pista': {
+        // Sobre la misma curva desplazada hacia las estaciones que se dibuja.
+        const pi = red.pistas[e.pista];
+        const base = P(pi.trazado.puntoEn(e.recorrido));
+        const d = desplazamientoPista(pi)(e.recorrido);
+        x = base.x + d.x;
+        y = base.y + d.y;
         break;
-      case 'remonte':
-        break; // va dentro de su bolita
+      }
+      default:
+        continue; // en remonte: va dentro de su bolita
     }
-    if (!q) continue;
+    if (x < -8 || y < -8 || x > ancho + 8 || y > alto + 8) continue;
     const perfil = sim.perfiles.get(e.id);
     // A un punto de irse: parpadea en blanco.
-    ctx.fillStyle = parpadeo && perfil?.contento === 1 && sim.p.contentoInicial > 1 ? COLOR.hueco : colorEsquiador(perfil);
-    ctx.beginPath();
-    ctx.arc(q.x, q.y, RADIO_PUNTO, 0, Math.PI * 2);
-    ctx.fill();
+    const lote = parpadeo && perfil?.contento === 1 && sim.p.contentoInicial > 1 ? 4 : (perfil?.nivel ?? 0);
+    lotes[lote].push(x, y);
   }
+  const TAU = Math.PI * 2;
+  lotes.forEach((xy, i) => {
+    if (xy.length === 0) return;
+    ctx.beginPath();
+    for (let k = 0; k < xy.length; k += 2) {
+      ctx.moveTo(xy[k] + RADIO_PUNTO, xy[k + 1]);
+      ctx.arc(xy[k], xy[k + 1], RADIO_PUNTO, 0, TAU);
+    }
+    // Contorno claro fino para que se lean sobre pistas de su color.
+    ctx.strokeStyle = i === 4 ? COLOR.tinta : COLOR.hueco;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = i === 4 ? COLOR.hueco : COLOR_PISTA[COLORES[i]];
+    ctx.fill();
+  });
 
-  if (juego.selector) dibujarSelector(ctx, juego, P(juego.selector.punto), ancho, alto);
-  if (juego.infoPista && red.pistas[juego.infoPista.pista]) dibujarInfoPista(ctx, juego, P(juego.infoPista.punto), ancho);
-  const bajoTextos = dibujarTextos(ctx, juego, ancho);
-  if (red.remontes.length > 0 && !juego.herramientaMapa) dibujarMedidor(ctx, juego, ancho, bajoTextos);
-  dibujarContadores(ctx, juego, ancho, alto);
-  dibujarBotonVelocidad(ctx, juego, ancho, alto);
-  dibujarBotonDeshacer(ctx, juego, alto);
-  if (juego.mejora) dibujarMejora(ctx, juego, ancho, alto);
-  if (juego.terminada) dibujarFin(ctx, juego, P, ancho, alto);
-
-  // Versión, pequeña y discreta, centrada abajo entre los dos botones.
-  ctx.fillStyle = 'rgba(38, 42, 49, 0.55)';
-  ctx.font = '11px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(__VERSION__, ancho / 2, alto - 8);
-}
-
-type Rect = { x: number; y: number; ancho: number; alto: number };
-
-/** Botón de deshacer en la esquina inferior izquierda. */
-export function rectBotonDeshacer(alto: number): Rect {
-  return { x: 12, y: alto - 44 - 16, ancho: 110, alto: 44 };
-}
-
-function dibujarBotonDeshacer(ctx: CanvasRenderingContext2D, juego: Juego, alto: number): void {
-  const b = rectBotonDeshacer(alto);
+  // Cobros: las monedas de las bajadas suben desde el punto y se desvanecen.
   ctx.save();
-  ctx.globalAlpha = juego.red.puedeDeshacer ? 1 : 0.35;
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.9)';
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
-  ctx.fill();
-  ctx.stroke();
-  // Flecha curva hacia atrás.
-  const cx = b.x + 22;
-  const cy = b.y + b.alto / 2 + 2;
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 7, Math.PI * 1.15, Math.PI * 2.1);
-  ctx.stroke();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.beginPath();
-  ctx.moveTo(cx - 12, cy - 5);
-  ctx.lineTo(cx - 3, cy - 7);
-  ctx.lineTo(cx - 8, cy + 1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.textAlign = 'left';
+  ctx.font = '700 11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Deshacer', b.x + 38, b.y + b.alto / 2 + 1);
+  for (const cobro of fx.cobros) {
+    if (!red.nodos[cobro.nodo]) continue;
+    const t = limitar01((fx.ahora - cobro.inicio) / DURACION.cobro);
+    const c = P(red.nodo(cobro.nodo));
+    const texto = `+${cobro.cantidad >= 10 ? Math.round(cobro.cantidad) : cobro.cantidad.toFixed(1).replace('.', ',')}`;
+    const y = c.y - RADIO_NODO - 10 - frenar(t) * 20;
+    ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - limitar01((t - 0.5) / 0.5);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(241, 243, 244, 0.9)';
+    ctx.strokeText(texto, c.x, y);
+    ctx.fillStyle = COLOR.moneda;
+    ctx.fillText(texto, c.x, y);
+  }
   ctx.restore();
 }
 
-/** Botón de velocidad en la esquina inferior derecha, con tamaño cómodo para el dedo. */
-export function rectBotonVelocidad(ancho: number, alto: number): { x: number; y: number; ancho: number; alto: number } {
-  const w = 64;
-  const h = 44;
-  return { x: ancho - w - 12, y: alto - h - 16, ancho: w, alto: h };
-}
-
-function dibujarBotonVelocidad(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
-  const b = rectBotonVelocidad(ancho, alto);
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.9)';
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
-  ctx.fill();
-  ctx.stroke();
-  // Triángulos: 1 para 0,5× y 1×, 2 para 2×; y el número.
-  const flechas = juego.velocidad >= 2 ? 2 : 1;
-  const cy = b.y + b.alto / 2;
-  ctx.fillStyle = COLOR.tinta;
-  let x = b.x + 12;
-  for (let i = 0; i < flechas; i++) {
-    ctx.beginPath();
-    ctx.moveTo(x, cy - 7);
-    ctx.lineTo(x + 9, cy);
-    ctx.lineTo(x, cy + 7);
-    ctx.closePath();
-    ctx.fill();
-    x += 8;
-  }
-  ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`${String(juego.velocidad).replace('.', ',')}×`, b.x + b.ancho - 9, cy + 1);
-}
-
-function dibujarTrazado(
+export function dibujarTrazado(
   ctx: CanvasRenderingContext2D,
   trazado: Polilinea,
   P: (p: Punto) => Punto,
@@ -388,10 +419,13 @@ function dibujarTrazado(
   grosor: number,
   compartido: { inicio: number; fin: number } | null = null,
   desplazar?: (s: number) => Punto,
+  /** Parte de la pista que se dibuja, desde arriba (para trazarla al abrirla). */
+  fraccion = 1,
 ): void {
   // La pista empieza y acaba algo separada del nodo para que se lea mejor.
   const L = trazado.longitud;
   const sep = Math.min(CONFIG.pista.separacionNodo, L * 0.2);
+  const limite = sep + (L - 2 * sep) * fraccion;
   const tramos: [number, number][] = compartido
     ? [
         [sep, compartido.inicio],
@@ -400,7 +434,8 @@ function dibujarTrazado(
     : [[sep, L - sep]];
   ctx.strokeStyle = color;
   ctx.lineWidth = grosor;
-  for (const [a, b] of tramos) {
+  for (const [a, hasta] of tramos) {
+    const b = Math.min(hasta, limite);
     if (b <= a) continue;
     const tramo = puntosConLongitud(trazado, a, b).map(({ p, s }) => {
       const q = P(p);
@@ -424,16 +459,16 @@ function puntosConLongitud(l: Polilinea, a: number, b: number): { p: Punto; s: n
 }
 
 /** Línea doble: gruesa del color de tinta con otra fina clara encima. */
-function dibujarRemonte(ctx: CanvasRenderingContext2D, a: Punto, b: Punto, color: string): void {
+export function dibujarRemonte(ctx: CanvasRenderingContext2D, a: Punto, b: Punto, color: string, grosor = 6): void {
   ctx.lineCap = 'butt';
   ctx.strokeStyle = color;
-  ctx.lineWidth = 6;
+  ctx.lineWidth = grosor;
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   ctx.lineTo(b.x, b.y);
   ctx.stroke();
   ctx.strokeStyle = COLOR.hueco;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = grosor / 3;
   ctx.stroke();
   ctx.lineCap = 'round';
 }
@@ -443,13 +478,14 @@ function dibujarRemonte(ctx: CanvasRenderingContext2D, a: Punto, b: Punto, color
  * telesquí, un círculo con 1; telesilla, una cápsula (dos semicírculos unidos
  * por dos rectas tangentes) con 2, atravesada al cable, como una silla; telecabina, un cuadrado de bordes redondeados con 4 (2 × 2).
  */
-function dibujarBolita(ctx: CanvasRenderingContext2D, q: Punto, angulo: number, tipo: number, pasajeros: string[]): void {
+export function dibujarBolita(ctx: CanvasRenderingContext2D, q: Punto, angulo: number, tipo: number, pasajeros: string[], escala = 1): void {
   const d = 2.6; // separación de los puntos respecto al centro
   // El eje x va a lo largo del cable: los dos de la telesilla, en el eje y.
   const sitios: Punto[] = tipo === 0 ? [{ x: 0, y: 0 }] : tipo === 1 ? [{ x: 0, y: -d }, { x: 0, y: d }] : [{ x: -d, y: -d }, { x: d, y: -d }, { x: -d, y: d }, { x: d, y: d }];
   ctx.save();
   ctx.translate(q.x, q.y);
   ctx.rotate(angulo);
+  if (escala !== 1) ctx.scale(escala, escala);
   ctx.fillStyle = COLOR.hueco;
   ctx.strokeStyle = COLOR.tinta;
   ctx.lineWidth = 1.5;
@@ -605,7 +641,7 @@ function dibujarCapsula(ctx: CanvasRenderingContext2D, centros: Punto[], alfa: n
 }
 
 /** Símbolo según el tipo de estación: círculo sale, triángulo llega. */
-function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: Marca): void {
+function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: Punto, activo: boolean, marca: Marca, escala = 1): void {
   ctx.save();
   ctx.globalAlpha = opacidad(activo, marca);
   dibujarAroDestino(ctx, c, RADIO_NODO + 7, marca);
@@ -613,7 +649,8 @@ function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: P
   ctx.strokeStyle = COLOR.tinta;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  const r = RADIO_NODO;
+  // Recién creada, crece con un pequeño rebote.
+  const r = RADIO_NODO * Math.max(0.05, escala);
   if (tipo === 'salida') ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
   else {
     ctx.moveTo(c.x, c.y - r * 1.15);
@@ -626,394 +663,34 @@ function dibujarEstacion(ctx: CanvasRenderingContext2D, tipo: TipoEstacion, c: P
   ctx.restore();
 }
 
-/** Textos de arriba; devuelve la altura (px) por debajo de ellos. */
-function dibujarTextos(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number): number {
-  const lineas = [juego.ayuda()];
-  if (juego.mensaje && performance.now() < juego.mensaje.hasta) lineas.push(juego.mensaje.texto);
-  ctx.font = '14px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  let y = 12;
-  for (const [i, t] of lineas.entries()) {
-    // Un salto de línea en el texto separa renglones; cada uno se parte si no cabe.
-    const partes = t.split('\n').flatMap((r) => partirTexto(ctx, r, Math.min(ancho - 32, 520)));
-    for (const p of partes) {
-      const w = ctx.measureText(p).width;
-      ctx.fillStyle = 'rgba(241, 243, 244, 0.85)';
-      ctx.fillRect(ancho / 2 - w / 2 - 8, y - 3, w + 16, 21);
-      ctx.fillStyle = i === 0 ? COLOR.tinta : COLOR.invalido;
-      ctx.fillText(p, ancho / 2, y);
-      y += 21;
-    }
-    y += 4;
-  }
-  return y;
-}
-
-/**
- * Medidor de quejas, bajo los textos de arriba: se llena con cada enfadado y
- * se vacía solo. Gris hasta la mitad; después se va enrojeciendo.
- */
-function dibujarMedidor(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, y: number): void {
-  const f = juego.sim.fraccionQuejas;
-  const w = Math.min(ancho - 120, 260);
-  const x = ancho / 2 - w / 2 + 26;
-  const h = 7;
-  ctx.save();
-  ctx.font = '600 11px system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.85)';
-  ctx.beginPath();
-  ctx.roundRect(x - 58, y - 4, w + 66, h + 8, 6);
-  ctx.fill();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.fillText('Quejas', x - 6, y + h / 2 + 0.5);
-  ctx.fillStyle = 'rgba(38, 42, 49, 0.15)';
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, h / 2);
-  ctx.fill();
-  if (f > 0) {
-    ctx.fillStyle = mezclar(COLOR.colaVacia, COLOR.colaLlena, Math.max(0, (f - 0.5) / 0.5));
-    ctx.beginPath();
-    ctx.roundRect(x, y, Math.max(h, w * f), h, h / 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function partirTexto(ctx: CanvasRenderingContext2D, texto: string, max: number): string[] {
-  const palabras = texto.split(' ');
-  const lineas: string[] = [];
-  let actual = '';
-  for (const p of palabras) {
-    const prueba = actual ? `${actual} ${p}` : p;
-    if (ctx.measureText(prueba).width > max && actual) {
-      lineas.push(actual);
-      actual = p;
-    } else actual = prueba;
-  }
-  if (actual) lineas.push(actual);
-  return lineas;
-}
-
-
-type Caja = { x: number; y: number; ancho: number; alto: number };
-
-/**
- * Posición del selector de color y de sus cuatro botones, encima del punto
- * tocado y dentro de la pantalla. La comparte la entrada para acertar el toque.
- */
-export function layoutSelector(punto: Punto, ancho: number, alto: number): { panel: Caja; botones: { color: ColorPista; caja: Caja }[] } {
-  const lado = 44;
-  const hueco = 8;
-  const w = COLORES.length * lado + (COLORES.length + 1) * hueco;
-  const h = lado + 2 * hueco;
-  const x = Math.min(Math.max(punto.x - w / 2, 8), ancho - w - 8);
-  let y = punto.y - h - 24;
-  if (y < 70) y = punto.y + 24;
-  y = Math.min(y, alto - h - 70);
-  return {
-    panel: { x, y, ancho: w, alto: h },
-    botones: COLORES.map((color, i) => ({ color, caja: { x: x + hueco + i * (lado + hueco), y: y + hueco, ancho: lado, alto: lado } })),
-  };
-}
-
-function dibujarSelector(ctx: CanvasRenderingContext2D, juego: Juego, punto: Punto, ancho: number, alto: number): void {
-  const sel = juego.selector!;
-  const { panel, botones } = layoutSelector(punto, ancho, alto);
-  ctx.save();
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.96)';
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(panel.x, panel.y, panel.ancho, panel.alto, 12);
-  ctx.fill();
-  ctx.stroke();
-  for (const { color, caja } of botones) {
-    const factible = sel.colores.find((c) => c.color === color)!.factible;
-    const cx = caja.x + caja.ancho / 2;
-    const cy = caja.y + caja.alto / 2;
-    ctx.globalAlpha = factible ? 1 : 0.22;
-    ctx.fillStyle = COLOR_PISTA[color];
-    ctx.beginPath();
-    ctx.arc(cx, cy, caja.ancho / 2 - 3, 0, Math.PI * 2);
-    ctx.fill();
-    const f = sel.colores.find((c) => c.color === color)!;
-    if (factible && pistaForzada(color, f.p, juego.red.reglas.pista.bandas)) {
-      // Borde rojo suave: cabe, pero es empinada para su color y los
-      // esquiadores de ese nivel se divertirán menos en ella.
-      ctx.strokeStyle = COLOR.forzada;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx, cy, caja.ancho / 2 - 1.5, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    if (!factible) {
-      // Aspa: este color no cabe con la pendiente de esa pareja.
-      ctx.globalAlpha = 0.7;
-      ctx.strokeStyle = COLOR.tinta;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx - 9, cy - 9);
-      ctx.lineTo(cx + 9, cy + 9);
-      ctx.moveTo(cx + 9, cy - 9);
-      ctx.lineTo(cx - 9, cy + 9);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-const NOMBRE_COLOR: Record<ColorPista, string> = { verde: 'Verde', azul: 'Azul', roja: 'Roja', negra: 'Negra' };
-
-/** Etiqueta con los datos de una pista (solo en el modo de ajustes). */
-function dibujarInfoPista(ctx: CanvasRenderingContext2D, juego: Juego, punto: Punto, ancho: number): void {
-  const p = juego.red.pistas[juego.infoPista!.pista];
-  const coma = (x: number, d: number) => x.toFixed(d).replace('.', ',');
-  const lineas = [
-    `${NOMBRE_COLOR[p.color]}${p.fueraDeRango ? ' (fuera de rango)' : ''}${juego.red.forzada(p) ? ' · forzada' : ''}`,
-    `dificultad efectiva: ${NOMBRE_COLOR[COLORES[juego.red.dificultad(p)]]}`,
-    `s = ${coma(p.s, 2)} · pendiente ${coma(p.pendiente * 100, 1)} %`,
-  ];
-  if (p.compartido) lineas.push(`comparte ${Math.round(p.compartido.fin - p.compartido.inicio)} m`);
-  ctx.save();
-  ctx.font = '13px system-ui, sans-serif';
-  const w = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + 20;
-  const h = lineas.length * 18 + 12;
-  const x = Math.min(Math.max(punto.x - w / 2, 8), ancho - w - 8);
-  const y = Math.max(punto.y - h - 16, 70);
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.96)';
-  ctx.strokeStyle = COLOR_PISTA[p.color];
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 8);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  lineas.forEach((l, i) => ctx.fillText(l, x + 10, y + 8 + i * 18));
-  ctx.restore();
-}
-
 /** Mezcla dos colores hex: t = 0 da el primero, t = 1 el segundo. */
-function mezclar(a: string, b: string, t: number): string {
+export function mezclar(a: string, b: string, t: number): string {
   const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const [x, y] = [rgb(a), rgb(b)];
   return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`;
 }
 
 /** Color de un esquiador: el de su nivel (la especificación descarta cambiarlo con el contento). */
-function colorEsquiador(perfil: Perfil | undefined): string {
+export function colorEsquiador(perfil: Perfil | undefined): string {
   return perfil ? COLOR_PISTA[COLORES[perfil.nivel]] : COLOR.esquiador;
 }
 
 /**
- * Contadores por nivel, abajo en el centro, justo encima de los botones (entre
- * ellos no caben en un móvil estrecho). Una columna por color:
- * - arriba, un punto del color y cuántos de ese nivel hay en la estación;
- * - debajo, un punto blanco (como el parpadeo del mapa) con cuántos de ese
- *   nivel están a un punto de irse, y ✕ con cuántos se han ido enfadados (en
- *   rojo si hay alguno).
+ * Anillo de cola alrededor de una estación: una pista gris de fondo y un arco
+ * que se llena del gris al rojo. Cerca de llenarse, late.
  */
-function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
-  const { sim } = juego;
-  const n = sim.porNivel();
-  const enRiesgo = sim.aPuntoDeIrsePorNivel();
-  const paso = 76;
-  const x0 = ancho / 2 - (paso * (n.length - 1)) / 2 - 22;
-  const y1 = alto - 92;
-  const y2 = alto - 74;
-  ctx.save();
-  // Barra de kilómetros de pista por color, con una marca en cada frontera de
-  // la mezcla de llegadas: si un color queda corto respecto a su marca, a ese
-  // nivel le falta pista.
-  const km = kmPorColor(juego.red);
-  if (km.some((k) => k > 0)) {
-    const anchoBarra = paso * (n.length - 1) + 60;
-    const xb = ancho / 2 - anchoBarra / 2;
-    const yb = alto - 112;
-    const oferta = fracciones(km);
-    const demanda = fracciones(sim.mezclaActual);
-    let x = xb;
-    oferta.forEach((f, i) => {
-      ctx.fillStyle = COLOR_PISTA[COLORES[i]];
-      ctx.fillRect(x, yb, anchoBarra * f, 6);
-      x += anchoBarra * f;
-    });
-    ctx.strokeStyle = COLOR.hueco;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(xb - 0.5, yb - 0.5, anchoBarra + 1, 7);
-    let acumulada = 0;
-    ctx.fillStyle = COLOR.tinta;
-    for (let i = 0; i < demanda.length - 1; i++) {
-      acumulada += demanda[i];
-      if (demanda[i + 1] <= 0 && acumulada >= 1) break;
-      const xm = xb + anchoBarra * acumulada;
-      ctx.beginPath();
-      ctx.moveTo(xm, yb - 1);
-      ctx.lineTo(xm - 3.5, yb - 6);
-      ctx.lineTo(xm + 3.5, yb - 6);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  n.forEach((v, i) => {
-    const x = x0 + i * paso;
-    ctx.fillStyle = COLOR_PISTA[COLORES[i]];
-    ctx.strokeStyle = COLOR.hueco;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(x, y1, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.font = '600 12px system-ui, sans-serif';
-    ctx.fillStyle = COLOR.tinta;
-    ctx.fillText(String(v), x + 9, y1 + 1);
-    // A un punto de irse.
-    ctx.fillStyle = COLOR.hueco;
-    ctx.strokeStyle = COLOR.vacio;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y2, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.font = '600 11px system-ui, sans-serif';
-    ctx.fillStyle = enRiesgo[i] > 0 ? COLOR.tinta : COLOR.vacio;
-    ctx.fillText(String(enRiesgo[i]), x + 7, y2 + 1);
-    const enfadados = sim.quejasPorNivel[i];
-    ctx.fillStyle = enfadados > 0 ? COLOR.colaLlena : COLOR.vacio;
-    ctx.fillText(`✕${enfadados}`, x + 9 + ctx.measureText(String(enRiesgo[i])).width + 8, y2 + 1);
-  });
-  ctx.restore();
-}
-
-/** Panel de la pregunta de mejora y sus dos botones. */
-export function layoutMejora(ancho: number, alto: number): { panel: Rect; si: Rect; no: Rect } {
-  const w = Math.min(ancho - 32, 340);
-  const h = 120;
-  const panel = { x: ancho / 2 - w / 2, y: alto - 120 - h - 16, ancho: w, alto: h };
-  const bw = (w - 16 * 3) / 2;
-  const by = panel.y + h - 44 - 14;
-  return {
-    panel,
-    si: { x: panel.x + 16, y: by, ancho: bw, alto: 44 },
-    no: { x: panel.x + 32 + bw, y: by, ancho: bw, alto: 44 },
-  };
-}
-
-/** Pregunta de mejora de un remonte (pulsación larga), encima de los contadores. */
-function dibujarMejora(ctx: CanvasRenderingContext2D, juego: Juego, ancho: number, alto: number): void {
-  const m = juego.mejora!;
-  const { panel, si, no } = layoutMejora(ancho, alto);
-  const alcanza = m.precio <= juego.monedas;
-  ctx.save();
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.96)';
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(panel.x, panel.y, panel.ancho, panel.alto, 12);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.font = '14px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const lineas = partirTexto(ctx, juego.textoMejora(), panel.ancho - 24);
-  lineas.forEach((l, i) => ctx.fillText(l, panel.x + panel.ancho / 2, panel.y + 20 + i * 19));
-  for (const [b, texto, activo] of [
-    [si, alcanza ? 'Mejorar' : 'Faltan monedas', alcanza],
-    [no, 'Cancelar', true],
-  ] as const) {
-    ctx.globalAlpha = activo ? 1 : 0.45;
-    ctx.fillStyle = COLOR.hueco;
-    ctx.strokeStyle = COLOR.tinta;
-    ctx.beginPath();
-    ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = COLOR.tinta;
-    ctx.font = '600 14px system-ui, sans-serif';
-    ctx.fillText(texto, b.x + b.ancho / 2, b.y + b.alto / 2 + 1);
-  }
-  ctx.restore();
-}
-
-/** Botón «Nueva partida» del panel final. */
-export function rectNuevaPartida(ancho: number, alto: number): Rect {
-  const w = 160;
-  return { x: ancho / 2 - w / 2, y: alto / 2 + 28, ancho: w, alto: 44 };
-}
-
-/**
- * Fin de la partida: el punto donde más esquiadores se han ido enfadados
- * (cuello de botella) con un anillo rojo y un panel con el resultado.
- */
-function dibujarFin(ctx: CanvasRenderingContext2D, juego: Juego, P: (p: Punto) => Punto, ancho: number, alto: number): void {
-  const { sim, red } = juego;
-  const cuello = sim.cuelloDeBotella();
-  if (cuello !== null) {
-    const c = P(cuello >= 0 ? red.nodo(cuello) : juego.plaza);
-    const pulso = 0.5 + 0.5 * Math.sin(performance.now() / 400);
-    ctx.save();
-    ctx.strokeStyle = COLOR.colaLlena;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, RADIO_NODO + 10 + 6 * pulso, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-  const w = Math.min(ancho - 32, 340);
-  const h = 170;
-  const x = ancho / 2 - w / 2;
-  const y = alto / 2 - h / 2;
-  ctx.save();
-  ctx.fillStyle = 'rgba(241, 243, 244, 0.95)';
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 12);
-  ctx.fill();
-  ctx.stroke();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = COLOR.tinta;
-  ctx.font = '600 18px system-ui, sans-serif';
-  ctx.fillText('Demasiadas quejas', ancho / 2, y + 26);
-  ctx.font = '14px system-ui, sans-serif';
-  const t = sim.tiempoAbierta;
-  ctx.fillText(`Has aguantado ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} con la estación abierta.`, ancho / 2, y + 56);
-  ctx.fillText(`Satisfechos: ${sim.cansados} · Enfadados: ${sim.enfadados}`, ancho / 2, y + 78);
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.fillStyle = COLOR.vacio;
-  ctx.fillText(cuello !== null ? 'En rojo, donde más se han ido enfadados.' : '', ancho / 2, y + 100);
-  const b = rectNuevaPartida(ancho, alto);
-  ctx.fillStyle = COLOR.hueco;
-  ctx.strokeStyle = COLOR.tinta;
-  ctx.beginPath();
-  ctx.roundRect(b.x, b.y, b.ancho, b.alto, 10);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = COLOR.tinta;
-  ctx.font = '600 15px system-ui, sans-serif';
-  ctx.fillText('Nueva partida', ancho / 2, b.y + b.alto / 2 + 1);
-  ctx.restore();
-}
-
-/** Anillo de cola alrededor de una estación: arco lleno en la fracción dada. */
-function dibujarAnilloCola(ctx: CanvasRenderingContext2D, c: Punto, fraccion: number): void {
+function dibujarAnilloCola(ctx: CanvasRenderingContext2D, c: Punto, fraccion: number, ahora: number): void {
   const f = Math.min(1, Math.max(0, fraccion));
-  const r = RADIO_NODO + 4;
+  const late = f > 0.7 ? 1 + 0.5 * Math.sin(ahora * 9) * (f - 0.7) / 0.3 : 1;
+  const r = RADIO_NODO + 5.5;
   ctx.save();
-  ctx.lineWidth = 3;
   ctx.lineCap = 'butt';
-  ctx.strokeStyle = 'rgba(38, 42, 49, 0.15)';
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = 'rgba(241, 243, 244, 0.85)';
   ctx.beginPath();
   ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.lineWidth = 4 * late;
   ctx.strokeStyle = mezclar(COLOR.colaVacia, COLOR.colaLlena, f);
   ctx.beginPath();
   ctx.arc(c.x, c.y, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2);

@@ -30,6 +30,15 @@ export interface Arrastre {
   objetivo: { nodo: number; tipo: 'remonte' | 'pista'; motivo: Motivo | MotivoTrazado; espera?: boolean } | null;
 }
 
+/** Lo que acaba de hacer el jugador (ver Juego.eventos). */
+export type EventoJuego =
+  | { tipo: 'remonte'; id: number }
+  | { tipo: 'pista'; id: number }
+  | { tipo: 'mejora'; id: number }
+  | { tipo: 'deshacer' }
+  /** Algo que no se puede hacer (se avisa con un texto corto). */
+  | { tipo: 'aviso' };
+
 export interface Selector {
   proyecto: Proyecto;
   /** Punto del mundo junto al que se coloca el selector. */
@@ -103,8 +112,15 @@ export class Juego {
   arrastre: Arrastre | null = null;
   selector: Selector | null = null;
   mensaje: { texto: string; hasta: number } | null = null;
-  /** Velocidad elegida (1×, 2× o 0,5×); el tiempo de juego va a `CONFIG.tiempo.escala` veces esto. */
+  /** Velocidad elegida (1× o 2×); el tiempo de juego va a `CONFIG.tiempo.escala` veces esto. */
   velocidad: number = CONFIG.tiempo.velocidades[0];
+  /** En pausa el tiempo no avanza, pero se puede construir. */
+  pausado = false;
+  /**
+   * Obras recientes, para las animaciones y el sonido (quien dibuja vacía la
+   * lista en cada fotograma; los de la simulación están en `sim.eventos`).
+   */
+  readonly eventos: EventoJuego[] = [];
   /** Mejora de un remonte pendiente de confirmar (pulsación larga sobre él). */
   mejora: { remonte: number; precio: number; punto: Punto } | null = null;
   /**
@@ -215,9 +231,10 @@ export class Juego {
     if (motivo !== 'ok') return motivo;
     const precio = this.precioRemonteEntre(desde, hasta);
     if (precio > this.monedas) return 'sin-monedas';
-    this.red.construirRemonte(desde, hasta);
+    const r = this.red.construirRemonte(desde, hasta);
     this.sim.monedas -= precio;
     this.ultimaObra = hasta;
+    this.emitir({ tipo: 'remonte', id: r.id });
     return 'ok';
   }
 
@@ -233,8 +250,9 @@ export class Juego {
     const { lado } = e.proyecto;
     if (this.red.puedeAbrirPista(desde, hasta, color, lado, c.giro) !== 'ok') return false;
     if (!this.red.coloresLimpios(desde, hasta, lado, c.giro).find((x) => x.color === color)?.factible) return false;
-    this.red.abrirPista(desde, hasta, color, lado, c.giro);
+    const p = this.red.abrirPista(desde, hasta, color, lado, c.giro);
     this.ultimaObra = hasta;
+    this.emitir({ tipo: 'pista', id: p.id });
     return true;
   }
 
@@ -251,6 +269,7 @@ export class Juego {
     if (precio > this.monedas) return 'sin-monedas';
     this.red.mejorarRemonte(id, TIPO_MAXIMO);
     this.sim.monedas -= precio;
+    this.emitir({ tipo: 'mejora', id });
     return 'ok';
   }
 
@@ -397,10 +416,6 @@ export class Juego {
     return this.sim.terminada;
   }
 
-  /** Nueva partida: recarga la página (mismo mapa y parámetros de la dirección). */
-  nuevaPartida(): void {
-    location.reload();
-  }
 
   cambiarVelocidad(): void {
     const v: readonly number[] = CONFIG.tiempo.velocidades;
@@ -409,6 +424,31 @@ export class Juego {
 
   private avisar(texto: string): void {
     this.mensaje = { texto, hasta: performance.now() + 2500 };
+    this.emitir({ tipo: 'aviso' });
+  }
+
+  private emitir(e: EventoJuego): void {
+    this.eventos.push(e);
+    if (this.eventos.length > 100) this.eventos.splice(0, 50);
+  }
+
+  alternarPausa(): void {
+    this.pausado = !this.pausado;
+  }
+
+  /** Día de la temporada (1, 2…) según el tiempo con la estación abierta. */
+  get dia(): number {
+    return Math.floor(this.sim.tiempoAbierta / CONFIG.dia.duracion) + 1;
+  }
+
+  /** Días completos sobrevividos, con decimales (puntuación). */
+  get diasSobrevividos(): number {
+    return this.sim.tiempoAbierta / CONFIG.dia.duracion;
+  }
+
+  /** Momento del día, de 0 (amanecer) a 1 (fin de la noche). */
+  get horaDelDia(): number {
+    return (this.sim.tiempoAbierta / CONFIG.dia.duracion) % 1;
   }
 
   // ---- Calentamiento de cachés en segundo plano ----
@@ -525,8 +565,9 @@ export class Juego {
       this.avisar('Esa pista ya no se puede abrir.');
       return;
     }
-    this.red.abrirPista(desde, hasta, color, lado, giro);
+    const p = this.red.abrirPista(desde, hasta, color, lado, giro);
     this.ultimaObra = hasta;
+    this.emitir({ tipo: 'pista', id: p.id });
   }
 
   /** Tras cambiar parámetros de pista (panel de ajustes): rehace todo. */
@@ -657,27 +698,10 @@ export class Juego {
     this.mejora = null;
     const h = this.red.deshacer();
     if (!h) return;
+    this.emitir({ tipo: 'deshacer' });
     this.sim.alDeshacer(h);
     // Deshacer un remonte devuelve todo lo pagado por él (con sus mejoras).
     if (h.tipo === 'remonte') this.sim.monedas += precioRemonte(h.remonte.longitud, h.remonte.tipo, CONFIG.economia);
   }
 
-  /** Indicación para el jugador según el estado de la red. */
-  ayuda(): string {
-    const h = this.herramientaMapa;
-    if (h === 'mover') return 'Editor: arrastra un punto para moverlo. Su cota sale del terreno.';
-    if (h === 'borrar') return 'Editor: toca un punto para borrarlo, con lo que se apoyaba en él.';
-    if (h) return `Editor: toca el mapa para añadir ${h === 'base' ? 'una base' : h === 'cima' ? 'una cima' : 'un intermedio'}.`;
-    if (this.red.remontes.length === 0) return 'Arrastra desde un punto junto a la plaza hasta otro más alto para construir un remonte. Pellizca para acercar y arrastra el fondo para moverte.';
-    if (this.selector?.espera) return 'Pista en espera: ese punto aún no tiene salida. Elige el color; se activará sola cuando construyas desde él un remonte que funcione.';
-    if (this.selector) return 'Elige el color de la pista. Los apagados no caben con esa pendiente o enmarañarían las pistas; el borde rojo, forzada.';
-    const parado = this.red.remontes.find((r) => !this.red.enServicio(r));
-    if (parado) return 'El remonte gris necesita una bajada: arrastra desde su llegada hasta un punto más bajo y elige color.';
-    const s = this.sim;
-    return (
-      `Monedas: ${Math.floor(s.monedas)} · Ingresos: +${Math.round(s.ingresosPorMinuto)}/min\n` +
-      `Mantenimiento: −${Math.round(s.mantenimientoPorMinuto)}/min · Con diversión: ${s.fraccionConDiversion === null ? '–' : `${Math.round(s.fraccionConDiversion * 100)} %`}\n` +
-      `Llegados: ${s.llegados} (${Math.round(s.llegadasPorMinuto)}/min) · Satisfechos: ${s.cansados}`
-    );
-  }
 }

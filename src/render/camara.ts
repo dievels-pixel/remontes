@@ -42,6 +42,13 @@ export class Camara {
     this.limitar();
   }
 
+  /** Acerca la vista al encaje del mundo entero una parte `k` (0 a 1) de lo que falta. */
+  haciaEncaje(k: number): void {
+    this.escala += (this.escalaEncaje - this.escala) * Math.min(1, k);
+    if (Math.abs(this.escala - this.escalaEncaje) < this.escalaEncaje * 0.002) this.escala = this.escalaEncaje;
+    this.limitar();
+  }
+
   /** Desplaza la vista lo que se ha movido el dedo (px). */
   desplazar(ddx: number, ddy: number): void {
     this.dx += ddx;
