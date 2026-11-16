@@ -3,7 +3,9 @@
 //
 // Gestos: arrastrar desde un punto hacia otro más alto construye un remonte;
 // hacia uno más bajo, una pista (al soltar se elige el color).
-import { CONFIG } from './config';
+import { CONFIG, type Config } from './config';
+import { aplicarParametros, type ParametrosNivel } from './core/nivel';
+import type { ResumenPartida } from './core/retos';
 import { trazarCarretera } from './core/afluencia';
 import { MapaAlturas } from './core/alturas';
 import { NOMBRES_TIPO, TIPO_MAXIMO, precioMejora, precioRemonte } from './core/economia';
@@ -114,6 +116,11 @@ export class Juego {
   mensaje: { texto: string; hasta: number } | null = null;
   /** Velocidad elegida (1× o 2×); el tiempo de juego va a `CONFIG.tiempo.escala` veces esto. */
   velocidad: number = CONFIG.tiempo.velocidades[0];
+  /** Configuración de esta partida: la de config.ts con los parámetros del nivel encima. */
+  readonly config: Config;
+  /** Máximos alcanzados durante la partida (para los retos). */
+  private maxRemontes = 0;
+  private maxTelecabinas = 0;
   /** En pausa el tiempo no avanza, pero se puede construir. */
   pausado = false;
   /**
@@ -140,8 +147,11 @@ export class Juego {
     readonly mapa: Mapa,
     /** Semilla del azar de la simulación (llegadas, niveles, elecciones). */
     private readonly semilla = 12345,
+    /** Parámetros de balance propios del nivel: se mezclan sobre los de config.ts. */
+    parametros: ParametrosNivel = {},
   ) {
-    const { pista, remonte } = CONFIG;
+    this.config = aplicarParametros(CONFIG, parametros);
+    const { pista, remonte } = this.config;
     const { datos } = mapa;
     this.alturas = mapa.alturas;
     this.definicion = datos.nodos.map((d) => ({ ...d }));
@@ -159,7 +169,7 @@ export class Juego {
       maxPistasPorPareja: pista.maxPorPareja,
       // Copia modificable (bandas incluidas): el panel de ajustes la cambia en memoria.
       pista: { ...pista, bandas: copiarBandas(pista.bandas) },
-      maxEstacionesPorNodo: CONFIG.estaciones.maxPorEmplazamiento,
+      maxEstacionesPorNodo: this.config.estaciones.maxPorEmplazamiento,
       // La plaza del pie de pistas es un obstáculo para las pistas.
       obstaculos: [datos.plaza],
       // Para exigir que las pistas salgan cuesta abajo según el terreno.
@@ -174,20 +184,20 @@ export class Juego {
       capacidadBolita: remonte.capacidad,
       capacidadPorTipo: [...remonte.capacidadPorTipo],
       factorVelocidadPorTipo: [...remonte.factorVelocidadPorTipo],
-      pago: { tarifas: [...CONFIG.economia.tarifas], multiplicadorVariedad: CONFIG.economia.multiplicadorVariedad, factorSinDiversion: CONFIG.economia.factorSinDiversion },
-      mantenimiento: { porMetroYMinuto: CONFIG.economia.mantenimiento.porMetroYMinuto, factorPorTipo: [...CONFIG.economia.mantenimiento.factorPorTipo] },
-      ...CONFIG.esquiador,
+      pago: { tarifas: [...this.config.economia.tarifas], multiplicadorVariedad: this.config.economia.multiplicadorVariedad, factorSinDiversion: this.config.economia.factorSinDiversion },
+      mantenimiento: { porMetroYMinuto: this.config.economia.mantenimiento.porMetroYMinuto, factorPorTipo: [...this.config.economia.mantenimiento.factorPorTipo] },
+      ...this.config.esquiador,
       // Con la curva de afluencia, estos dos no se usan (la curva manda).
-      llegadasPorMinuto: CONFIG.afluencia.tasaInicial,
-      mezclaNiveles: [...CONFIG.afluencia.mezcla[0].pesos],
+      llegadasPorMinuto: this.config.afluencia.tasaInicial,
+      mezclaNiveles: [...this.config.afluencia.mezcla[0].pesos],
       afluencia: {
-        ...CONFIG.afluencia,
-        mezcla: CONFIG.afluencia.mezcla.map((m) => ({ minuto: m.minuto, pesos: [...m.pesos] })),
+        ...this.config.afluencia,
+        mezcla: this.config.afluencia.mezcla.map((m) => ({ minuto: m.minuto, pesos: [...m.pesos] })),
       },
-      velocidadCarretera: CONFIG.afluencia.velocidadCarretera,
-      medidor: { capacidad: CONFIG.quejas.capacidad, vaciadoPorMinuto: CONFIG.quejas.vaciadoPorMinuto, gracia: CONFIG.quejas.gracia },
-      aforoCola: CONFIG.colas.aforo,
-      tiempoAnillo: CONFIG.colas.tiempoAnillo,
+      velocidadCarretera: this.config.afluencia.velocidadCarretera,
+      medidor: { capacidad: this.config.quejas.capacidad, vaciadoPorMinuto: this.config.quejas.vaciadoPorMinuto, gracia: this.config.quejas.gracia },
+      aforoCola: this.config.colas.aforo,
+      tiempoAnillo: this.config.colas.tiempoAnillo,
     };
     this.sim = this.nuevaSimulacion();
   }
@@ -195,7 +205,7 @@ export class Juego {
   private nuevaSimulacion(): Simulacion {
     const entrada = this.carretera[this.carretera.length - 1];
     const sim = new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(this.semilla), this.carretera);
-    sim.monedas = CONFIG.economia.monedasIniciales;
+    sim.monedas = this.config.economia.monedasIniciales;
     return sim;
   }
 
@@ -208,7 +218,7 @@ export class Juego {
 
   /** Precio de un remonte nuevo (telesquí) entre dos puntos. */
   precioRemonteEntre(desde: number, hasta: number): number {
-    return precioRemonte(distancia(this.red.nodo(desde), this.red.nodo(hasta)), 0, CONFIG.economia);
+    return precioRemonte(distancia(this.red.nodo(desde), this.red.nodo(hasta)), 0, this.config.economia);
   }
 
   /** Precio del remonte que se soltaría ahora, si el arrastre apunta a uno válido. */
@@ -259,7 +269,7 @@ export class Juego {
   /** Precio de mejorar un remonte al tipo siguiente, o null si ya es del máximo. */
   precioMejoraDe(id: number): number | null {
     const r = this.red.remontes[id];
-    return r && r.tipo < TIPO_MAXIMO ? precioMejora(r.longitud, r.tipo, CONFIG.economia) : null;
+    return r && r.tipo < TIPO_MAXIMO ? precioMejora(r.longitud, r.tipo, this.config.economia) : null;
   }
 
   /** Mejora un remonte al tipo siguiente cobrando la diferencia. */
@@ -304,7 +314,7 @@ export class Juego {
       return true;
     }
     this.selector = null;
-    this.mejora = { remonte: id, precio: precioMejora(r.longitud, r.tipo, CONFIG.economia), punto: p };
+    this.mejora = { remonte: id, precio: precioMejora(r.longitud, r.tipo, this.config.economia), punto: p };
     return true;
   }
 
@@ -409,6 +419,24 @@ export class Juego {
 
   paso(dt: number): void {
     this.sim.paso(dt);
+    const n = this.red.remontes.length;
+    if (n > this.maxRemontes) this.maxRemontes = n;
+    let cabinas = 0;
+    for (const r of this.red.remontes) if (r.tipo >= TIPO_MAXIMO) cabinas++;
+    if (cabinas > this.maxTelecabinas) this.maxTelecabinas = cabinas;
+  }
+
+  /** Lo ocurrido en la partida hasta ahora, para los retos y el récord. */
+  resumen(): ResumenPartida {
+    return {
+      dias: this.diasSobrevividos,
+      satisfechos: this.sim.cansados,
+      enfadados: this.sim.enfadados,
+      bajadasNegros: this.sim.bajadasPorNivel[3],
+      maxRemontes: Math.max(this.maxRemontes, this.red.remontes.length),
+      maxTelecabinas: Math.max(this.maxTelecabinas, this.red.remontes.filter((r) => r.tipo >= TIPO_MAXIMO).length),
+      pistasForzadas: this.red.pistas.filter((p) => this.red.forzada(p)).length,
+    };
   }
 
   /** Se ha llenado el medidor de quejas. */
@@ -418,7 +446,7 @@ export class Juego {
 
 
   cambiarVelocidad(): void {
-    const v: readonly number[] = CONFIG.tiempo.velocidades;
+    const v: readonly number[] = this.config.tiempo.velocidades;
     this.velocidad = v[(v.indexOf(this.velocidad) + 1) % v.length];
   }
 
@@ -438,17 +466,17 @@ export class Juego {
 
   /** Día de la temporada (1, 2…) según el tiempo con la estación abierta. */
   get dia(): number {
-    return Math.floor(this.sim.tiempoAbierta / CONFIG.dia.duracion) + 1;
+    return Math.floor(this.sim.tiempoAbierta / this.config.dia.duracion) + 1;
   }
 
   /** Días completos sobrevividos, con decimales (puntuación). */
   get diasSobrevividos(): number {
-    return this.sim.tiempoAbierta / CONFIG.dia.duracion;
+    return this.sim.tiempoAbierta / this.config.dia.duracion;
   }
 
   /** Momento del día, de 0 (amanecer) a 1 (fin de la noche). */
   get horaDelDia(): number {
-    return (this.sim.tiempoAbierta / CONFIG.dia.duracion) % 1;
+    return (this.sim.tiempoAbierta / this.config.dia.duracion) % 1;
   }
 
   // ---- Calentamiento de cachés en segundo plano ----
@@ -473,11 +501,11 @@ export class Juego {
    * pasarse del presupuesto. Si el dedo llega antes a un punto sin calcular,
    * se calcula en el momento, como siempre.
    */
-  calentar(ms: number = CONFIG.calentamiento.msPorFotograma): void {
+  calentar(ms: number = this.config.calentamiento.msPorFotograma): void {
     const inicio = performance.now();
     if (this.calentamiento?.version !== this.red.version) {
       const obra = this.ultimaObra !== null && this.red.nodos[this.ultimaObra] ? this.red.nodo(this.ultimaObra) : this.plaza;
-      this.calentamiento = { version: this.red.version, tareas: tareasCalentamiento(this.red, obra, CONFIG.calentamiento.destinosPorOrigen), siguiente: 0, enCurso: null };
+      this.calentamiento = { version: this.red.version, tareas: tareasCalentamiento(this.red, obra, this.config.calentamiento.destinosPorOrigen), siguiente: 0, enCurso: null };
     }
     const c = this.calentamiento;
     // Las tareas de bajada y de arranque prueban muchos candidatos: van por
@@ -701,7 +729,7 @@ export class Juego {
     this.emitir({ tipo: 'deshacer' });
     this.sim.alDeshacer(h);
     // Deshacer un remonte devuelve todo lo pagado por él (con sus mejoras).
-    if (h.tipo === 'remonte') this.sim.monedas += precioRemonte(h.remonte.longitud, h.remonte.tipo, CONFIG.economia);
+    if (h.tipo === 'remonte') this.sim.monedas += precioRemonte(h.remonte.longitud, h.remonte.tipo, this.config.economia);
   }
 
 }

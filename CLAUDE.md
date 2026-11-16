@@ -29,7 +29,8 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Las pruebas no deben depender de los valores calibrados de `src/config.ts`: cada red de prueba lleva su propia copia de los parámetros (`test/apoyo.ts`), y las que se escribieron con valores concretos los fijan (`conValoresClasicos`, `BANDAS_CLASICAS`).
 - Para probar en el navegador: `npx vite` y Playwright con un móvil emulado (Pixel 7). En desarrollo, `window.juego`, `window.camara` y `window.partida` (la pantalla de partida: guía, animaciones) están expuestos para guiar las pruebas.
 - Dibujo del mundo en `src/render/escena.ts`; interfaz y su disposición (común a dibujo y entrada) en `src/render/interfaz.ts`; animaciones en `src/render/efectos.ts`; pantalla de partida en `src/partida.ts`.
-- Los mapas están en `mapas/<nombre>/` (`alturas.png` y `mapa.json`) y se eligen con `?mapa=<nombre>` (por defecto, `gran-dominio`; también `dos-valles` e `inicial`). Los genera un script de `scripts/`; el juego solo los carga.
+- Los niveles del juego están en `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`) y se listan en `niveles/indice.json`; el formato está en `FORMATO_NIVEL.md` y el cargador es `src/niveles.ts`. `?nivel=<id>` abre uno directamente. El código no debe contener nada propio de un nivel.
+- `mapas/<nombre>/` (`gran-dominio`, `dos-valles`, `inicial`) son mapas de prueba para las pruebas automáticas y los scripts de medida; el juego no los carga. No cambiarlos: las pruebas usan sus coordenadas.
 - `?ajustes` abre un panel temporal de calibración (`src/herramientas/ajustes.ts`), que no forma parte del juego. Los valores que el usuario fija con él se copian a `src/config.ts`.
 
 # Diseño del juego

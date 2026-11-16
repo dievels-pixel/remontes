@@ -65,7 +65,7 @@ Qué falla o aburre:
 | 0. Auditoría | Hecha (este documento) |
 | 1. Cerrar el núcleo y calibrarlo | Hecha: ver `CALIBRACION.md`. Elección de ruta por novedad y suma, periodo de gracia, afluencia acelerada, barra de kilómetros por color, jugadores automáticos en `src/bots/` y `npm run calibrar`. |
 | 2. Animación, sonido y sensación | Hecha: animaciones (`src/render/efectos.ts`), mundo e interfaz separados (`escena.ts`, `interfaz.ts`), música (`src/audio/`), guía sin texto (`src/render/guia.ts`), pausa y 1×/2×, ciclo de día, fin de partida y pantalla de partida que se crea y se destruye sin recargar (`src/partida.ts`, `src/main.ts`). |
-| 3. Niveles y retos | Pendiente |
+| 3. Niveles y retos | Hecha: `niveles/` (índice y carpeta de Espot), cargador único (`src/niveles.ts`), parámetros por nivel (`Juego.config`), retos (`src/core/retos.ts`), progreso (`src/progreso.ts`) y `FORMATO_NIVEL.md`. |
 | 4. Pantalla inicial | Pendiente |
 | 5. Cierre | Pendiente |
 

@@ -2,7 +2,6 @@
 // día), contadores por color, botones, selector de color, pregunta de mejora,
 // avisos y fin de partida. La disposición (dónde va cada cosa según el tamaño
 // y la orientación de la pantalla) es común al dibujo y a la entrada.
-import { CONFIG } from '../config';
 import { COLORES, pistaForzada, type ColorPista } from '../core/colores';
 import { fracciones, kmPorColor } from '../core/indicadores';
 import type { Punto } from '../core/vector';
@@ -182,7 +181,7 @@ export function dibujarInterfaz(
     ctx.roundRect(m.x, m.y, m.ancho, m.alto, m.alto / 2);
     ctx.fill();
     if (f > 0) {
-      const late = f >= CONFIG.quejas.aviso ? 0.75 + 0.25 * Math.sin(fx.ahora * 5) : 1;
+      const late = f >= juego.config.quejas.aviso ? 0.75 + 0.25 * Math.sin(fx.ahora * 5) : 1;
       ctx.globalAlpha = visible * late;
       ctx.fillStyle = mezclar(COLOR.colaVacia, COLOR.colaLlena, Math.max(0, (f - 0.4) / 0.6));
       ctx.beginPath();

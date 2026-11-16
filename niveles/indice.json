@@ -1,0 +1,27 @@
+{
+  "niveles": [
+    {
+      "id": "espot"
+    },
+    {
+      "id": "proximo-1",
+      "bloqueado": true
+    },
+    {
+      "id": "proximo-2",
+      "bloqueado": true
+    },
+    {
+      "id": "proximo-3",
+      "bloqueado": true
+    },
+    {
+      "id": "proximo-4",
+      "bloqueado": true
+    },
+    {
+      "id": "proximo-5",
+      "bloqueado": true
+    }
+  ]
+}

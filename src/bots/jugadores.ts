@@ -8,7 +8,6 @@
 // - de una sola idea (para comprobar que ninguna gana): todoVerde (siempre el
 //   color más fácil que quepa), soloMejora (dos remontes y luego solo mejora)
 //   y soloAmplia (nunca mejora).
-import { CONFIG } from '../config';
 import { mezclaEn } from '../core/afluencia';
 import type { Azar } from '../core/azar';
 import { COLORES, type ColorPista } from '../core/colores';
@@ -99,7 +98,7 @@ function mejorRemonte(j: Juego, desde: Nodo[], valorar: (o: Nodo, d: Nodo, preci
   const cands: Candidato[] = [];
   for (const o of desde) {
     const altos = red.nodos
-      .filter((n) => n.cota > o.cota + CONFIG.remonte.desnivelMinimo && !pares.has(`${o.id}:${n.id}`))
+      .filter((n) => n.cota > o.cota + j.config.remonte.desnivelMinimo && !pares.has(`${o.id}:${n.id}`))
       .sort((a, b) => dist(a, o) - dist(b, o))
       .slice(0, alcance);
     for (const d of altos) {

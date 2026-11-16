@@ -7,7 +7,7 @@
 //
 // Los minutos de los criterios son reales a velocidad 1× (CONFIG.tiempo.escala
 // segundos de juego por segundo real).
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -19,7 +19,7 @@ const ajustes = args[2] ? JSON.parse(args[2]) : {};
 const servidor = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 const cargar = (m) => servidor.ssrLoadModule(m);
 const { decodificarPngGris } = await cargar('/scripts/png.ts');
-const { alturasDesdeGris, leerDatosMapa } = await cargar('/src/core/mapa.ts');
+const { alturasDesdeGris } = await cargar('/src/core/mapa.ts');
 const { CONFIG } = await cargar('/src/config.ts');
 const { ESTRATEGIAS } = await cargar('/src/bots/jugadores.ts');
 const { jugarPartida } = await cargar('/src/bots/partida.ts');
@@ -32,12 +32,16 @@ function mezclar(destino, origen) {
 }
 mezclar(CONFIG, ajustes);
 
-// Nivel: carpeta de niveles/ (fase 3) o, mientras no exista, mapas/gran-dominio.
-const carpeta = args[3] ? `niveles/${args[3]}` : existsSync('niveles/indice.json') ? `niveles/${JSON.parse(readFileSync('niveles/indice.json', 'utf8')).niveles.find((n) => !n.bloqueado).id}` : 'mapas/gran-dominio';
-const fichero = existsSync(`${carpeta}/nivel.json`) ? 'nivel.json' : 'mapa.json';
-const datos = leerDatosMapa(JSON.parse(readFileSync(`${carpeta}/${fichero}`, 'utf8')));
+// Nivel: el cuarto argumento o, sin él, el primero jugable del índice.
+const { leerNivel, leerIndice } = await cargar('/src/core/nivel.ts');
+const { retoConseguido, textoReto } = await cargar('/src/core/retos.ts');
+const idNivel = args[3] ?? leerIndice(JSON.parse(readFileSync('niveles/indice.json', 'utf8'))).find((n) => !n.bloqueado).id;
+const carpeta = `niveles/${idNivel}`;
+const nivel = leerNivel(JSON.parse(readFileSync(`${carpeta}/nivel.json`, 'utf8')));
+const datos = nivel.mapa;
 const png = decodificarPngGris(readFileSync(`${carpeta}/alturas.png`));
 const mapa = { datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) };
+console.log(`Nivel «${datos.nombre}» (${carpeta})`);
 
 const ESCALA = CONFIG.tiempo.escala;
 const real = (s) => s / ESCALA / 60; // minutos reales a 1×
@@ -50,7 +54,7 @@ const resumen = {};
 for (const nombre of nombres) {
   const t0 = performance.now();
   const rs = [];
-  for (let k = 0; k < PARTIDAS; k++) rs.push(jugarPartida(mapa, ESTRATEGIAS[nombre], { semilla: k + 1, minutosMaximos: LIMITE_REAL * ESCALA }));
+  for (let k = 0; k < PARTIDAS; k++) rs.push(jugarPartida(mapa, ESTRATEGIAS[nombre], { semilla: k + 1, minutosMaximos: LIMITE_REAL * ESCALA, parametros: nivel.parametros }));
   resumen[nombre] = rs;
   const t = rs.map((r) => real(r.tiempo));
   const subida = rs.filter((r) => r.terminada && r.mitadMedidor !== null).map((r) => real(r.tiempo - r.mitadMedidor));
@@ -65,6 +69,12 @@ for (const nombre of nombres) {
         `(abu ${r.quejas.aburrimiento}, cola ${r.quejas.cola}, sin ${r.quejas.sinPistas}; niveles ${r.quejasPorNivel.join('/')})  ` +
         `remontes ${r.remontes.join('/')}  pistas ${r.pistas.join('/')} (${r.pistasForzadas} forz.)  monedas ${r.monedas}  bajadas negros ${r.bajadasPorNivel[3]}`,
     );
+  }
+  // Retos del nivel: en cuántas partidas los consigue este jugador.
+  if (nivel.retos.length > 0) {
+    console.log('  retos: ' + nivel.retos.map((reto) => `${textoReto(reto)} ${rs.filter((r) => retoConseguido(reto, r.resumen)).length}/${rs.length}`).join('  ·  '));
+    const m = (f) => mediana(rs.map((r) => f(r.resumen)));
+    console.log(`  medianas: ${m((x) => x.dias).toFixed(1)} días, ${m((x) => x.satisfechos)} satisfechos, ${m((x) => x.bajadasNegros)} bajadas de negros, ${m((x) => x.maxRemontes)} remontes como máximo, ${m((x) => x.maxTelecabinas)} telecabinas, ${m((x) => x.pistasForzadas)} pistas forzadas`);
   }
   if (detalle) {
     for (const m of rs[0].minutos) {

@@ -2,8 +2,8 @@
 // animaciones, el sonido, la guía y la entrada. No sabe de menús ni de
 // niveles: quien la crea le da el mapa y lo que hay que hacer al salir.
 import { MusicaNula, type Sonido } from './audio/sonido';
-import { CONFIG } from './config';
 import type { Mapa } from './core/mapa';
+import type { ParametrosNivel } from './core/nivel';
 import { conectarPuntero, type ReceptorEntrada } from './input/puntero';
 import { Juego } from './juego';
 import { Camara } from './render/camara';
@@ -23,6 +23,8 @@ export interface Pantalla {
 export interface OpcionesPartida {
   sonido?: Sonido;
   semilla?: number;
+  /** Parámetros de balance propios del nivel. */
+  parametros?: ParametrosNivel;
   /** Volver al menú (botón de salir y del panel final). */
   alSalir(): void;
   /** Otra partida en el mismo nivel. */
@@ -60,7 +62,7 @@ export class PantallaPartida implements Pantalla, ReceptorEntrada {
     mapa: Mapa,
     private readonly opciones: OpcionesPartida,
   ) {
-    this.juego = new Juego(mapa, opciones.semilla);
+    this.juego = new Juego(mapa, opciones.semilla, opciones.parametros);
     this.sonido = opciones.sonido ?? new MusicaNula();
     this.terreno = crearTerreno(this.juego.alturas, this.juego.umbralRoca);
     this.claveTerreno = { alturas: this.juego.alturas, umbral: this.juego.umbralRoca };
@@ -143,7 +145,7 @@ export class PantallaPartida implements Pantalla, ReceptorEntrada {
     const t0 = performance.now();
     let pasos = 0;
     if (!j.pausado && !j.terminada) {
-      this.acumulado += Math.min(dt, 0.25) * j.velocidad * CONFIG.tiempo.escala;
+      this.acumulado += Math.min(dt, 0.25) * j.velocidad * j.config.tiempo.escala;
       while (this.acumulado >= DT) {
         j.paso(DT);
         this.acumulado -= DT;
@@ -169,7 +171,7 @@ export class PantallaPartida implements Pantalla, ReceptorEntrada {
       if (e.tipo === 'bolita' && red.remontes[e.remonte]) sonido.bolita(altura(red.remontes[e.remonte].hasta));
       else if (e.tipo === 'enfadado') sonido.enfado();
     }
-    sonido.apagar(Math.max(0, (sim.fraccionQuejas - CONFIG.quejas.aviso) / (1 - CONFIG.quejas.aviso)));
+    sonido.apagar(Math.max(0, (sim.fraccionQuejas - j.config.quejas.aviso) / (1 - j.config.quejas.aviso)));
 
     fx.sincronizar(j, dt, this.primerFotograma);
     this.primerFotograma = false;

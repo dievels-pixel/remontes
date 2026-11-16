@@ -389,7 +389,7 @@ Notas técnicas:
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
 - El juego es web.
 - Abrir un valle es gratis: al activarse una cima se desbloquean los nodos bajos cercanos, y el jugador solo paga el remonte que sube desde ellos hasta una cima activa. Después se proponen las pistas de bajada, también gratuitas.
-- Los mapas se hacen a mano con un formato de datos (PNG de alturas y JSON de nodos); un editor integrado llega después del primer prototipo jugable. No hay generador procedural por ahora.
+- Los mapas se hacen a mano con un formato de datos (PNG de alturas y JSON de nodos); un editor integrado llega después del primer prototipo jugable. No hay generador procedural por ahora. Desde 2026-11-16 son niveles (`niveles/`, ver «Niveles, retos y progreso»).
 - El relieve condiciona las pistas: la pendiente local define un terreno esquiable (roca o precipicio por encima del umbral), y una pista no cruza terreno más alto que su origen ni terreno no esquiable.
 - Con roca, la lente de dos pistas por remonte pasa a ser "hasta dos", y un nodo solo se desbloquea si hay una pista factible hasta él.
 - Dos recursos: monedas y quejas. La derrota viene del medidor de quejas, no de la quiebra ni de una reputación.
@@ -419,6 +419,15 @@ Notas técnicas:
 - **Interfaz.** Arriba: monedas, medidor de quejas y día; debajo, un renglón pequeño con ingresos, mantenimiento, diversión, llegadas y satisfechos. Abajo: barra de kilómetros por color, contadores por nivel y botones (deshacer, volver, sonido, pausa, velocidad). La misma disposición sirve para dibujar y para tocar, en vertical y en horizontal (en horizontal se empieza acercado al pie de pistas).
 - **Aprendizaje sin texto.** En la primera partida, un «dedo» fantasma repite el gesto que toca: arrastrar de una base a un punto más alto, arrastrar de la llegada hacia abajo, elegir color (los posibles laten) y, con la primera cola, mantener pulsado el remonte. Se da por aprendida al mejorar un remonte o a los diez minutos de juego. Ya no hay textos de ayuda; quedan los avisos cortos de por qué algo no se puede hacer.
 - **Fin de partida.** La vista se aleja al mapa entero y lo coloca por encima del panel; el punto donde más esquiadores se han ido enfadados late en rojo; el panel da los días sobrevividos, satisfechos y enfadados, los retos y los botones «Repetir» y «Menú». Repetir no recarga la página.
+
+## Niveles, retos y progreso (2026-11-16)
+
+- Cada nivel es una carpeta de datos en `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`) listada en `niveles/indice.json`. El juego no contiene nada propio de ningún nivel; añadir uno es copiar una carpeta y añadir una línea al índice. El formato está en `FORMATO_NIVEL.md`.
+- Un nivel puede cambiar parámetros de balance solo para él (`parametros` en su JSON, con la estructura de `src/config.ts`).
+- Cada nivel tiene récord (días completos) y tres retos definidos en su JSON, que se comprueban al acabar la partida. Tipos: sobrevivir N días, N esquiadores satisfechos, N bajadas de negros, sin telecabinas, máximo de N remontes y ninguna pista forzada (los tres últimos, con un mínimo de días opcional). Los conseguidos no se pierden.
+- El progreso se guarda en el navegador y se puede reiniciar.
+- Primer nivel, Espot: «Sobrevive 4 días», «600 esquiadores satisfechos» y «1000 bajadas de negros», ajustados con los jugadores automáticos (ver `CALIBRACION.md`).
+- La carpeta `mapas/` queda como mapas de prueba para las pruebas automáticas; el juego no los carga.
 
 ## Calibración (2026-11-16)
 

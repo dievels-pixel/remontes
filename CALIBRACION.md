@@ -75,6 +75,18 @@ El criterio de «no gana» se fijó en «menos del 80 % de la mediana del razona
 | `economia.precioPorMetro` | 0,1 | 0,12 | Un telesquí de 1000 m cuesta 120. |
 | `economia.mantenimiento.porMetroYMinuto` | 0,006 | 0,008 | Con los factores 1 / 4 / 10 de antes. |
 
+## Retos de Espot
+
+Con los valores finales, siete partidas por jugador (`npm run calibrar -- todas 7`), en cuántas se consigue cada reto:
+
+| Reto | torpe | razonable | todoVerde | soloMejora | soloAmplia |
+|---|---|---|---|---|---|
+| Sobrevive 4 días (asequible) | 4/7 | 7/7 | 7/7 | 0/7 | 7/7 |
+| 600 esquiadores satisfechos | 2/7 | 7/7 | 2/7 | 0/7 | 0/7 |
+| 1000 bajadas de negros (exigente) | 0/7 | 3/7 | 0/7 | 0/7 | 0/7 |
+
+Medianas del jugador razonable: 9,0 días, 1119 satisfechos, 893 bajadas de negros, 15 remontes como máximo y 4 telecabinas. Las del torpe: 5,5 días, 319 satisfechos y 81 bajadas de negros.
+
 ## Qué se probó y se descartó
 
 - **Telesquís de 30 personas por minuto (intervalo 2,0 s)** o **mantenimiento de 0,012 a 0,02**: el arranque queda en el filo; quien no encadena tres remontes baratos en los primeros minutos pierde en el minuto 3 o 4, incluido el jugador razonable.

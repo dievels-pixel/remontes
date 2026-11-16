@@ -118,7 +118,7 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.arc(plaza.x, plaza.y, juego.plaza.radio * camara.escala, 0, Math.PI * 2);
   ctx.fill();
   // Aviso del medidor de quejas: la plaza se tiñe de rojo con un pulso lento.
-  if (sim.fraccionQuejas >= CONFIG.quejas.aviso) {
+  if (sim.fraccionQuejas >= juego.config.quejas.aviso) {
     const pulso = 0.5 + 0.5 * Math.sin(fx.ahora * 2);
     ctx.fillStyle = `rgba(208, 69, 58, ${0.18 + 0.17 * pulso})`;
     ctx.fill();

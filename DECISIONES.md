@@ -30,3 +30,13 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 18. **La guía se guarda como hecha** al mejorar un remonte o a los diez minutos de juego, lo que ocurra antes.
 19. **Hasta la fase 4, «Menú» y «volver» empiezan otra partida** (aún no hay menú al que volver).
 20. **Rendimiento: 60 fps se comprobó como tiempo de cálculo por fotograma**, no como fotogramas reales: el entorno de pruebas pinta sin GPU. Con 330 a 370 esquiadores y la CPU frenada ×4, simulación más dibujo son unos 8 ms; el precálculo tras cada obra alarga algunos fotogramas durante unos segundos.
+
+## Fase 3
+
+21. **`mapas/` se queda como mapas de prueba.** Las pruebas automáticas usan coordenadas concretas de esos tres mapas; si dependieran del nivel jugable, se romperían el día que llegue el relieve real de Espot. El juego solo carga `niveles/`. El nivel Espot es una copia de los datos de `mapas/gran-dominio` (decisión 1).
+22. **Los retos con restricción llevan un mínimo de días opcional.** «Sin telecabinas», «máximo de N remontes» y «ninguna pista forzada» se cumplirían perdiendo enseguida; con `dias` se pide además haber sobrevivido. Es opcional para no imponer nada a la herramienta externa.
+23. **«Sin telecabinas» y «máximo de N remontes» miran el máximo alcanzado durante la partida**, no el estado final (deshacer al final no cuenta). «Ninguna pista forzada» mira el estado final.
+24. **El récord son días completos** y una partida de cero días no es récord.
+25. **Parámetros por nivel con la misma estructura que `src/config.ts`.** Una clave desconocida es un error, para detectar erratas del JSON.
+26. **Tercer reto de Espot: 1000 bajadas de negros.** El jugador automático razonable lo consigue en 3 de 7 partidas y el torpe en ninguna. Un reto de restricción (por ejemplo, «8 días con 12 remontes como máximo») sería más interesante, pero ningún jugador automático lo intenta y no se pudo comprobar que fuera posible.
+27. **Cinco entradas `proximo-N` bloqueadas en el índice**, sin nombre: el selector las mostrará como «próximamente».

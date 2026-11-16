@@ -4,6 +4,8 @@
 import { crearAzar } from '../core/azar';
 import { COLORES } from '../core/colores';
 import type { Mapa } from '../core/mapa';
+import type { ParametrosNivel } from '../core/nivel';
+import type { ResumenPartida } from '../core/retos';
 import { Juego } from '../juego';
 import type { Estrategia } from './jugadores';
 
@@ -13,6 +15,8 @@ export interface OpcionesPartida {
   minutosMaximos?: number;
   /** Paso de simulación (s). */
   dt?: number;
+  /** Parámetros de balance propios del nivel. */
+  parametros?: ParametrosNivel;
 }
 
 export interface Minuto {
@@ -55,6 +59,8 @@ export interface ResultadoPartida {
   /** Parte de las bajadas que han divertido. */
   divierten: number;
   minutos: Minuto[];
+  /** Resumen para comprobar retos. */
+  resumen: ResumenPartida;
 }
 
 /** Remontes que hay que coger desde la plaza para llegar a cada punto. */
@@ -103,7 +109,7 @@ export function jugarPartida(mapa: Mapa, estrategia: Estrategia, opciones: Opcio
   const semilla = opciones.semilla ?? 1;
   const dt = opciones.dt ?? 1 / 20;
   const limite = (opciones.minutosMaximos ?? 60) * 60;
-  const j = new Juego(mapa, 1000 + semilla);
+  const j = new Juego(mapa, 1000 + semilla, opciones.parametros);
   const azar = crearAzar(77 + semilla);
   const memoria: Record<string, number> = {};
   const sim = j.sim;
@@ -181,5 +187,6 @@ export function jugarPartida(mapa: Mapa, estrategia: Estrategia, opciones: Opcio
     abajo: mitad.length > 0 ? mitad.reduce((x, m) => x + m.abajo, 0) / mitad.length : muestrasAbajo > 0 ? sumaAbajo / muestrasAbajo : 0,
     divierten: si / Math.max(1, si + no),
     minutos,
+    resumen: j.resumen(),
   };
 }

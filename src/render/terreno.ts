@@ -29,23 +29,30 @@ const ROCA: [number, number, number] = [116, 112, 106];
  * umbral (lo que se ve como roca es lo que no se puede esquiar) y se oscurece
  * a lo largo de 0,15 de pendiente, para que el borde no quede dentado.
  */
-export function crearTerreno(mapa: MapaAlturas, umbralRoca: number): HTMLCanvasElement {
-  const lienzo = document.createElement('canvas');
-  lienzo.width = mapa.columnas;
-  lienzo.height = mapa.filas;
-  const ctx = lienzo.getContext('2d')!;
-  const img = ctx.createImageData(mapa.columnas, mapa.filas);
+export function pintarTerreno(mapa: MapaAlturas, umbralRoca: number): Uint8ClampedArray {
+  const rgba = new Uint8ClampedArray(mapa.columnas * mapa.filas * 4);
   const dx = mapa.ancho / (mapa.columnas - 1);
   const dy = mapa.alto / (mapa.filas - 1);
   for (let i = 0; i < mapa.gris.length; i++) {
     const p = { x: (i % mapa.columnas) * dx, y: Math.floor(i / mapa.columnas) * dy };
     const t = Math.min(Math.max((mapa.pendienteEn(p) - umbralRoca) / 0.15, 0), 1) * 0.9;
     const [r, g, b] = colorDe(mapa.gris[i]).map((c, k) => c + (ROCA[k] - c) * t);
-    img.data[i * 4] = r;
-    img.data[i * 4 + 1] = g;
-    img.data[i * 4 + 2] = b;
-    img.data[i * 4 + 3] = 255;
+    rgba[i * 4] = r;
+    rgba[i * 4 + 1] = g;
+    rgba[i * 4 + 2] = b;
+    rgba[i * 4 + 3] = 255;
   }
+  return rgba;
+}
+
+/** El terreno en un lienzo del tamaño del mapa de alturas (se escala al dibujarlo). */
+export function crearTerreno(mapa: MapaAlturas, umbralRoca: number): HTMLCanvasElement {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = mapa.columnas;
+  lienzo.height = mapa.filas;
+  const ctx = lienzo.getContext('2d')!;
+  const img = ctx.createImageData(mapa.columnas, mapa.filas);
+  img.data.set(pintarTerreno(mapa, umbralRoca));
   ctx.putImageData(img, 0, 0);
   return lienzo;
 }

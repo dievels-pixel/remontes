@@ -53,6 +53,27 @@ export function codificarPngGris(ancho: number, alto: number, gris: Uint8Array):
   return r;
 }
 
+/** PNG RGB de 8 bits sin filtros. `rgb` tiene ancho × alto × 3 valores 0..255, por filas. */
+export function codificarPngRGB(ancho: number, alto: number, rgb: Uint8Array): Uint8Array {
+  if (rgb.length !== ancho * alto * 3) throw new Error('Tamaño incoherente');
+  const ihdr = new Uint8Array(13);
+  const v = new DataView(ihdr.buffer);
+  v.setUint32(0, ancho);
+  v.setUint32(4, alto);
+  ihdr.set([8, 2, 0, 0, 0], 8); // 8 bits, color verdadero
+  const fila = ancho * 3 + 1;
+  const crudo = new Uint8Array(alto * fila);
+  for (let y = 0; y < alto; y++) crudo.set(rgb.subarray(y * ancho * 3, (y + 1) * ancho * 3), y * fila + 1);
+  const partes = [FIRMA, trozo('IHDR', ihdr), trozo('IDAT', deflateSync(crudo)), trozo('IEND', new Uint8Array())];
+  const r = new Uint8Array(partes.reduce((s, p) => s + p.length, 0));
+  let o = 0;
+  for (const p of partes) {
+    r.set(p, o);
+    o += p.length;
+  }
+  return r;
+}
+
 const CANALES: Record<number, number> = { 0: 1, 2: 3, 4: 2, 6: 4 };
 
 /** Lee un PNG de 8 bits sin entrelazar y devuelve el primer canal (el gris). */

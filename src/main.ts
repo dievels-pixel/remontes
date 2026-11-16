@@ -2,9 +2,9 @@
 // el menú llega en la fase 4). Las pantallas se crean y se destruyen sin
 // recargar la página; el cambio entre ellas es un fundido.
 import { Musica } from './audio/musica';
-import { cargarMapa, MAPA_POR_DEFECTO } from './cargarMapa';
-import type { Mapa } from './core/mapa';
+import { cargarNivel, fichasDeNiveles, type NivelCargado } from './niveles';
 import { PantallaPartida, type Pantalla } from './partida';
+import { registrarPartida } from './progreso';
 
 const lienzo = document.getElementById('juego') as HTMLCanvasElement;
 const ctx = lienzo.getContext('2d')!;
@@ -44,12 +44,16 @@ function poner(crear: () => Pantalla): void {
   if (import.meta.env.DEV && pantalla instanceof PantallaPartida) Object.assign(window, { juego: pantalla.juego, camara: pantalla.camara, partida: pantalla });
 }
 
-function partida(mapa: Mapa): () => Pantalla {
+function partida(nivel: NivelCargado): () => Pantalla {
   return () =>
-    new PantallaPartida(lienzo, mapa, {
+    new PantallaPartida(lienzo, nivel.mapa, {
       sonido: musica,
-      alSalir: () => cambiar(partida(mapa)),
-      alRepetir: () => cambiar(partida(mapa)),
+      // Una semilla distinta en cada partida: las llegadas no se repiten.
+      semilla: Math.floor(Math.random() * 1e9),
+      parametros: nivel.parametros,
+      alSalir: () => cambiar(partida(nivel)),
+      alRepetir: () => cambiar(partida(nivel)),
+      alTerminar: (juego) => registrarPartida(nivel.id, juego.resumen(), nivel.retos),
     });
 }
 
@@ -84,14 +88,19 @@ function fotograma(ahora: number): void {
   requestAnimationFrame(fotograma);
 }
 
-// El mapa (PNG de alturas y JSON de nodos) se carga antes de empezar.
-cargarMapa(new URLSearchParams(location.search).get('mapa') ?? MAPA_POR_DEFECTO).then(
-  (mapa) => {
+// Hasta que haya menú (fase 4) se entra directamente al primer nivel jugable
+// del índice (o al que pida ?nivel=<id>).
+const fallo = (e: unknown) => {
+  document.body.textContent = `No se ha podido cargar el nivel: ${e instanceof Error ? e.message : String(e)}`;
+};
+try {
+  const pedido = new URLSearchParams(location.search).get('nivel');
+  const id = pedido ?? fichasDeNiveles().find((n) => !n.bloqueado)!.id;
+  cargarNivel(id).then((nivel) => {
     redimensionar();
-    poner(partida(mapa));
+    poner(partida(nivel));
     requestAnimationFrame(fotograma);
-  },
-  (e: unknown) => {
-    document.body.textContent = `No se ha podido cargar el mapa: ${e instanceof Error ? e.message : String(e)}`;
-  },
-);
+  }, fallo);
+} catch (e) {
+  fallo(e);
+}
