@@ -1,6 +1,6 @@
 # Diseño del juego de remontes y pistas de esquí
 
-Actualizado: 2026-11-14
+Actualizado: 2026-11-16
 
 ## Resumen para empezar a programar
 
@@ -16,7 +16,7 @@ Lo esencial del sistema, decidido en la sesión de diseño del 12 de noviembre:
 - La afluencia total sube con el tiempo; la mezcla de colores de los esquiadores también la fija la curva del tiempo, no lo que construya el jugador. No hay edificios (quitados en v39).
 - Crecer hacia otro valle es gratis: al activarse una cima se desbloquean los nodos bajos cercanos, y el jugador solo paga el remonte que sube desde ellos. Las pistas de bajada son gratuitas.
 - El relieve cuenta: un mapa de alturas define valles y cimas, y las zonas de pendiente excesiva son roca o precipicio por donde no pasa ninguna pista. Los mapas son datos (PNG de alturas y JSON de nodos) que más adelante podrá producir un editor.
-- Todas las cifras de este documento son hipótesis a calibrar con una simulación sin gráficos antes de pulir nada.
+- Todas las cifras de este documento eran hipótesis. Se calibraron con una simulación sin gráficos y jugadores automáticos (2026-11-16): los valores vigentes están en `src/config.ts` y se explican en `CALIBRACION.md`; donde este documento cite cifras anteriores, mandan esos.
 
 Qué cambia respecto a la versión anterior del documento: ver la sección "Descartado" al final.
 
@@ -87,7 +87,7 @@ Los puntos no cambian de color según su contento (ver "Movimiento y aspecto vis
 
 ### Variedad
 
-El esquiador recuerda sus dos últimas pistas (parámetro; con una sola bastaría con dos pistas para variar siempre). Bajar por una pista distinta a esas dos cuenta como variedad. Repetir no castiga con quejas, pero no avanza: no se recupera contento y el multiplicador de precio no sube.
+El esquiador recuerda su última pista (desde la calibración del 2026-11-16; antes dos: con dos hacían falta tres pistas del propio color para recuperar contento, y en un mapa caben pocas negras). Bajar por una pista distinta a esas dos cuenta como variedad. Repetir no castiga con quejas, pero no avanza: no se recupera contento y el multiplicador de precio no sube.
 
 Al elegir ruta, el esquiador prefiere entre las pistas válidas la que no ha usado hace poco, y desempata por la cola (desde v36, con pesos: ver «Elección de ruta»). Así se reparte la gente sin reglas extra y la cantidad de pistas importa: más pistas de un nivel dan más variedad y más ingresos por esquiador. Una telecabina que descargue en una sola pista tiene penalización natural, porque todos repiten y el precio no sube. Por eso no se añade una regla de velocidad por densidad en pista (descartada por ahora; se podría recuperar si aparecen pistas saturadas que molesten).
 
@@ -95,7 +95,15 @@ Al elegir ruta, el esquiador prefiere entre las pistas válidas la que no ha usa
 
 Decidido el 2026-11-13 (v36). En cada punto el esquiador elige entre lo que puede hacer (pistas de su nivel o más fáciles que llevan a algo con salida para él, remontes en servicio y, en una base, ir andando a una contigua) por azar ponderado:
 
-peso = gusto × repetición × 1 / (1 + cola)
+peso = gusto × repetición × novedad × 1 / (1 + cola)
+
+Revisado en la calibración (2026-11-16) porque casi todos se quedaban en la zona baja y los valles nuevos quedaban vacíos:
+
+- Novedad: una pista por la que el esquiador aún no ha bajado en su visita pesa 2,5 veces más. Le lleva a recorrer toda la estación.
+- El atractivo de un remonte (y de una base) es la suma, no el máximo, del gusto de las pistas que hay tras él, con un descuento de 0,7 por cada remonte que haya que coger: un sector con mucho terreno atrae más que una sola pista, y un remonte que sube a un valle entero compite en igualdad con las pistas del punto.
+- Gusto por diferencia de niveles 1 / 0,6 / 0,08 / 0,02 (mínimo a lo que aburre) y factor de repetición 0,4.
+
+Lo que sigue es la versión de v36, que queda como referencia:
 
 - Gusto de una pista según cuántos niveles queda por debajo del esquiador: su nivel pesa 1; uno por debajo, menos; dos por debajo (donde empieza el aburrimiento), bastante menos; tres, casi nada. Una pista más difícil que su nivel no se elige nunca (filtro duro). El nivel es así una preferencia, no solo un filtro.
 - Repetición: una pista entre sus últimas bajadas se multiplica por un factor menor que 1, en vez de descartarse. Sigue sin restar contento.
@@ -303,7 +311,7 @@ Los puntos de un color sobre pistas de su mismo color se leen mal. En lugar de e
 - Los puntos mantienen siempre el color de su nivel. No cambian de color según su contento (se confundiría con el nivel y no se leería con tantos puntos).
 - Cuando un esquiador se va enfadado, un pequeño destello rojo y desaparece.
 - Cuatro indicadores pequeños de contento, uno por color, muestran dónde falla la estación (media del contento de los esquiadores de ese nivel). Implementado en v39 como una barra de contento medio bajo el contador de presentes de cada color, con los enfadados de ese nivel (✕N, en rojo si hay alguno); en v40 la barra se sustituye por los que están a un punto de irse (ver abajo). Arriba, además, el total de llegados y la afluencia del momento.
-- Una barra apilada con los kilómetros de pista por color, con una marca que indique la proporción de esquiadores de cada nivel en llegadas.
+- Una barra apilada con los kilómetros de pista por color, con una marca que indique la proporción de esquiadores de cada nivel en llegadas. Implementada (2026-11-16): encima de los contadores; cada marca es una frontera de la mezcla de llegadas, y el color que se queda corto respecto a su marca es el que falta.
 - Los esquiadores a un punto de irse (contento 1) parpadean en blanco (v40; un anillo rojo fino se confundiría con los rojos). En los contadores por color, bajo cada uno, un punto blanco con cuántos de ese nivel están a un punto de irse y ✕ con los enfadados de ese nivel. Sustituye a la barra de contento medio de v39, que apenas se movía (los que llegan a 0 se van y dejan de contar).
 
 Prueba temprana de densidad: 150 a 300 puntos en movimiento, antes de añadir más reglas.
@@ -358,8 +366,8 @@ Se construye por etapas, y cada una debe poder jugarse antes de pasar a la sigui
 4. Entrada de esquiadores por la carretera y curva de afluencia creciente con mezcla de colores (sin edificios desde v39).
 5. Prueba de densidad y rendimiento con 150 a 300 puntos en movimiento y prueba de legibilidad de puntos y pistas.
 6. Economía: precio por longitud y tipo, pago por color con multiplicador, mejora de remontes, medidor de quejas y derrota. Hecha (v40 el medidor y la derrota; v41 el resto).
-7. Simulación sin gráficos que corra miles de esquiadores con todos los parámetros en un único archivo de configuración, para calibrar antes de pulir. Los cuatro parámetros que más pesan: aguante, penalización por abandono, tarifas y curva de afluencia.
-8. Indicadores en pantalla: barra de kilómetros por color e indicadores de contento por nivel.
+7. (Hecha, 2026-11-16: `npm run calibrar`, `src/bots/` y `CALIBRACION.md`.) Simulación sin gráficos que corra miles de esquiadores con todos los parámetros en un único archivo de configuración, para calibrar antes de pulir. Los cuatro parámetros que más pesan: aguante, penalización por abandono, tarifas y curva de afluencia.
+8. (Hecha.) Indicadores en pantalla: barra de kilómetros por color e indicadores de contento por nivel.
 9. Cruces con enlaces automáticos.
 10. Pulido visual y sonoro: sombreado, texturas de bosque y roca, ciclo de día y música generativa.
 11. Fases posteriores: varias carreteras de acceso, agua, averías o mal tiempo que dejan remontes inactivos temporalmente, boca a boca de afluencia, variante de cobro por desnivel, editor de mapas integrado en el juego (después del primer prototipo jugable), estaciones reales inspiradas y fuera de pista.
@@ -402,6 +410,17 @@ Notas técnicas:
 - Pistas provisionales encadenadas: de un final de pista (aunque esté en espera) sale otra; la cadena se activa al enlazar su final con un remonte conectado (v34).
 - Mapas en `mapas/<nombre>/` (PNG de alturas de 8 bits y JSON); el inicial lo genera un script, no el juego.
 
+## Calibración (2026-11-16)
+
+Resumen de lo que cambió respecto a las cifras citadas arriba (detalle y resultados en `CALIBRACION.md`):
+
+- Remontes: 100 m/s y una bolita cada 1,8 s (un telesquí sube 33 personas por minuto, una telesilla 67 y una telecabina 133).
+- Afluencia: 6 llegadas por minuto al abrir, 1,6 más cada minuto y una aceleración de 0,026 por minuto al cuadrado. Rojos desde el minuto 6 y negros desde el 12 (15 % en el 30).
+- Cola saturada: el anillo tarda 30 s de juego en llenarse.
+- Medidor de quejas: 36 quejas, vaciado de 2 por minuto y un periodo de gracia de 240 s de juego (2 minutos reales) en el que los enfadados se cuentan pero no lo llenan.
+- Economía: 400 monedas al empezar, 0,12 por metro, mantenimiento de 0,008 por metro y minuto (factores 1 / 4 / 10).
+- Con esos valores, un jugador automático razonable aguanta unos 18 minutos reales, nadie pierde antes del minuto 5 y ninguna estrategia de una sola idea (todo verde forzado, solo mejorar, solo expandir) le alcanza.
+
 ## Descartado
 
 Para que no se reintroduzca por error:
@@ -425,7 +444,7 @@ Para que no se reintroduzca por error:
 - [ ] Cuántos nodos bajos se desbloquean por cima (hipótesis: los 2 o 3 más cercanos y más bajos).
 - [ ] Economía (v42, provisional, calibrada con partidas automáticas): 300 monedas iniciales, 0,1 monedas por metro, factores de precio 1 / 2,5 / 5, tarifas 1 / 1,5 / 2 / 3, multiplicador 0,1, mantenimiento 0,006 por metro y minuto con factores 1 / 4 / 10, deshacer devuelve el 100 %, velocidad de la telecabina 1,3. Al final de la partida (más de 12 minutos) el dinero se sigue acumulando, porque la afluencia crece sin tope y el jugador automático ya no encuentra dónde ampliar: falta comprobar jugando si una persona sí lo gasta.
 - [ ] Todos los parámetros marcados como hipótesis: aguante, tarifas, multiplicador de variedad, factores y capacidades de remonte, aforo y tiempo del anillo, umbral de pista muy forzada, tasa de vaciado de quejas, mezcla de colores y curva de afluencia.
-- [ ] Recuerdo de variedad: dos pistas o una.
+- [x] Recuerdo de variedad: una pista (calibración, 2026-11-16).
 - [ ] Un azul en una verde: 0 puntos (decisión actual) o medio punto.
 - [ ] Medidor de quejas (v40, provisional): 20 quejas para perder, vaciado de 2 por minuto y aviso al 70 %.
 - [ ] Demolición: ¿se pueden borrar remontes o pistas? Exige revalidar el grafo de nodos viables. Recomendación para la primera versión: no permitirla, o devolver el 50% al demoler un remonte sin esquiadores.

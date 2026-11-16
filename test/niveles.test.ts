@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { nivelDe, pistaForzada } from '../src/core/colores';
 import type { Red } from '../src/core/red';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
-import { BANDAS_CLASICAS, conValoresClasicos, redPequena } from './apoyo';
+import { BANDAS_CLASICAS, conValoresClasicos, redPequena, ESQUIADOR_CLASICO, REMONTE_CLASICO } from './apoyo';
 
 const P: ParametrosSimulacion = {
-  velocidadRemonte: CONFIG.remonte.velocidad,
-  intervaloBolitas: CONFIG.remonte.intervaloBolitas,
-  capacidadBolita: CONFIG.remonte.capacidad,
-  ...CONFIG.esquiador,
+  ...REMONTE_CLASICO,
+  ...ESQUIADOR_CLASICO,
   // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
   llegadasPorMinuto: 30,
   mezclaNiveles: [0.35, 0.35, 0.2, 0.1],

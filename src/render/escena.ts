@@ -2,6 +2,7 @@
 // convertidas con la cámara.
 import { CONFIG } from '../config';
 import { COLORES, pistaForzada, type ColorPista } from '../core/colores';
+import { fracciones, kmPorColor } from '../core/indicadores';
 import type { Perfil } from '../core/simulacion';
 import { desplazamientoPista as calcularDesplazamiento } from '../core/desplazamiento';
 import type { Polilinea } from '../core/polilinea';
@@ -825,6 +826,39 @@ function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, ancho: n
   const y1 = alto - 92;
   const y2 = alto - 74;
   ctx.save();
+  // Barra de kilómetros de pista por color, con una marca en cada frontera de
+  // la mezcla de llegadas: si un color queda corto respecto a su marca, a ese
+  // nivel le falta pista.
+  const km = kmPorColor(juego.red);
+  if (km.some((k) => k > 0)) {
+    const anchoBarra = paso * (n.length - 1) + 60;
+    const xb = ancho / 2 - anchoBarra / 2;
+    const yb = alto - 112;
+    const oferta = fracciones(km);
+    const demanda = fracciones(sim.mezclaActual);
+    let x = xb;
+    oferta.forEach((f, i) => {
+      ctx.fillStyle = COLOR_PISTA[COLORES[i]];
+      ctx.fillRect(x, yb, anchoBarra * f, 6);
+      x += anchoBarra * f;
+    });
+    ctx.strokeStyle = COLOR.hueco;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(xb - 0.5, yb - 0.5, anchoBarra + 1, 7);
+    let acumulada = 0;
+    ctx.fillStyle = COLOR.tinta;
+    for (let i = 0; i < demanda.length - 1; i++) {
+      acumulada += demanda[i];
+      if (demanda[i + 1] <= 0 && acumulada >= 1) break;
+      const xm = xb + anchoBarra * acumulada;
+      ctx.beginPath();
+      ctx.moveTo(xm, yb - 1);
+      ctx.lineTo(xm - 3.5, yb - 6);
+      ctx.lineTo(xm + 3.5, yb - 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   n.forEach((v, i) => {

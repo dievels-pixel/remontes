@@ -64,3 +64,27 @@ export function cargarMapaPrueba(nombre: string): Mapa {
   const png = decodificarPngGris(readFileSync(`mapas/${nombre}/alturas.png`));
   return { datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) };
 }
+
+/**
+ * Parámetros de esquiador con los que se escribieron las pruebas de la
+ * simulación (los de config.ts hasta v46). Las pruebas no deben moverse al
+ * recalibrar el juego: usan estos, no los de config.ts.
+ */
+export const ESQUIADOR_CLASICO = {
+  velocidadAndando: 60,
+  distanciaBasesContiguas: 400,
+  penalizacionAndar: 3,
+  velocidadBasePista: 70,
+  factorPendiente: 380,
+  aguanteMinimo: 180,
+  aguanteMaximo: 360,
+  contentoInicial: 3,
+  memoriaVariedad: 2,
+  gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
+  factorRepeticion: 0.3,
+  descuentoPorRemonte: 0.85,
+};
+
+/** Remonte y colas con los que se escribieron esas pruebas. */
+export const REMONTE_CLASICO = { velocidadRemonte: 160, intervaloBolitas: 0.9, capacidadBolita: 1 };
+export const COLAS_CLASICAS = { aforoCola: 6, tiempoAnillo: 20 };

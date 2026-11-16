@@ -7,7 +7,7 @@ import { evaluarPista } from '../src/core/proyectos';
 import { Red } from '../src/core/red';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
 import { vistaPunto } from '../src/core/visibilidad';
-import { abrir, cargarMapaPrueba, REGLAS, redPequena } from './apoyo';
+import { abrir, cargarMapaPrueba, REGLAS, redPequena, ESQUIADOR_CLASICO } from './apoyo';
 
 /** Abre la pista que evalúa evaluarPista, con su primer color posible. */
 function abrirEvaluada(red: Red, desde: number, hasta: number) {
@@ -21,7 +21,7 @@ const P: ParametrosSimulacion = {
   velocidadRemonte: 160,
   intervaloBolitas: 0.9,
   capacidadBolita: 1,
-  ...CONFIG.esquiador,
+  ...ESQUIADOR_CLASICO,
   // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
   llegadasPorMinuto: 30,
   // Elección de ruta fijada aquí (no los valores provisionales de config.ts).

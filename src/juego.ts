@@ -120,7 +120,11 @@ export class Juego {
   rendimiento = { fps: 0, ms: 0 };
   infoPista: { pista: number; punto: Punto } | null = null;
 
-  constructor(readonly mapa: Mapa) {
+  constructor(
+    readonly mapa: Mapa,
+    /** Semilla del azar de la simulación (llegadas, niveles, elecciones). */
+    private readonly semilla = 12345,
+  ) {
     const { pista, remonte } = CONFIG;
     const { datos } = mapa;
     this.alturas = mapa.alturas;
@@ -165,7 +169,7 @@ export class Juego {
         mezcla: CONFIG.afluencia.mezcla.map((m) => ({ minuto: m.minuto, pesos: [...m.pesos] })),
       },
       velocidadCarretera: CONFIG.afluencia.velocidadCarretera,
-      medidor: { capacidad: CONFIG.quejas.capacidad, vaciadoPorMinuto: CONFIG.quejas.vaciadoPorMinuto },
+      medidor: { capacidad: CONFIG.quejas.capacidad, vaciadoPorMinuto: CONFIG.quejas.vaciadoPorMinuto, gracia: CONFIG.quejas.gracia },
       aforoCola: CONFIG.colas.aforo,
       tiempoAnillo: CONFIG.colas.tiempoAnillo,
     };
@@ -174,7 +178,7 @@ export class Juego {
 
   private nuevaSimulacion(): Simulacion {
     const entrada = this.carretera[this.carretera.length - 1];
-    const sim = new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(12345), this.carretera);
+    const sim = new Simulacion(this.red, this.parametrosSim, entrada, crearAzar(this.semilla), this.carretera);
     sim.monedas = CONFIG.economia.monedasIniciales;
     return sim;
   }
@@ -197,6 +201,57 @@ export class Juego {
     if (!this.arrastre || !o || o.tipo !== 'remonte' || o.motivo !== 'ok') return null;
     const precio = this.precioRemonteEntre(this.arrastre.origen, o.nodo);
     return { precio, alcanza: precio <= this.monedas };
+  }
+
+  // ---- Acciones del jugador (las usan la interfaz y los jugadores automáticos) ----
+
+  /**
+   * Construye un telesquí de `desde` a `hasta` si las reglas lo permiten y
+   * llegan las monedas (las cobra). Devuelve 'ok', el motivo de la red o
+   * 'sin-monedas'.
+   */
+  construirRemonte(desde: number, hasta: number): Motivo | 'sin-monedas' {
+    const motivo = this.red.puedeConstruirRemonte(desde, hasta);
+    if (motivo !== 'ok') return motivo;
+    const precio = this.precioRemonteEntre(desde, hasta);
+    if (precio > this.monedas) return 'sin-monedas';
+    this.red.construirRemonte(desde, hasta);
+    this.sim.monedas -= precio;
+    this.ultimaObra = hasta;
+    return 'ok';
+  }
+
+  /**
+   * Abre la pista de `desde` a `hasta` con ese color, por el lado y con el
+   * giro que da su evaluación (como el selector). false si no cabe.
+   */
+  abrirPista(desde: number, hasta: number, color: ColorPista): boolean {
+    const e = this.evaluarPista(desde, hasta);
+    if (e.motivo !== 'ok') return false;
+    const c = e.colores.find((x) => x.color === color);
+    if (!c?.factible) return false;
+    const { lado } = e.proyecto;
+    if (this.red.puedeAbrirPista(desde, hasta, color, lado, c.giro) !== 'ok') return false;
+    if (!this.red.coloresLimpios(desde, hasta, lado, c.giro).find((x) => x.color === color)?.factible) return false;
+    this.red.abrirPista(desde, hasta, color, lado, c.giro);
+    this.ultimaObra = hasta;
+    return true;
+  }
+
+  /** Precio de mejorar un remonte al tipo siguiente, o null si ya es del máximo. */
+  precioMejoraDe(id: number): number | null {
+    const r = this.red.remontes[id];
+    return r && r.tipo < TIPO_MAXIMO ? precioMejora(r.longitud, r.tipo, CONFIG.economia) : null;
+  }
+
+  /** Mejora un remonte al tipo siguiente cobrando la diferencia. */
+  mejorarRemonte(id: number): 'ok' | 'maximo' | 'sin-monedas' {
+    const precio = this.precioMejoraDe(id);
+    if (precio === null) return 'maximo';
+    if (precio > this.monedas) return 'sin-monedas';
+    this.red.mejorarRemonte(id, TIPO_MAXIMO);
+    this.sim.monedas -= precio;
+    return 'ok';
   }
 
   /** Remonte cuyo cable pasa a menos de `tolerancia` (m) del punto, el más cercano. */
@@ -245,11 +300,7 @@ export class Juego {
     const m = this.mejora;
     this.mejora = null;
     if (!m) return;
-    if (m.precio > this.monedas) {
-      this.avisar(`Faltan ${Math.ceil(m.precio - this.monedas)} monedas.`);
-      return;
-    }
-    if (this.red.mejorarRemonte(m.remonte, TIPO_MAXIMO)) this.sim.monedas -= m.precio;
+    if (this.mejorarRemonte(m.remonte) === 'sin-monedas') this.avisar(`Faltan ${Math.ceil(m.precio - this.monedas)} monedas.`);
   }
 
   cancelarMejora(): void {
@@ -586,13 +637,10 @@ export class Juego {
       return;
     }
     const precio = this.precioRemonteEntre(a.origen, o.nodo);
-    if (precio > this.monedas) {
+    if (this.construirRemonte(a.origen, o.nodo) === 'sin-monedas') {
       this.avisar(`Faltan ${Math.ceil(precio - this.monedas)} monedas para este remonte (${precio}).`);
       return;
     }
-    this.red.construirRemonte(a.origen, o.nodo);
-    this.sim.monedas -= precio;
-    this.ultimaObra = o.nodo;
     if (this.red.remontes.length === 1) this.avisar('Mantén pulsado un remonte para mejorarlo a telesilla o telecabina.');
   }
 

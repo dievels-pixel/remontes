@@ -43,6 +43,12 @@ export interface ParametrosSimulacion {
   factorRepeticion: number;
   /** Multiplica el gusto de lo que hay tras cada remonte más que haya que coger. */
   descuentoPorRemonte: number;
+  /**
+   * Multiplica el gusto de una pista por la que este esquiador aún no ha
+   * bajado en su visita (ni forzada): le empuja a recorrer toda la estación
+   * en vez de quedarse en la zona baja. Sin él, 1.
+   */
+  factorNovedad?: number;
   /** Personas en cola a partir de las que el anillo empieza a llenarse. */
   aforoCola: number;
   /** Segundos que tarda el anillo en llenarse (y en vaciarse) por completo. */
@@ -60,7 +66,15 @@ export interface ParametrosSimulacion {
    * `vaciadoPorMinuto`; al llegar a `capacidad`, se acaba la partida. Sin él,
    * la partida no termina (pruebas).
    */
-  medidor?: { capacidad: number; vaciadoPorMinuto: number };
+  medidor?: {
+    capacidad: number;
+    vaciadoPorMinuto: number;
+    /**
+     * Segundos de estación abierta en los que los enfadados aún no llenan el
+     * medidor (se cuentan, pero no se puede perder mientras se aprende).
+     */
+    gracia?: number;
+  };
   /** Personas por bolita de cada tipo de remonte; sin ello, `capacidadBolita` para todos. */
   capacidadPorTipo?: readonly number[];
   /** Velocidad relativa de cada tipo de remonte; sin ello, todos a `velocidadRemonte`. */
@@ -115,6 +129,8 @@ export interface Perfil {
   recientes: number[];
   /** Bajadas con variedad que lleva (suben el pago). */
   variedades: number;
+  /** Pistas por las que ya ha bajado en esta visita (para la novedad al elegir). */
+  hechas?: Set<number>;
 }
 
 /** Un esquiador que se acaba de ir enfadado, para el destello rojo. */
@@ -335,7 +351,7 @@ export class Simulacion {
     const nivel = this.perfiles.get(id)?.nivel;
     if (nivel !== undefined) this.quejasPorNivel[nivel]++;
     this.enfadosPorNodo.set(nodo, (this.enfadosPorNodo.get(nodo) ?? 0) + 1);
-    if (this.p.medidor) {
+    if (this.p.medidor && this.tiempoAbierta >= (this.p.medidor.gracia ?? 0)) {
       this.medidorQuejas += 1;
       if (this.medidorQuejas >= this.p.medidor.capacidad) this.terminada = true;
     }
@@ -441,7 +457,7 @@ export class Simulacion {
       this.irseEnfadado(id, -1, 'sinPistas');
       return;
     }
-    const r = this.elegir(remontes, (r) => this.pesoRemonte(r, perfil.nivel));
+    const r = this.elegir(remontes, (r) => this.pesoRemonte(r, perfil));
     this.esquiadores.set(id, {
       id,
       estado: 'andando',
@@ -460,19 +476,51 @@ export class Simulacion {
   }
 
   /** Peso de coger un remonte: lo mejor que hay tras él, con descuento, entre (1 + cola). */
-  private pesoRemonte(r: Remonte, nivel: number): number {
-    return (this.gustoDesde(r.hasta, nivel) * this.p.descuentoPorRemonte) / (1 + (this.colas[r.id]?.length ?? 0));
+  private pesoRemonte(r: Remonte, perfil: Perfil): number {
+    return (this.gustoDesde(r.hasta, perfil) * this.p.descuentoPorRemonte) / (1 + (this.colas[r.id]?.length ?? 0));
   }
 
-  /** Lo mejor que puede hacer un esquiador de ese nivel desde un punto (ver Red.mejorGustoDesde). */
-  private gustoDesde(nodo: number, nivel: number): number {
-    return this.red.mejorGustoDesde(nodo, nivel, this.p.gustoPorDiferencia, this.p.descuentoPorRemonte, this.p.factorRepeticion);
+  /**
+   * Gusto de una pista para este esquiador (0 si es más difícil que su
+   * nivel): por diferencia de niveles, por el factor de repetición si está
+   * entre sus últimas bajadas o es forzada, y por el de novedad si aún no ha
+   * bajado por ella en su visita.
+   */
+  gustoPista(perfil: Perfil, pista: Pista): number {
+    const d = perfil.nivel - this.red.dificultad(pista);
+    if (d < 0) return 0;
+    const g = this.p.gustoPorDiferencia;
+    const base = g[Math.min(d, g.length - 1)];
+    if (perfil.recientes.includes(pista.id) || this.red.forzada(pista)) return base * this.p.factorRepeticion;
+    return perfil.hechas?.has(pista.id) ? base : base * (this.p.factorNovedad ?? 1);
+  }
+
+  /**
+   * Atractivo de un punto para este esquiador: la suma del gusto de las
+   * pistas que salen de él más, con un descuento por cada remonte que haya
+   * que coger, el de los puntos a los que suben sus remontes. Es una suma y
+   * no un máximo para que un sector con mucho terreno atraiga más que uno con
+   * una sola pista: así un remonte que sube a un valle entero compite en
+   * igualdad con las pistas del punto, y la gente se reparte por la estación
+   * en vez de quedarse abajo. Depende de por dónde ha bajado ya cada uno (los
+   * remontes siempre suben: la recursión termina).
+   */
+  private gustoDesde(nodo: number, perfil: Perfil, memo = new Map<number, number>()): number {
+    const guardado = memo.get(nodo);
+    if (guardado !== undefined) return guardado;
+    const viables = this.red.viablesPorNivel()[perfil.nivel];
+    const { remontes, pistas } = this.red.salidas(nodo);
+    let g = 0;
+    for (const p of pistas) if (viables.has(p.hasta)) g += this.gustoPista(perfil, p);
+    for (const r of remontes) if (viables.has(r.hasta)) g += this.p.descuentoPorRemonte * this.gustoDesde(r.hasta, perfil, memo);
+    memo.set(nodo, g);
+    return g;
   }
 
   private caminarABase(id: number, origen: Punto, bases: number[]): void {
     // Hacia la base que lleva a lo que más le gusta, con menos cola.
-    const nivel = this.perfiles.get(id)?.nivel ?? 0;
-    const hacia = this.elegir(bases, (b) => (this.gustoDesde(b, nivel) || 1e-3) / (1 + this.colaEnNodo(b)));
+    const perfil = this.perfiles.get(id);
+    const hacia = this.elegir(bases, (b) => ((perfil ? this.gustoDesde(b, perfil) : 0) || 1e-3) / (1 + this.colaEnNodo(b)));
     this.esquiadores.set(id, {
       id,
       estado: 'andando',
@@ -543,13 +591,12 @@ export class Simulacion {
     // la diferencia de niveles; el de un remonte (o de ir andando a otra base),
     // de lo mejor que hay tras él, con un descuento por cada remonte más. Así
     // pistas y remontes están en la misma escala y se puede subir o bajar.
-    const nivel = perfil.nivel;
+    // Una pista forzada pesa como una repetida (se usa, pero no divierte) y
+    // una por la que aún no ha bajado pesa más (novedad).
     const o = this.elegir(opciones, (op) => {
-      if ('remonte' in op) return this.pesoRemonte(op.remonte, nivel);
-      if ('andar' in op) return this.gustoDesde(op.andar, nivel) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
-      // Una pista forzada pesa como una repetida: se usa, pero no divierte.
-      const repetida = perfil.recientes.includes(op.pista.id) || this.red.forzada(op.pista);
-      return pesoPista(nivel, this.red.dificultad(op.pista), repetida, this.colaEnNodo(op.pista.hasta), this.p);
+      if ('remonte' in op) return this.pesoRemonte(op.remonte, perfil);
+      if ('andar' in op) return this.gustoDesde(op.andar, perfil) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
+      return this.gustoPista(perfil, op.pista) / (1 + this.colaEnNodo(op.pista.hasta));
     });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);
@@ -578,6 +625,7 @@ export class Simulacion {
     if (diferencia >= 2) perfil.contento -= diferencia - 1;
     else if (diferencia === 0 && variedad) perfil.contento = Math.min(this.p.contentoInicial, perfil.contento + 1);
     if (variedad) perfil.variedades++;
+    (perfil.hechas ??= new Set()).add(pista.id);
     perfil.recientes.push(pista.id);
     while (perfil.recientes.length > this.p.memoriaVariedad) perfil.recientes.shift();
     return perfil.contento > 0;

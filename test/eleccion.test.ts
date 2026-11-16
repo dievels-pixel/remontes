@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { copiarBandas } from '../src/core/colores';
 import { Red } from '../src/core/red';
 import { Simulacion, pesoPista, type ParametrosSimulacion } from '../src/core/simulacion';
-import { abrir, conValoresClasicos, REGLAS, redPequena } from './apoyo';
+import { abrir, conValoresClasicos, REGLAS, redPequena, ESQUIADOR_CLASICO } from './apoyo';
 
 /** Plaza 0 y cima 1 en una ladera de pendiente 0,3, con parámetros de pista fijados aquí: caben azul y verde. */
 function ladera(): Red {
@@ -30,7 +29,7 @@ const P: ParametrosSimulacion = {
   velocidadRemonte: 160,
   intervaloBolitas: 0.9,
   capacidadBolita: 1,
-  ...CONFIG.esquiador,
+  ...ESQUIADOR_CLASICO,
   // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
   mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
   llegadasPorMinuto: 30,

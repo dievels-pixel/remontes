@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG } from '../src/config';
 import { crearAzar } from '../src/core/azar';
 import { Simulacion, type ParametrosSimulacion } from '../src/core/simulacion';
-import { abrir, conValoresClasicos, redPequena } from './apoyo';
+import { abrir, conValoresClasicos, redPequena, ESQUIADOR_CLASICO, REMONTE_CLASICO, COLAS_CLASICAS } from './apoyo';
 
 const P: ParametrosSimulacion = {
-  velocidadRemonte: CONFIG.remonte.velocidad,
-  intervaloBolitas: CONFIG.remonte.intervaloBolitas,
-  capacidadBolita: CONFIG.remonte.capacidad,
-  ...CONFIG.esquiador,
+  ...REMONTE_CLASICO,
+  ...ESQUIADOR_CLASICO,
   // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
   llegadasPorMinuto: 30,
   mezclaNiveles: [0.35, 0.35, 0.2, 0.1],
@@ -16,8 +13,7 @@ const P: ParametrosSimulacion = {
   gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
   factorRepeticion: 0.3,
   descuentoPorRemonte: 0.85,
-  aforoCola: CONFIG.colas.aforo,
-  tiempoAnillo: CONFIG.colas.tiempoAnillo,
+  ...COLAS_CLASICAS,
 };
 const ENTRADA = { x: 150, y: 3100 };
 const DT = 1 / 60;

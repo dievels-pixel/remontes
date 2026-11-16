@@ -308,7 +308,7 @@ Cuando los valores queden fijados se puede retirar el panel.
 
 ## Estado del desarrollo
 
-Actualizado el 2026-11-15 (v46: etapa 5, rendimiento con 300-370 esquiadores). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
+Actualizado el 2026-11-16 (fases de acabado en curso: el estado al día está en `ESTADO.md`, las decisiones en `DECISIONES.md` y la calibración en `CALIBRACION.md`, en la raíz del repositorio). Las etapas siguen el «Plan de desarrollo» de la especificación (`docs/diseno-juego-remontes.md`).
 
 ### Hecho
 

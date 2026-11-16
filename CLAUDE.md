@@ -23,6 +23,7 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 
 ## Convenciones del proyecto
 
+- `ESTADO.md` (qué está hecho y qué falta), `DECISIONES.md` (ambigüedades resueltas) y `CALIBRACION.md` (valores de balance y cómo repetir la calibración con `npm run calibrar`) están en la raíz y se mantienen al día.
 - Cada petición del usuario termina en un único commit subido directamente a `main` (se trabaja en la rama de Claude, recreada desde `main`, y se sube con `git push origin HEAD:main`; también se actualiza la rama). En pantalla se ve `vN · fecha`, con N = 26 + commits de `main` desde la fusión de la #26 (`vite.config.ts`): un commit por petición para que N suba de uno en uno. Si el usuario ve algo raro, comprueba primero la versión.
 - Antes de arreglar un fallo que describe el usuario, reprodúcelo (con un script o una prueba que use la lógica real) y deja una prueba que lo cubra.
 - Las pruebas no deben depender de los valores calibrados de `src/config.ts`: cada red de prueba lleva su propia copia de los parámetros (`test/apoyo.ts`), y las que se escribieron con valores concretos los fijan (`conValoresClasicos`, `BANDAS_CLASICAS`).

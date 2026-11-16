@@ -14,8 +14,8 @@ Este archivo se actualiza al cerrar cada fase (ver «Fases de acabado» al final
 | 4. Carretera, afluencia y mezcla por tiempo | Hecha | Sin edificios: se probaron y están en «Descartado» (v39). |
 | 5. Densidad, rendimiento y legibilidad | A medias | Rendimiento medido y arreglado (v46). Falta la prueba de legibilidad de puntos y pistas. |
 | 6. Economía, quejas y derrota | Hecha | Precio, pago, mejora de remontes, mantenimiento, medidor y fin de partida (v40 a v45). |
-| 7. Simulación sin gráficos para calibrar | A medias | `scripts/jugarPartidas.mjs`: un jugador automático en JavaScript sin tipos ni pruebas, sin criterios de aceptación. |
-| 8. Indicadores en pantalla | A medias | Hay contadores por color (presentes, a un punto de irse, enfadados). Falta la barra de kilómetros de pista por color con la mezcla de llegadas. |
+| 7. Simulación sin gráficos para calibrar | Hecha (fase 1) | `npm run calibrar`, `src/bots/`, criterios en `CALIBRACION.md`. |
+| 8. Indicadores en pantalla | Hecha (fase 1) | Contadores por color y barra de kilómetros de pista por color con la mezcla de llegadas. |
 | 9. Cruces con enlaces automáticos | Hecha | Confluencias con acuerdo tangente y límite de cruces. |
 | 10. Pulido visual y sonoro | Sin empezar | Sin sonido, sin ciclo de día, sin animaciones de respuesta, terreno con degradado sencillo. |
 | 11. Fases posteriores | Sin empezar | Varias carreteras, agua, averías, boca a boca. |
@@ -63,7 +63,7 @@ Qué falla o aburre:
 | Fase | Estado |
 |---|---|
 | 0. Auditoría | Hecha (este documento) |
-| 1. Cerrar el núcleo y calibrarlo | Pendiente |
+| 1. Cerrar el núcleo y calibrarlo | Hecha: ver `CALIBRACION.md`. Elección de ruta por novedad y suma, periodo de gracia, afluencia acelerada, barra de kilómetros por color, jugadores automáticos en `src/bots/` y `npm run calibrar`. |
 | 2. Animación, sonido y sensación | Pendiente |
 | 3. Niveles y retos | Pendiente |
 | 4. Pantalla inicial | Pendiente |

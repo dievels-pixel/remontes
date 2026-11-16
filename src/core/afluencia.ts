@@ -20,6 +20,12 @@ export interface ParametrosAfluencia {
   /** Llegadas por minuto que suma cada escalón. */
   incremento: number;
   /**
+   * Aceleración: llegadas por minuto que suma además el cuadrado del número
+   * de escalón (tasa = inicial + incremento · k + aceleración · k²). Hace que
+   * el final apriete sin endurecer el principio. Sin ella, 0.
+   */
+  aceleracion?: number;
+  /**
    * Mezcla de niveles (pesos de verde, azul, roja y negra) en algunos
    * minutos; entre ellos se interpola y después del último se mantiene.
    */
@@ -38,7 +44,8 @@ export function escalonEfectivo(t: number, p: ParametrosAfluencia): number {
 
 /** Llegadas por minuto en el instante t. */
 export function tasaEn(t: number, p: ParametrosAfluencia): number {
-  return p.tasaInicial + p.incremento * escalonEfectivo(t, p);
+  const k = escalonEfectivo(t, p);
+  return p.tasaInicial + p.incremento * k + (p.aceleracion ?? 0) * k * k;
 }
 
 /**

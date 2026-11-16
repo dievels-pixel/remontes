@@ -5,7 +5,7 @@ import { crearNodos } from '../src/core/mapa';
 import { Red, type ReglasRed } from '../src/core/red';
 import { crearAzar } from '../src/core/azar';
 import { Simulacion } from '../src/core/simulacion';
-import { abrir, cargarMapaPrueba, REGLAS } from './apoyo';
+import { abrir, cargarMapaPrueba, REGLAS, ESQUIADOR_CLASICO } from './apoyo';
 
 /**
  * Base 0 abajo, intermedio 1 a media ladera (gris), cima 2 arriba y otro
@@ -136,7 +136,7 @@ describe('Pistas que nacen en una base de media ladera', () => {
       velocidadRemonte: 160,
       intervaloBolitas: 0.9,
       capacidadBolita: 1,
-      ...CONFIG.esquiador,
+      ...ESQUIADOR_CLASICO,
       // Caudal constante fijado aquí (la curva de afluencia no se usa en la prueba).
       llegadasPorMinuto: 30,
       // Elección de ruta fijada aquí (no los valores provisionales de config.ts).

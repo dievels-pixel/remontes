@@ -29,8 +29,10 @@ export const CONFIG = {
   // la especificación decía 4 y 8) y velocidad relativa (la telecabina, más
   // rápida). PROVISIONAL las velocidades.
   remonte: {
-    velocidad: 160, // m/s de juego del telesquí (tiempo comprimido)
-    intervaloBolitas: 0.9, // s entre bolitas, igual en los tres tipos
+    velocidad: 100, // m/s de juego del telesquí (tiempo comprimido)
+    // s entre bolitas, igual en los tres tipos: un telesquí sube 33 personas
+    // por minuto, una telesilla 67 y una telecabina 133 (calibrado en la fase 1).
+    intervaloBolitas: 1.8,
     capacidad: 1, // personas por bolita del telesquí (= capacidadPorTipo[0])
     capacidadPorTipo: [1, 2, 4],
     factorVelocidadPorTipo: [1, 1, 1.3],
@@ -46,8 +48,8 @@ export const CONFIG = {
   // mejora donde hay cola aguanta unos 14 min (mediana de 7), uno que nunca
   // mejora, unos 11. PROVISIONAL: por ajustar jugando.
   economia: {
-    monedasIniciales: 300,
-    precioPorMetro: 0.1, // un telesquí de 1500 m cuesta 150
+    monedasIniciales: 400,
+    precioPorMetro: 0.12, // un telesquí de 1000 m cuesta 120
     factorPrecioPorTipo: [1, 2.5, 5],
     tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra (especificación)
     multiplicadorVariedad: 0.1, // la especificación decía 0,2: inflaba los ingresos
@@ -60,7 +62,7 @@ export const CONFIG = {
     // que mejorar un remonte sin cola pierde dinero: un telesquí de 1200 m
     // cuesta 7/min; como telecabina, 72/min.
     mantenimiento: {
-      porMetroYMinuto: 0.006,
+      porMetroYMinuto: 0.008,
       factorPorTipo: [1, 4, 10],
     },
   },
@@ -149,17 +151,21 @@ export const CONFIG = {
   afluencia: {
     intervalo: 60, // s entre escalones
     retraso: 15, // s de retraso de cada escalón
-    tasaInicial: 12, // llegadas por minuto al abrir
-    incremento: 3, // llegadas por minuto más en cada escalón
+    tasaInicial: 6, // llegadas por minuto al abrir
+    incremento: 1.6, // llegadas por minuto más en cada escalón
+    // y además esto por el cuadrado del número de escalón: el final aprieta
+    // sin endurecer el principio (minuto 20: 48 por minuto; minuto 30: 77).
+    aceleracion: 0.026,
     // Mezcla de niveles (pesos de verdes, azules, rojos y negros) en algunos
     // minutos; se interpola entre ellos y se mantiene tras el último. Al
     // principio, mayoría de verdes y azules; rojos desde unos 4 minutos y
     // negros desde unos 8.
     mezcla: [
       { minuto: 0, pesos: [0.6, 0.4, 0, 0] },
-      { minuto: 4, pesos: [0.5, 0.35, 0.15, 0] },
-      { minuto: 8, pesos: [0.4, 0.3, 0.2, 0.1] },
-      { minuto: 14, pesos: [0.3, 0.3, 0.22, 0.18] },
+      { minuto: 6, pesos: [0.5, 0.38, 0.12, 0] },
+      { minuto: 12, pesos: [0.42, 0.34, 0.2, 0.04] },
+      { minuto: 20, pesos: [0.36, 0.31, 0.23, 0.1] },
+      { minuto: 30, pesos: [0.32, 0.29, 0.24, 0.15] },
     ],
     velocidadCarretera: 150, // m/s de juego por la carretera de acceso
   },
@@ -181,18 +187,21 @@ export const CONFIG = {
     // Contento al entrar (y tope). A 0 se va enfadado. Especificación: 3.
     contentoInicial: 3,
     // Pistas que recuerda para la variedad. Especificación: 2. PROVISIONAL.
-    memoriaVariedad: 2,
+    memoriaVariedad: 1,
     // Elección de ruta (por nivel, variedad y cola): peso = gusto × repetición
     // × 1 / (1 + cola). Gusto de una pista según cuántos niveles queda por
     // debajo del esquiador: su nivel, uno, dos (empieza el aburrimiento) y
     // tres por debajo. PROVISIONAL: por calibrar con la simulación.
-    gustoPorDiferencia: [1, 0.5, 0.15, 0.03],
+    gustoPorDiferencia: [1, 0.6, 0.08, 0.02],
     // Peso de una pista entre sus últimas bajadas (no se descarta, pesa
     // menos; no resta contento). PROVISIONAL.
-    factorRepeticion: 0.3,
+    factorRepeticion: 0.4,
     // Gusto de un remonte: el de lo mejor que hay tras su llegada, por este
     // factor por cada remonte que haya que coger. PROVISIONAL.
-    descuentoPorRemonte: 0.85,
+    descuentoPorRemonte: 0.7,
+    // Gusto por una pista por la que aún no ha bajado en su visita: le lleva a
+    // recorrer toda la estación en vez de quedarse abajo.
+    factorNovedad: 2.5,
   },
 
   // Colas: con más gente que el aforo, el anillo del remonte se llena en
@@ -200,7 +209,7 @@ export const CONFIG = {
   // mitad. Hipótesis de la especificación: 6 y 20 s. PROVISIONAL.
   colas: {
     aforo: 6,
-    tiempoAnillo: 20,
+    tiempoAnillo: 30,
   },
 
   // Medidor de quejas (fin de partida): cada esquiador que se va enfadado lo
@@ -211,9 +220,12 @@ export const CONFIG = {
   // 12 llegadas/min al abrir, unas 2,4 quejas/min; como la afluencia sube y el
   // vaciado no, la tensión crece sola.
   quejas: {
-    capacidad: 20,
+    capacidad: 36,
     vaciadoPorMinuto: 2,
     aviso: 0.7,
+    // Segundos de estación abierta en los que los enfadados aún no llenan el
+    // medidor: no se puede perder en los 2 primeros minutos reales (4 de juego).
+    gracia: 240,
   },
 
   // Rendimiento: calentamiento de cachés en segundo plano tras cada obra
