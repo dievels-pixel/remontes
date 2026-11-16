@@ -420,6 +420,15 @@ Notas técnicas:
 - **Aprendizaje sin texto.** En la primera partida, un «dedo» fantasma repite el gesto que toca: arrastrar de una base a un punto más alto, arrastrar de la llegada hacia abajo, elegir color (los posibles laten) y, con la primera cola, mantener pulsado el remonte. Se da por aprendida al mejorar un remonte o a los diez minutos de juego. Ya no hay textos de ayuda; quedan los avisos cortos de por qué algo no se puede hacer.
 - **Fin de partida.** La vista se aleja al mapa entero y lo coloca por encima del panel; el punto donde más esquiadores se han ido enfadados late en rojo; el panel da los días sobrevividos, satisfechos y enfadados, los retos y los botones «Repetir» y «Menú». Repetir no recarga la página.
 
+## Pantalla inicial (2026-11-16)
+
+- Estética plana: fondo liso claro, líneas muy gruesas y pocos colores. El título va trazado con líneas, no con una fuente; los textos usan una tipografía geométrica del sistema.
+- Fondo animado con el mismo código de dibujo del juego a escala grande: un remonte de línea doble en diagonal con telecabinas subiendo en bucle y tres pistas gruesas (verde, azul y roja) con puntos bajando, despacio y sin parar.
+- Selector de niveles deslizable, generado desde el índice: los jugables muestran miniatura, nombre, récord, sus tres retos con marca y el botón «Jugar»; los bloqueados, una tarjeta a trazos con candado y «Próximamente». Se desliza con el dedo, la rueda o las flechas.
+- Ajustes: sonido, modo para daltonismo y reiniciar el progreso (pide un segundo toque).
+- Modo para daltonismo: paleta distinguible (verde azulado, azul y bermellón) y un símbolo de forma por nivel (círculo, cuadrado, rombo y doble rombo) en los contadores, en el selector de color y a media pista.
+- El paso del menú a la partida y la vuelta es un fundido; la tarjeta elegida crece un instante antes.
+
 ## Niveles, retos y progreso (2026-11-16)
 
 - Cada nivel es una carpeta de datos en `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`) listada en `niveles/indice.json`. El juego no contiene nada propio de ningún nivel; añadir uno es copiar una carpeta y añadir una línea al índice. El formato está en `FORMATO_NIVEL.md`.

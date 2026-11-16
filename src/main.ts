@@ -1,7 +1,8 @@
-// Arranque: un lienzo, un bucle y una pantalla activa (por ahora, la partida;
-// el menú llega en la fase 4). Las pantallas se crean y se destruyen sin
-// recargar la página; el cambio entre ellas es un fundido.
+// Arranque: un lienzo, un bucle y una pantalla activa (el menú o una
+// partida). Las pantallas se crean y se destruyen sin recargar la página; el
+// cambio entre ellas es un fundido.
 import { Musica } from './audio/musica';
+import { FONDO_MENU, PantallaMenu } from './menu';
 import { cargarNivel, fichasDeNiveles, type NivelCargado } from './niveles';
 import { PantallaPartida, type Pantalla } from './partida';
 import { registrarPartida } from './progreso';
@@ -51,11 +52,28 @@ function partida(nivel: NivelCargado): () => Pantalla {
       // Una semilla distinta en cada partida: las llegadas no se repiten.
       semilla: Math.floor(Math.random() * 1e9),
       parametros: nivel.parametros,
-      alSalir: () => cambiar(partida(nivel)),
+      alSalir: () => cambiar(menu(nivel.id)),
       alRepetir: () => cambiar(partida(nivel)),
       alTerminar: (juego) => registrarPartida(nivel.id, juego.resumen(), nivel.retos),
     });
 }
+
+/** El menú, abierto por la tarjeta del nivel dado. */
+function menu(inicial?: string): () => Pantalla {
+  return () =>
+    new PantallaMenu(lienzo, {
+      sonido: musica,
+      fichas: fichasDeNiveles(),
+      inicial,
+      alJugar: (id) => {
+        cargarNivel(id).then((nivel) => cambiar(partida(nivel)), fallo);
+      },
+    });
+}
+
+const fallo = (e: unknown) => {
+  document.body.textContent = `No se ha podido cargar el nivel: ${e instanceof Error ? e.message : String(e)}`;
+};
 
 let anterior = performance.now();
 function fotograma(ahora: number): void {
@@ -82,25 +100,29 @@ function fotograma(ahora: number): void {
     }
   }
   if (velo > 0.005) {
-    ctx.fillStyle = `rgba(169, 182, 184, ${velo.toFixed(3)})`;
+    ctx.fillStyle = FONDO_MENU;
+    ctx.globalAlpha = velo;
     ctx.fillRect(0, 0, ancho, alto);
+    ctx.globalAlpha = 1;
   }
   requestAnimationFrame(fotograma);
 }
 
-// Hasta que haya menú (fase 4) se entra directamente al primer nivel jugable
-// del índice (o al que pida ?nivel=<id>).
-const fallo = (e: unknown) => {
-  document.body.textContent = `No se ha podido cargar el nivel: ${e instanceof Error ? e.message : String(e)}`;
-};
+// Se entra por el menú. Con ?nivel=<id> (o con la herramienta ?ajustes) se
+// abre directamente una partida, para las pruebas.
 try {
-  const pedido = new URLSearchParams(location.search).get('nivel');
-  const id = pedido ?? fichasDeNiveles().find((n) => !n.bloqueado)!.id;
-  cargarNivel(id).then((nivel) => {
-    redimensionar();
-    poner(partida(nivel));
+  const consulta = new URLSearchParams(location.search);
+  const directo = consulta.get('nivel') ?? (consulta.has('ajustes') ? fichasDeNiveles().find((n) => !n.bloqueado)!.id : null);
+  redimensionar();
+  if (directo) {
+    cargarNivel(directo).then((nivel) => {
+      poner(partida(nivel));
+      requestAnimationFrame(fotograma);
+    }, fallo);
+  } else {
+    poner(menu());
     requestAnimationFrame(fotograma);
-  }, fallo);
+  }
 } catch (e) {
   fallo(e);
 }

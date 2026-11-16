@@ -12,6 +12,7 @@ import type { Juego } from '../juego';
 import type { Camara } from './camara';
 import { vistaPunto } from '../core/visibilidad';
 import { DURACION, frenar, limitar01, rebotar, tinteDia, type Efectos } from './efectos';
+import { preferencias } from '../preferencias';
 import { COLOR_FONDO } from './terreno';
 
 export const COLOR = {
@@ -32,12 +33,44 @@ export const COLOR = {
   moneda: '#8a5a00', // texto de los cobros
 };
 
-export const COLOR_PISTA: Record<ColorPista, string> = {
-  verde: '#3e9b5b',
-  azul: '#2f6fc0',
-  roja: '#d24a3c',
-  negra: '#1d2026',
-};
+const PALETA_NORMAL: Record<ColorPista, string> = { verde: '#3e9b5b', azul: '#2f6fc0', roja: '#d24a3c', negra: '#1d2026' };
+/**
+ * Paleta para daltonismo (Okabe e Ito): verde azulado, azul y bermellón se
+ * distinguen entre sí con las formas más comunes de daltonismo.
+ */
+const PALETA_DALTONISMO: Record<ColorPista, string> = { verde: '#009e73', azul: '#0072b2', roja: '#d55e00', negra: '#1d2026' };
+
+/** Colores de pista y de esquiador en uso (cambian con el modo para daltonismo). */
+export const COLOR_PISTA: Record<ColorPista, string> = { ...PALETA_NORMAL };
+
+/** Pone la paleta según las preferencias. Hay que llamarlo al cambiar el modo y al arrancar. */
+export function aplicarPaleta(): void {
+  Object.assign(COLOR_PISTA, preferencias.daltonismo ? PALETA_DALTONISMO : PALETA_NORMAL);
+}
+aplicarPaleta();
+
+/**
+ * Símbolo de forma de cada nivel, como señal secundaria al color (modo para
+ * daltonismo): círculo verde, cuadrado azul, rombo rojo y doble rombo negro.
+ * Deja el trazado listo; quien llama rellena o perfila.
+ */
+export function trazarSimbolo(ctx: CanvasRenderingContext2D, nivel: number, x: number, y: number, r: number): void {
+  ctx.beginPath();
+  const rombo = (cx: number, rr: number) => {
+    ctx.moveTo(cx, y - rr);
+    ctx.lineTo(cx + rr, y);
+    ctx.lineTo(cx, y + rr);
+    ctx.lineTo(cx - rr, y);
+    ctx.closePath();
+  };
+  if (nivel === 0) ctx.arc(x, y, r, 0, Math.PI * 2);
+  else if (nivel === 1) ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7);
+  else if (nivel === 2) rombo(x, r * 1.15);
+  else {
+    rombo(x - r * 0.6, r * 0.85);
+    rombo(x + r * 0.6, r * 0.85);
+  }
+}
 
 export const RADIO_NODO = 9;
 /** Radio de un punto aún sin usar: más pequeño que una estación. */
@@ -142,6 +175,19 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
     dibujarTrazado(ctx, p.trazado, P, COLOR_PISTA[p.color], 3, p.compartido, desplazamientoPista(p), trazada);
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
+    // Modo para daltonismo: el símbolo de su nivel a media pista.
+    if (preferencias.daltonismo && trazada >= 1) {
+      const medio = p.compartido ? Math.min(p.trazado.longitud / 2, p.compartido.inicio * 0.6) : p.trazado.longitud / 2;
+      const q = P(p.trazado.puntoEn(medio));
+      const d = desplazamientoPista(p)(medio);
+      ctx.fillStyle = COLOR.hueco;
+      ctx.beginPath();
+      ctx.arc(q.x + d.x, q.y + d.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = COLOR_PISTA[p.color];
+      trazarSimbolo(ctx, COLORES.indexOf(p.color), q.x + d.x, q.y + d.y, 4.5);
+      ctx.fill();
+    }
     // Al abrirse o al pasar de espera a activa: un brillo que se apaga.
     const brillo = Math.min(fx.progreso(`pista:${p.id}`, DURACION.pista + DURACION.activacion), fx.progreso(`activa:${p.id}`, DURACION.activacion));
     if (brillo < 1) {

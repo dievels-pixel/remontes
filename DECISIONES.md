@@ -40,3 +40,11 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 25. **Parámetros por nivel con la misma estructura que `src/config.ts`.** Una clave desconocida es un error, para detectar erratas del JSON.
 26. **Tercer reto de Espot: 1000 bajadas de negros.** El jugador automático razonable lo consigue en 3 de 7 partidas y el torpe en ninguna. Un reto de restricción (por ejemplo, «8 días con 12 remontes como máximo») sería más interesante, pero ningún jugador automático lo intenta y no se pudo comprobar que fuera posible.
 27. **Cinco entradas `proximo-N` bloqueadas en el índice**, sin nombre: el selector las mostrará como «próximamente».
+
+## Fase 4
+
+28. **El título se dibuja con trazos, no con una fuente.** No se añaden fuentes web (peso y licencias) y Android no trae ninguna geométrica; trazado con líneas gruesas tiene el mismo aspecto en todos los dispositivos. El resto de textos usa Futura, Century Gothic o Avenir si existen y, si no, la del sistema.
+29. **Daltonismo: paleta y formas, no formas en cada esquiador.** Con 300 puntos de 2 px de radio una forma no se lee; el modo cambia la paleta y pone el símbolo del nivel donde hay sitio.
+30. **Reiniciar el progreso pide un segundo toque** en 3,5 s, en vez de una ventana de confirmación. Borra récords, retos y la guía.
+31. **Se entra por el menú**; `?nivel=<id>` y `?ajustes` abren una partida directamente (pruebas y calibración).
+32. **Transición por fundido** al color del menú, con la tarjeta elegida creciendo un instante.

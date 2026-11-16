@@ -7,7 +7,8 @@ import { fracciones, kmPorColor } from '../core/indicadores';
 import type { Punto } from '../core/vector';
 import type { Juego, Selector } from '../juego';
 import { frenar, limitar01, rebotar, type Efectos } from './efectos';
-import { COLOR, COLOR_PISTA, mezclar, RADIO_NODO } from './escena';
+import { preferencias } from '../preferencias';
+import { COLOR, COLOR_PISTA, mezclar, RADIO_NODO, trazarSimbolo } from './escena';
 
 export interface Rect {
   x: number;
@@ -314,8 +315,12 @@ function dibujarContadores(ctx: CanvasRenderingContext2D, juego: Juego, d: Dispo
     ctx.fillStyle = COLOR_PISTA[COLORES[i]];
     ctx.strokeStyle = COLOR.hueco;
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(x, c.y1, 5, 0, Math.PI * 2);
+    // En el modo para daltonismo, la forma del nivel en vez del punto.
+    if (preferencias.daltonismo) trazarSimbolo(ctx, i, x, c.y1, 5.5);
+    else {
+      ctx.beginPath();
+      ctx.arc(x, c.y1, 5, 0, Math.PI * 2);
+    }
     ctx.fill();
     ctx.stroke();
     ctx.font = `700 12px ${FUENTE}`;
@@ -361,7 +366,7 @@ function boton(ctx: CanvasRenderingContext2D, fx: Efectos, nombre: string, r: Re
   ctx.restore();
 }
 
-function iconoDeshacer(ctx: CanvasRenderingContext2D, c: Punto): void {
+export function iconoDeshacer(ctx: CanvasRenderingContext2D, c: Punto): void {
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -387,7 +392,7 @@ function iconoSalir(ctx: CanvasRenderingContext2D, c: Punto): void {
   ctx.stroke();
 }
 
-function iconoSonido(ctx: CanvasRenderingContext2D, c: Punto, suena: boolean): void {
+export function iconoSonido(ctx: CanvasRenderingContext2D, c: Punto, suena: boolean): void {
   ctx.beginPath();
   ctx.moveTo(c.x - 10, c.y - 4);
   ctx.lineTo(c.x - 5, c.y - 4);
@@ -493,6 +498,11 @@ function dibujarSelector(ctx: CanvasRenderingContext2D, juego: Juego, sel: Selec
     ctx.beginPath();
     ctx.arc(cx, cy, caja.ancho / 2 - 3, 0, Math.PI * 2);
     ctx.fill();
+    if (preferencias.daltonismo) {
+      ctx.fillStyle = COLOR.hueco;
+      trazarSimbolo(ctx, COLORES.indexOf(color), cx, cy, 7);
+      ctx.fill();
+    }
     if (factible && pistaForzada(color, f.p, juego.red.reglas.pista.bandas)) {
       // Borde rojo suave: cabe, pero es forzada (se baja sin divertir).
       ctx.strokeStyle = COLOR.forzada;
