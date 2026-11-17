@@ -1,6 +1,6 @@
 # Calibración
 
-Valores finales de la fase 1 (2026-11-16) y resultados de las partidas automáticas que los justifican. Todos los parámetros están en `src/config.ts`; aquí solo se resumen los que se tocaron.
+Valores finales de la fase 1 (2026-11-16), revisados el 2026-11-17 (cambio de base y colas, ver al final) y resultados de las partidas automáticas que los justifican. Todos los parámetros están en `src/config.ts`; aquí solo se resumen los que se tocaron.
 
 Para repetirla:
 
@@ -112,3 +112,37 @@ Parte de esa concentración es inevitable: todo el que llega entra por los remon
 - **Más de 300 esquiadores al final** (hasta unos 400 en el último minuto de las partidas más largas): por encima del objetivo de rendimiento de 300.
 - **El torpe es muy variable** (de 5 a 15 minutos): depende de si su primer remonte al azar da bajada verde.
 - Los resultados dependen de lo bien que juegan los jugadores automáticos. Una persona razonable construirá mejores circuitos para rojos y negros, pero más despacio.
+
+## Revisión del 2026-11-17: cambio de base y colas
+
+**Problema observado jugando:** la cola de la base de la izquierda crecía mucho con las otras bases vacías. Reproducido en `test/bases.test.ts`: con el límite de 400 m para ir andando a otra base, en Espot (bases a 403 y 700 m) nadie cambiaba nunca de base; con dos pistas que acaban en la base de la izquierda, su cola llegaba a 26–35 personas y las otras se quedaban en 0–3.
+
+**Cambios:**
+
+| Parámetro | Antes | Ahora | Por qué |
+|---|---|---|---|
+| `esquiador.distanciaBasesContiguas` | 400 m | 1000 m | Todas las bases de la plaza a pie. |
+| `esquiador.exponenteCola` | (implícito 1) | 1,5 | El peso de una opción se divide por (1 + espera)^1,5: con una cola de 17 frente a otra vacía, antes aún esperaba uno de cada cinco. |
+| espera | personas en cola | bolitas de espera (cola / plazas por bolita) | Doce personas en un telesquí no esperan lo mismo que doce en una telecabina. |
+| `economia.mantenimiento.fijoPorMinuto` | (no existía) | 2 | Con la gente bien repartida, «solo ampliar con telesquís» llegaba al 84 % del razonable. |
+| `economia.monedasIniciales` | 400 | 450 | Con el coste fijo, el arranque quedaba al filo (2 de 7 partidas del razonable perdían en el minuto 5). |
+
+En la reproducción, tras el cambio: 244 cambios de base en 15 minutos y la cola de la izquierda en 4–7 personas.
+
+También se corrigieron dos fallos del jugador automático razonable que el reparto nuevo dejó a la vista: solo aliviaba la peor cola (ahora todas las que pasan del aforo) y ampliaba aunque los ingresos no cubrieran el mantenimiento (con más dinero inicial se gastaba todo en tres remontes largos y entraba en una espiral sin salida).
+
+**Resultado** (7 partidas por jugador):
+
+| Criterio | Resultado | ¿Cumple? |
+|---|---|---|
+| Razonable: 12 a 20 minutos | mediana 18:42 (de 18:05 a 20:41) | Sí |
+| Nadie pierde en los 2 primeros minutos | la más temprana, 6:23 (torpe) | Sí |
+| Todo verde no gana | 9:56 (53 %) | Sí |
+| Solo mejorar no gana | 7:06 (38 %) | Sí |
+| Solo ampliar no gana | 14:45 (79 %) | Sí, por poco |
+| El torpe pierde antes | 9:30 | Sí |
+| Derrota en cadena (≥ 1 min) | 1:16 | Sí |
+
+Retos de Espot: sobrevive 4 días (torpe 6/7, razonable 7/7), 600 satisfechos (torpe 2/7, razonable 7/7), 1000 bajadas de negros (torpe 1/7, razonable 3/7).
+
+**Flojo:** «solo ampliar» queda justo en el límite del 79 %. Con la gente bien repartida, muchos telesquís baratos son una estrategia casi tan buena como mejorar; subir más el coste fijo endurece el principio para todos.

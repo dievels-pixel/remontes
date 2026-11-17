@@ -55,7 +55,7 @@ export const CONFIG = {
   // mejora donde hay cola aguanta unos 14 min (mediana de 7), uno que nunca
   // mejora, unos 11. PROVISIONAL: por ajustar jugando.
   economia: {
-    monedasIniciales: 400,
+    monedasIniciales: 450,
     precioPorMetro: 0.12, // un telesquí de 1000 m cuesta 120
     factorPrecioPorTipo: [1, 2.5, 5],
     tarifas: [1, 1.5, 2, 3], // verde, azul, roja, negra (especificación)
@@ -70,6 +70,9 @@ export const CONFIG = {
     // cuesta 7/min; como telecabina, 72/min.
     mantenimiento: {
       porMetroYMinuto: 0.008,
+      // Y además esto por cada remonte, sea cual sea su longitud y tipo (sus
+      // dos estaciones): llenar el mapa de telesquís baratos sale caro.
+      fijoPorMinuto: 2,
       factorPorTipo: [1, 4, 10],
     },
   },
@@ -180,8 +183,10 @@ export const CONFIG = {
   esquiador: {
     velocidadAndando: 60, // m/s de juego en la plaza
     // Al llegar a una base se puede ir andando a una base contigua si su cola
-    // compensa. PROVISIONAL.
-    distanciaBasesContiguas: 400, // m entre bases para considerarlas contiguas
+    // compensa. Con 1000 m, todas las bases de la plaza son contiguas (en Espot
+    // están a 403 y 700 m; con los 400 m de antes nadie cambiaba nunca de base
+    // y la cola de una base podía crecer sin límite con las otras vacías).
+    distanciaBasesContiguas: 1000, // m entre bases para considerarlas contiguas
     penalizacionAndar: 3, // equivale a esa cantidad de personas más en la cola
     // v = base + factor · pendiente
     velocidadBasePista: 70,
@@ -206,6 +211,11 @@ export const CONFIG = {
     // Gusto de un remonte: el de lo mejor que hay tras su llegada, por este
     // factor por cada remonte que haya que coger. PROVISIONAL.
     descuentoPorRemonte: 0.7,
+    // Cuánto espanta una cola al elegir: el peso de cada opción se divide por
+    // (1 + espera) elevado a esto, con la espera en bolitas (cola entre las
+    // plazas de cada bolita). Con 1 (hasta el 2026-11-17), una cola de 17
+    // frente a otra vacía aún la elegía uno de cada cinco.
+    exponenteCola: 1.5,
     // Gusto por una pista por la que aún no ha bajado en su visita: le lleva a
     // recorrer toda la estación en vez de quedarse abajo.
     factorNovedad: 2.5,

@@ -95,3 +95,7 @@ Qué falla o aburre:
 - Un sumidero de dinero tardío (mantenimiento que crece con los días o mejoras de estación).
 - Un reto de restricción en Espot («N días con M remontes como máximo») cuando haya un jugador automático que lo intente.
 - Texturas de bosque y roca en el terreno, y probar el modo para daltonismo con personas que lo necesiten.
+
+## Revisión del 2026-11-17
+
+Arreglado lo que vio el usuario jugando: la cola de la base de la izquierda crecía con las otras vacías porque nadie podía cambiar de base andando (límite de 400 m frente a bases a 403 y 700 m). Ahora todas las bases de la plaza están a pie, las colas se comparan por espera y pesan más, y se recalibró (ver `CALIBRACION.md`). Prueba en `test/bases.test.ts`.

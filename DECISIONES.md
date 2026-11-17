@@ -54,3 +54,9 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 33. **«A mano en el navegador» se hizo con gestos reales emulados** (Playwright con un Pixel 7, en vertical y horizontal) y con el jugador automático razonable jugando dentro de la página. No hay acceso a un móvil físico.
 34. **Las pruebas de cierre juegan una partida de 16 minutos de juego en cada nivel jugable** y comprueban cada minuto que no hay puntos ciegos (pistas activas solo hacia puntos viables, remontes en servicio con bajada, nadie en una pista o cola que no le corresponde) y que los colores ofrecidos caben por pendiente.
 35. **Las pistas con tramo común quedan fuera de la comprobación de banda**: al unirse a otra cambia su longitud y su pendiente media puede salirse de la banda de su color. Se anota como punto flojo.
+
+## Revisión del 2026-11-17
+
+36. **Todas las bases de la plaza son contiguas a pie** (1000 m), en vez de cambiar la geometría de Espot: es lo que espera quien juega (que el esquiador pueda ir a otra base si la suya tiene mucha cola) y vale para cualquier nivel.
+37. **Las colas se comparan por espera, no por número de personas**, y pesan más (exponente 1,5). Se eligió 1,5 y no 2 porque con 2 el jugador razonable perdía antes sin que el reparto mejorase de forma visible.
+38. **Coste fijo por remonte de 2 monedas por minuto y 450 monedas iniciales** para que «solo ampliar» siga sin alcanzar al razonable.

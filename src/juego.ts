@@ -185,7 +185,7 @@ export class Juego {
       capacidadPorTipo: [...remonte.capacidadPorTipo],
       factorVelocidadPorTipo: [...remonte.factorVelocidadPorTipo],
       pago: { tarifas: [...this.config.economia.tarifas], multiplicadorVariedad: this.config.economia.multiplicadorVariedad, factorSinDiversion: this.config.economia.factorSinDiversion },
-      mantenimiento: { porMetroYMinuto: this.config.economia.mantenimiento.porMetroYMinuto, factorPorTipo: [...this.config.economia.mantenimiento.factorPorTipo] },
+      mantenimiento: { porMetroYMinuto: this.config.economia.mantenimiento.porMetroYMinuto, fijoPorMinuto: this.config.economia.mantenimiento.fijoPorMinuto, factorPorTipo: [...this.config.economia.mantenimiento.factorPorTipo] },
       ...this.config.esquiador,
       // Con la curva de afluencia, estos dos no se usan (la curva manda).
       llegadasPorMinuto: this.config.afluencia.tasaInicial,

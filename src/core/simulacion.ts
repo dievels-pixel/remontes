@@ -44,6 +44,12 @@ export interface ParametrosSimulacion {
   /** Multiplica el gusto de lo que hay tras cada remonte más que haya que coger. */
   descuentoPorRemonte: number;
   /**
+   * Cuánto espanta una cola al elegir: el peso de cada opción se divide por
+   * (1 + cola) elevado a esto. Con 1, una cola de 17 frente a otra vacía aún
+   * se elige una de cada cinco veces; con 2, casi nunca. Sin él, 1.
+   */
+  exponenteCola?: number;
+  /**
    * Multiplica el gusto de una pista por la que este esquiador aún no ha
    * bajado en su visita (ni forzada): le empuja a recorrer toda la estación
    * en vez de quedarse en la zona baja. Sin él, 1.
@@ -507,7 +513,28 @@ export class Simulacion {
 
   /** Peso de coger un remonte: lo mejor que hay tras él, con descuento, entre (1 + cola). */
   private pesoRemonte(r: Remonte, perfil: Perfil): number {
-    return (this.gustoDesde(r.hasta, perfil) * this.p.descuentoPorRemonte) / (1 + (this.colas[r.id]?.length ?? 0));
+    return (this.gustoDesde(r.hasta, perfil) * this.p.descuentoPorRemonte) / this.espanto(this.espera(r));
+  }
+
+  /**
+   * Espera en un remonte, en bolitas: su cola entre las personas que sube cada
+   * bolita. Doce personas en un telesquí son doce bolitas; en una telecabina,
+   * tres. Es lo que se compara al elegir, no el número de personas.
+   */
+  espera(r: Remonte): number {
+    return (this.colas[r.id]?.length ?? 0) / this.capacidadDe(r);
+  }
+
+  /** Espera en un punto: la del remonte que sale de él con menos espera. */
+  esperaEnNodo(nodo: number): number {
+    let min = Infinity;
+    for (const r of this.red.remontes) if (r.desde === nodo) min = Math.min(min, this.espera(r));
+    return min === Infinity ? 0 : min;
+  }
+
+  /** Divisor del peso de una opción por su cola (ver exponenteCola). */
+  private espanto(cola: number): number {
+    return Math.pow(1 + cola, this.p.exponenteCola ?? 1);
   }
 
   /**
@@ -550,7 +577,7 @@ export class Simulacion {
   private caminarABase(id: number, origen: Punto, bases: number[]): void {
     // Hacia la base que lleva a lo que más le gusta, con menos cola.
     const perfil = this.perfiles.get(id);
-    const hacia = this.elegir(bases, (b) => ((perfil ? this.gustoDesde(b, perfil) : 0) || 1e-3) / (1 + this.colaEnNodo(b)));
+    const hacia = this.elegir(bases, (b) => ((perfil ? this.gustoDesde(b, perfil) : 0) || 1e-3) / this.espanto(this.esperaEnNodo(b)));
     this.esquiadores.set(id, {
       id,
       estado: 'andando',
@@ -625,8 +652,8 @@ export class Simulacion {
     // una por la que aún no ha bajado pesa más (novedad).
     const o = this.elegir(opciones, (op) => {
       if ('remonte' in op) return this.pesoRemonte(op.remonte, perfil);
-      if ('andar' in op) return this.gustoDesde(op.andar, perfil) / (1 + this.colaEnNodo(op.andar) + this.p.penalizacionAndar);
-      return this.gustoPista(perfil, op.pista) / (1 + this.colaEnNodo(op.pista.hasta));
+      if ('andar' in op) return this.gustoDesde(op.andar, perfil) / this.espanto(this.esperaEnNodo(op.andar) + this.p.penalizacionAndar);
+      return this.gustoPista(perfil, op.pista) / this.espanto(this.esperaEnNodo(op.pista.hasta));
     });
     if ('remonte' in o) {
       this.colas[o.remonte.id].push(id);

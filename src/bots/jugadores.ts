@@ -162,12 +162,20 @@ function peorCola(j: Juego): { r: Remonte; cola: number } | null {
  * pone otro desde la misma salida. Devuelve 'hecho', 'ahorra' (hay cola y no
  * llega el dinero: mejor no gastarlo en otra cosa) o 'nada'.
  */
-function aliviarColas(j: Juego, preferencia: ColorPista[]): 'hecho' | 'ahorra' | 'nada' {
-  const peor = peorCola(j);
-  if (!peor || peor.cola <= j.sim.p.aforoCola) return 'nada';
-  if (j.mejorarRemonte(peor.r.id) === 'ok') return 'hecho';
-  if (ampliar(j, preferencia, 2, [j.red.nodo(peor.r.desde)])) return 'hecho';
-  return j.precioMejoraDe(peor.r.id) !== null ? 'ahorra' : 'nada';
+function aliviarColas(j: Juego, preferencia: ColorPista[], todas = false): 'hecho' | 'ahorra' | 'nada' {
+  // La peor primero; con `todas`, cada remonte con la cola por encima del aforo.
+  const saturados = j.red.remontes
+    .map((r) => ({ r, cola: j.sim.colas[r.id]?.length ?? 0 }))
+    .filter((x) => x.cola > j.sim.p.aforoCola)
+    .sort((a, b) => b.cola - a.cola)
+    .slice(0, todas ? Infinity : 1);
+  let hecho = false;
+  let ahorra = false;
+  for (const { r } of saturados) {
+    if (j.mejorarRemonte(r.id) === 'ok' || ampliar(j, preferencia, 2, [j.red.nodo(r.desde)])) hecho = true;
+    else if (j.precioMejoraDe(r.id) !== null) ahorra = true;
+  }
+  return hecho ? 'hecho' : ahorra ? 'ahorra' : 'nada';
 }
 
 /** ¿Cabe (por pendiente en recta) una pista de ese nivel entre dos puntos? */
@@ -244,8 +252,8 @@ export const razonable: Estrategia = {
     for (const r of red.remontes) if (!red.enServicio(r)) abrirDesde(j, r.hasta, pref, 2);
     if (mem.turno % 4 === 0) pistaQueFalta(j, orden);
     if (apertura(j)) return;
-    // Lo que cuesta dinero, por orden de urgencia.
-    const colas = aliviarColas(j, pref);
+    // Lo que cuesta dinero, por orden de urgencia: todas las colas saturadas.
+    const colas = aliviarColas(j, pref, true);
     if (colas === 'hecho') return;
     // Una cola que crece (más de medio aforo): guarda para poder aliviarla
     // antes de gastar en otra cosa.
@@ -263,8 +271,10 @@ export const razonable: Estrategia = {
     const sinColor = orden.find((n) => de[n] > 0.04 && of[n] / total < de[n] * 0.5);
     if (sinColor !== undefined && !pistaQueFalta(j, [sinColor]) && remonteParaColor(j, sinColor, pref)) return;
     if (colas === 'ahorra' || circuito === 'ahorra') return;
-    // Con holgura (el doble de lo que cuesta mantener todo cinco minutos), ampliar.
-    if (j.monedas > 150 + j.sim.mantenimientoPorMinuto * 2) ampliar(j, pref);
+    // Con holgura (el doble de lo que cuesta mantener todo cinco minutos) y
+    // si lo que entra cubre lo que cuesta mantener lo que ya hay, ampliar.
+    const cubre = red.remontes.length < 2 || j.sim.ingresosPorMinuto > j.sim.mantenimientoPorMinuto * 1.3;
+    if (cubre && j.monedas > 150 + j.sim.mantenimientoPorMinuto * 2) ampliar(j, pref);
   },
 };
 

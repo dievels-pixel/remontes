@@ -87,7 +87,7 @@ La cota de cada nodo **no se escribe**: sale del PNG de alturas en su posición.
 
 Recomendaciones para que el nivel se pueda jugar (el juego no las exige):
 
-- Las bases, en la zona baja, a unos 300 o 400 m del centro de la plaza y a menos de 400 m entre sí (así los esquiadores pueden cambiar de base andando).
+- Las bases, en la zona baja, a unos 300 o 400 m del centro de la plaza y a menos de 1000 m entre sí (así los esquiadores pueden cambiar de base andando cuando la cola de una es mucho más larga; ver `esquiador.distanciaBasesContiguas`).
 - Al menos un punto intermedio a menos de 1000 m de una base desde el que quepa una pista verde de vuelta (pendiente en recta entre 0,05 y unos 0,30): es el primer remonte de cualquier partida.
 - Nodos separados al menos 80 m entre sí y fuera de la plaza.
 - Variedad de pendientes entre parejas de nodos: verde de 0,05 a 0,20, azul de 0,13 a 0,30, roja de 0,22 a 0,42 y negra de 0,35 a 0,60 (desnivel entre distancia en planta; con curvas, una pista puede bajar su pendiente hasta dividirla por 1,55).
