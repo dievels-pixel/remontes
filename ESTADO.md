@@ -99,3 +99,13 @@ Qué falla o aburre:
 ## Revisión del 2026-11-17
 
 Arreglado lo que vio el usuario jugando: la cola de la base de la izquierda crecía con las otras vacías porque nadie podía cambiar de base andando (límite de 400 m frente a bases a 403 y 700 m). Ahora todas las bases de la plaza están a pie, las colas se comparan por espera y pesan más, y se recalibró (ver `CALIBRACION.md`). Prueba en `test/bases.test.ts`.
+
+## Editor de mapas (2026-11-17)
+
+`tools/editor/` (`npm run editor`): aplicación aparte, solo en desarrollo, que crea niveles en el formato de `FORMATO_NIVEL.md` (uso en `README.md`, decisiones 39 a 46). Para ello el juego admite ahora `mascara.png` (roca o esquiable forzados a mano), `carretera` en `nivel.json` y el umbral de roca del nivel.
+
+Comprobado: pruebas en `test/editor.test.ts` (placa, ruido, proyecto, máscara en el juego, validación, mapa aleatorio, ZIP) y en el navegador (generar, pinceles, carretera, ZIP, «Probar en el juego»). Un mapa aleatorio exportado en ZIP y copiado a `niveles/` pasó las pruebas de carga y de cierre, y el jugador razonable aguantó en él 17:46 minutos reales (Espot: 18:05).
+
+Sin probar: cargar una imagen de fondo real y calcar un mapa entero; «Exportar a carpeta» (en el entorno de pruebas se usó el ZIP).
+
+Pendiente: el relieve real de Espot (decisión 1) puede hacerse ahora con el editor.

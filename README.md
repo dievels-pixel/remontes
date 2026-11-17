@@ -23,6 +23,7 @@ Direcciones útiles en desarrollo:
 - `/remontes/` abre el menú.
 - `/remontes/?nivel=espot` abre directamente una partida en ese nivel.
 - `/remontes/?ajustes` abre una partida con el panel de calibración (herramienta de desarrollo).
+- `/remontes/tools/editor/` abre el editor de mapas (`npm run editor`). No se enlaza desde el juego ni se publica.
 
 ## Cómo se juega
 
@@ -64,6 +65,7 @@ Código:
 | `mapas/` | Mapas de prueba para las pruebas automáticas; el juego no los carga. |
 | `test/` | Pruebas. `cierre.test.ts` reúne lo que no debe romperse (sin puntos ciegos, colores factibles); `fase3.test.ts`, la carga de niveles y los retos. |
 | `scripts/` | Calibración, medidas de rendimiento y generación de miniaturas y mapas de prueba. |
+| `tools/editor/` | Editor de mapas (herramienta de desarrollo, fuera del juego). |
 
 ## Calibrar
 
@@ -78,6 +80,36 @@ El JSON del tercer argumento se mezcla sobre `src/config.ts` solo para esa ejecu
 ## Añadir un nivel
 
 Copia su carpeta a `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`) y añade `{ "id": "<id>" }` a `niveles/indice.json`. No hay que tocar código. `npm test` valida todos los niveles del índice y juega una partida automática en cada uno; `npm run miniatura -- <id>` genera la miniatura a partir del relieve. El formato completo está en `FORMATO_NIVEL.md`.
+
+## Editor de mapas
+
+```
+npm run editor     # abre http://localhost:5173/remontes/tools/editor/
+```
+
+Aplicación aparte para crear niveles con el ratón. Solo funciona con el servidor de desarrollo: no entra en `npm run build` ni se publica. Reutiliza del juego el pintado del terreno (`src/render/terreno.ts`), la red de pistas y remontes y las reglas de factibilidad (`Juego`), así que lo que el editor da por posible es lo que el juego permite.
+
+- **Relieve.** Puntos de cota (pico, intermedio, valle) con su altura en metros, y líneas de cresta y vaguada. La superficie es una placa delgada (*thin-plate spline*) que pasa por los puntos, con un suavizado ajustable y una rugosidad de ruido fractal con semilla. Se recalcula al soltar; mientras se arrastra, a media resolución.
+- **Roca.** Automática por pendiente (umbral ajustable, se guarda en los parámetros del nivel si no es el del juego) y pinceles para forzar roca o esquiable; se exporta como `mascara.png`.
+- **Juego.** Bases, intermedios y cimas (la cota sale del relieve), plaza y carretera.
+- **Validación en directo.** Colores de pista posibles entre cada nodo y sus vecinos más bajos (las líneas del mapa, del color más difícil posible; a trazos grises si no cabe ninguno) y avisos: base sin pistas que lleguen, cima sin bajada, intermedio aislado, parejas cercanas demasiado planas, sin negras, sin rojas, sin verdes, base sin remonte asequible con el dinero inicial. Los avisos graves marcan el nodo en rojo; pulsar un aviso centra la vista.
+- **Fondo para calcar.** Imagen semitransparente (plano de pistas, captura topográfica) con su escala en metros por píxel y su posición.
+- **Mapa aleatorio.** Tamaño, semilla, número de cumbres, cotas de valle y cumbre, separación de nodos y rugosidad. Prueba semillas seguidas hasta dar con un mapa sin avisos graves. El resultado es un proyecto normal: se edita y se guarda.
+- **Salida.** «Probar en el juego» abre el juego con el mapa (`/remontes/?prueba`, solo en desarrollo; no guarda récords). «Exportar a carpeta» escribe `nivel.json`, `alturas.png`, `miniatura.png` y, si hay, `mascara.png` en una carpeta elegida (en Chrome; si no, «Descargar ZIP»); luego se añade el `id` a `niveles/indice.json`. «Guardar proyecto» descarga un JSON con todo lo editable (puntos, líneas, máscara, fondo) para retomarlo con «Abrir proyecto». El proyecto se guarda también solo en el navegador.
+
+Ratón y teclado:
+
+| Acción | Cómo |
+|---|---|
+| Seleccionar y mover | V; arrastrar un punto, vértice, nodo o la plaza |
+| Punto de cota, cresta, vaguada | P, C, G; las líneas se terminan con Intro, Esc, doble clic o botón derecho |
+| Forzar roca, forzar esquiable, borrar pincel | R, E, X; `[` y `]` cambian el radio |
+| Base, intermedio, cima | 1, 2, 3 |
+| Plaza, carretera | Z, T |
+| Cota del punto seleccionado | Mayús + rueda: ±10 m (con Ctrl, ±50 m); + y −: ±10 m |
+| Borrar lo seleccionado | Supr |
+| Zoom, desplazar, encajar | rueda; botón central, derecho o espacio; F |
+| Deshacer, rehacer, guardar | Ctrl+Z, Ctrl+Mayús+Z o Ctrl+Y, Ctrl+S |
 
 ## Otras herramientas
 

@@ -60,3 +60,15 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 36. **Todas las bases de la plaza son contiguas a pie** (1000 m), en vez de cambiar la geometría de Espot: es lo que espera quien juega (que el esquiador pueda ir a otra base si la suya tiene mucha cola) y vale para cualquier nivel.
 37. **Las colas se comparan por espera, no por número de personas**, y pesan más (exponente 1,5). Se eligió 1,5 y no 2 porque con 2 el jugador razonable perdía antes sin que el reparto mejorase de forma visible.
 38. **Coste fijo por remonte de 2 monedas por minuto y 450 monedas iniciales** para que «solo ampliar» siga sin alcanzar al razonable.
+
+## Editor de mapas (2026-11-17)
+
+39. **«Escala en metros por píxel» es la de la imagen de fondo**, editable, para calcar a la escala correcta. La resolución del relieve (metros por muestra de `alturas.png`, 20 m por defecto) es otro campo.
+40. **El editor se sirve con el servidor de desarrollo del juego** (`/remontes/tools/editor/`), no como proyecto aparte: así importa los módulos del juego sin copiarlos ni empaquetarlos, y comparte el almacenamiento del navegador con el juego para «Probar». No entra en `npm run build`, no se publica y el juego no lo enlaza.
+41. **«Probar en el juego» usa `?prueba`, que solo existe en desarrollo**: el editor deja el nivel en `localStorage` y el juego lo abre como una partida que no guarda récords ni retos.
+42. **La máscara de roca es un PNG aparte (`mascara.png`)** con tres valores (automático, roca, esquiable), del tamaño de `alturas.png`. Es opcional, y un nivel sin ella se comporta como antes.
+43. **La carretera puede venir en `nivel.json`** (`carretera`, opcional). Sin ella se sigue trazando desde el sureste. El editor añade como último punto el del borde de la plaza más cercano al último que se dibuja.
+44. **El juego toma el umbral de roca de los parámetros del nivel.** Antes `Juego` lo leía siempre de `src/config.ts` aunque el formato decía que `terreno.umbralRoca` se podía cambiar por nivel.
+45. **Validación por parejas cercanas, no por todas.** Cada nodo se compara con sus 6 vecinos más bajos a menos de 3000 m, con las mismas reglas de trazado del juego (por los dos lados). Es lo que hace falta para saber qué colores caben sin esperar segundos en cada cambio. «Demasiado plana» se avisa solo en parejas a menos de 1500 m.
+46. **El mapa aleatorio prueba semillas seguidas** (6 como máximo) y se queda con el primero sin avisos graves. Construye picos en la parte alta unidos por crestas, vaguadas desde los collados, una plaza abajo con tres bases y una malla de intermedios fuera de la roca; el resto lo pone la placa delgada y el ruido.
+47. **El generador aleatorio no contradice «Descartado».** La especificación descarta el generador procedural de mapas; aquí se entiende como generación en el juego. El del editor produce un borrador que se edita y se guarda como nivel fijo, y así queda escrito en la especificación.

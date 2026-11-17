@@ -244,7 +244,8 @@ El relieve del mapa de alturas define valles, cimas y cordales, y condiciona qu�
 - Mapa «Gran dominio» (`mapas/gran-dominio`, por defecto desde v30; `npm run mapa:gran-dominio`): 4 × 6 km, con 31 puntos. Pie de pistas al sur con una zona suave encima (verdes), media montaña (azules y rojas) y caras bajo el cordal (negras); el oeste más suave y el este más empinado; un circo suave en el oeste; cordal con cinco cimas; valle norte para colonizar; valle lateral al este, más hundido; roca en un cortado bajo la cima central-este y en una banda a media ladera con un paso. Con las reglas actuales, unas 110 parejas de puntos admiten verde, 90 azul, 80 roja y 40 negra.
 - Mapa de pruebas «Dos valles» (`mapas/dos-valles`; `npm run mapa:dos-valles`): valle A al sur con el pie de pistas, cordal con tres cimas (oeste 2650, centro 2840, este 2917 m), valle B al norte con tres nodos bajos (unos 2070 m) para probar «Abrir un valle», un cortado en la cara norte del pico este (desde él no se baja al valle B) y una banda de roca a media ladera del valle A con un paso de unos 250 m. Se elige mapa con `?mapa=<carpeta>` en la dirección (`?mapa=inicial` para el anterior). Los puntos se retocan con el editor de `?ajustes` y se copian como JSON.
 - El primer prototipo carga un mapa hecho a mano en cualquier editor de imágenes. Un editor integrado en el juego, que escriba el mismo formato, llega después de tener un prototipo jugable; antes de eso retrasaría lo importante, que es probar la dinámica.
-- Generador procedural: descartado por ahora.
+- Generador procedural en el juego: descartado por ahora. Cada nivel es un mapa fijo.
+- Editor de mapas externo (2026-11-17, `tools/editor/`, uso en `README.md`): aplicación aparte, solo para desarrollo, que escribe niveles en el formato de `FORMATO_NIVEL.md`. Relieve por puntos de cota y líneas de cresta y vaguada (placa delgada con ruido fractal), roca automática con pinceles para forzarla o quitarla (`mascara.png`), nodos, plaza y carretera (`carretera` en `nivel.json`), validación en directo con las reglas del propio juego y mapas aleatorios como punto de partida. Lo que genera al azar se edita y se guarda como un nivel fijo más: no es generación procedural en el juego.
 - Estaciones reales: replicar estaciones reales, como hace Mini Metro con ciudades, usando datos abiertos de elevación (revisar la licencia de la fuente concreta) y presentándolas como "inspiradas en", sin el nombre comercial. Además permitiría calibrar los umbrales de pendiente por color con datos reales.
 
 ## Sin puntos ciegos
@@ -389,7 +390,7 @@ Notas técnicas:
 - Aspecto: vista en planta, limpia y suave; altura con degradado y sombreado, sin curvas de nivel; texturas de bosque y roca zonificadas por altitud; sin agua al principio.
 - El juego es web.
 - Abrir un valle es gratis: al activarse una cima se desbloquean los nodos bajos cercanos, y el jugador solo paga el remonte que sube desde ellos hasta una cima activa. Después se proponen las pistas de bajada, también gratuitas.
-- Los mapas se hacen a mano con un formato de datos (PNG de alturas y JSON de nodos); un editor integrado llega después del primer prototipo jugable. No hay generador procedural por ahora. Desde 2026-11-16 son niveles (`niveles/`, ver «Niveles, retos y progreso»).
+- Los mapas se hacen a mano con un formato de datos (PNG de alturas y JSON de nodos); un editor integrado llega después del primer prototipo jugable. El juego no genera mapas (el editor externo puede proponer uno al azar como punto de partida, que se guarda como nivel fijo). Desde 2026-11-16 son niveles (`niveles/`, ver «Niveles, retos y progreso»).
 - El relieve condiciona las pistas: la pendiente local define un terreno esquiable (roca o precipicio por encima del umbral), y una pista no cruza terreno más alto que su origen ni terreno no esquiable.
 - Con roca, la lente de dos pistas por remonte pasa a ser "hasta dos", y un nodo solo se desbloquea si hay una pista factible hasta él.
 - Dos recursos: monedas y quejas. La derrota viene del medidor de quejas, no de la quiebra ni de una reputación.
@@ -462,7 +463,7 @@ Para que no se reintroduzca por error:
 - Velocidad de bajada por densidad en la pista (queda como opción si hiciera falta más adelante).
 - Cobro por remonte cogido, por longitud de pista, por nivel del esquiador o por tamaño de la estación.
 - Precios fijados por el jugador.
-- Generador procedural de mapas (por ahora).
+- Generador procedural de mapas en el juego (por ahora). El editor externo sí genera borradores al azar para diseñar niveles.
 
 ## Decisiones abiertas
 

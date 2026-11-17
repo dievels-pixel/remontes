@@ -3,9 +3,9 @@
 // cambio entre ellas es un fundido.
 import { Musica } from './audio/musica';
 import { FONDO_MENU, PantallaMenu } from './menu';
-import { cargarNivel, fichasDeNiveles, type NivelCargado } from './niveles';
+import { cargarNivel, cargarNivelEnPruebas, fichasDeNiveles, type NivelCargado } from './niveles';
 import { PantallaPartida, type Pantalla } from './partida';
-import { registrarPartida } from './progreso';
+import { evaluarPartida, registrarPartida } from './progreso';
 
 const lienzo = document.getElementById('juego') as HTMLCanvasElement;
 const ctx = lienzo.getContext('2d')!;
@@ -54,7 +54,9 @@ function partida(nivel: NivelCargado): () => Pantalla {
       parametros: nivel.parametros,
       alSalir: () => cambiar(menu(nivel.id)),
       alRepetir: () => cambiar(partida(nivel)),
-      alTerminar: (juego) => registrarPartida(nivel.id, juego.resumen(), nivel.retos),
+      // El nivel en pruebas del editor no guarda récord ni retos.
+      alTerminar: (juego) =>
+        nivel.id === 'prueba' ? evaluarPartida({ record: null, retos: [], partidas: 0 }, juego.resumen(), nivel.retos).datos : registrarPartida(nivel.id, juego.resumen(), nivel.retos),
     });
 }
 
@@ -114,7 +116,13 @@ try {
   const consulta = new URLSearchParams(location.search);
   const directo = consulta.get('nivel') ?? (consulta.has('ajustes') ? fichasDeNiveles().find((n) => !n.bloqueado)!.id : null);
   redimensionar();
-  if (directo) {
+  // ?prueba (solo en desarrollo): el nivel que deja el editor de mapas.
+  if (import.meta.env.DEV && consulta.has('prueba')) {
+    cargarNivelEnPruebas().then((nivel) => {
+      poner(partida(nivel));
+      requestAnimationFrame(fotograma);
+    }, fallo);
+  } else if (directo) {
     cargarNivel(directo).then((nivel) => {
       poner(partida(nivel));
       requestAnimationFrame(fotograma);

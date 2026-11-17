@@ -18,8 +18,6 @@ const ajustes = args[2] ? JSON.parse(args[2]) : {};
 
 const servidor = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 const cargar = (m) => servidor.ssrLoadModule(m);
-const { decodificarPngGris } = await cargar('/scripts/png.ts');
-const { alturasDesdeGris } = await cargar('/src/core/mapa.ts');
 const { CONFIG } = await cargar('/src/config.ts');
 const { ESTRATEGIAS } = await cargar('/src/bots/jugadores.ts');
 const { jugarPartida } = await cargar('/src/bots/partida.ts');
@@ -33,14 +31,13 @@ function mezclar(destino, origen) {
 mezclar(CONFIG, ajustes);
 
 // Nivel: el cuarto argumento o, sin él, el primero jugable del índice.
-const { leerNivel, leerIndice } = await cargar('/src/core/nivel.ts');
+const { leerIndice } = await cargar('/src/core/nivel.ts');
 const { retoConseguido, textoReto } = await cargar('/src/core/retos.ts');
 const idNivel = args[3] ?? leerIndice(JSON.parse(readFileSync('niveles/indice.json', 'utf8'))).find((n) => !n.bloqueado).id;
 const carpeta = `niveles/${idNivel}`;
-const nivel = leerNivel(JSON.parse(readFileSync(`${carpeta}/nivel.json`, 'utf8')));
+const { cargarNivelDeDisco } = await cargar('/scripts/nivelDisco.ts');
+const { nivel, mapa } = cargarNivelDeDisco(carpeta);
 const datos = nivel.mapa;
-const png = decodificarPngGris(readFileSync(`${carpeta}/alturas.png`));
-const mapa = { datos, alturas: alturasDesdeGris(datos, png.ancho, png.alto, png.gris) };
 console.log(`Nivel «${datos.nombre}» (${carpeta})`);
 
 const ESCALA = CONFIG.tiempo.escala;

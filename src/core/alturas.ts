@@ -2,8 +2,17 @@
 // (ver mapa.ts). De aquí salen las cotas de los nodos y el degradado.
 import type { Punto } from './vector';
 
+/** Valores de la máscara de roca, celda a celda. */
+export const MASCARA = { auto: 0, roca: 1, esquiable: 2 } as const;
+
 export class MapaAlturas {
   readonly gris: Float32Array;
+  /**
+   * Máscara de roca pintada a mano (una por celda, ver MASCARA): fuerza roca
+   * o fuerza esquiable donde el umbral de pendiente no acierta. null: todo
+   * automático.
+   */
+  mascara: Uint8Array | null = null;
 
   constructor(
     readonly columnas: number,
@@ -42,6 +51,25 @@ export class MapaAlturas {
   /** Cota en metros. */
   cotaEn(p: Punto): number {
     return this.cotaMin + this.grisEn(p) * (this.cotaMax - this.cotaMin);
+  }
+
+  /** Valor de la máscara en la celda más cercana al punto (MASCARA.auto si no hay máscara). */
+  mascaraEn(p: Punto): number {
+    if (!this.mascara) return MASCARA.auto;
+    const cx = Math.round(Math.min(Math.max((p.x / this.ancho) * (this.columnas - 1), 0), this.columnas - 1));
+    const cy = Math.round(Math.min(Math.max((p.y / this.alto) * (this.filas - 1), 0), this.filas - 1));
+    return this.mascara[cy * this.columnas + cx];
+  }
+
+  /**
+   * ¿Es roca (terreno no esquiable)? Lo que diga la máscara y, donde no diga
+   * nada, si la pendiente local pasa del umbral.
+   */
+  esRoca(p: Punto, umbral: number): boolean {
+    const m = this.mascaraEn(p);
+    if (m === MASCARA.roca) return true;
+    if (m === MASCARA.esquiable) return false;
+    return this.pendienteEn(p) > umbral;
   }
 
   /**

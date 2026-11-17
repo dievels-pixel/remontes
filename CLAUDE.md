@@ -31,6 +31,7 @@ Juego web minimalista de gestión en tiempo real, tipo Mini Metro, con remontes 
 - Dibujo del mundo en `src/render/escena.ts`; interfaz y su disposición (común a dibujo y entrada) en `src/render/interfaz.ts`; animaciones en `src/render/efectos.ts`; pantalla de partida en `src/partida.ts`.
 - Los niveles del juego están en `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`) y se listan en `niveles/indice.json`; el formato está en `FORMATO_NIVEL.md` y el cargador es `src/niveles.ts`. `?nivel=<id>` abre uno directamente. El código no debe contener nada propio de un nivel.
 - `mapas/<nombre>/` (`gran-dominio`, `dos-valles`, `inicial`) son mapas de prueba para las pruebas automáticas y los scripts de medida; el juego no los carga. No cambiarlos: las pruebas usan sus coordenadas.
+- `tools/editor/` es el editor de mapas (`npm run editor`, solo con el servidor de desarrollo): no forma parte del juego, no se construye ni se enlaza. Importa del juego el pintado del terreno y `Juego` para validar; no duplica esa lógica.
 - `?ajustes` abre un panel temporal de calibración (`src/herramientas/ajustes.ts`), que no forma parte del juego. Los valores que el usuario fija con él se copian a `src/config.ts`.
 
 # Diseño del juego

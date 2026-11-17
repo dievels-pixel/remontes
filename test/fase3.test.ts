@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { decodificarPngGris } from '../scripts/png';
 import { CONFIG } from '../src/config';
-import { alturasDesdeGris } from '../src/core/mapa';
+import { cargarNivelDeDisco } from '../scripts/nivelDisco';
 import { aplicarParametros, leerIndice, leerNivel } from '../src/core/nivel';
 import { leerRetos, retoConseguido, textoReto, TIPOS_DE_RETO, type ResumenPartida, type Reto } from '../src/core/retos';
 import { Juego } from '../src/juego';
@@ -27,10 +27,8 @@ describe('Niveles desde datos', () => {
       });
 
       it('su JSON es válido y se puede montar una partida con él', () => {
-        const nivel = leerNivel(JSON.parse(readFileSync(`${carpeta}/nivel.json`, 'utf8')));
-        const png = decodificarPngGris(readFileSync(`${carpeta}/alturas.png`));
-        const alturas = alturasDesdeGris(nivel.mapa, png.ancho, png.alto, png.gris);
-        const j = new Juego({ datos: nivel.mapa, alturas }, 1, nivel.parametros);
+        const { nivel, mapa } = cargarNivelDeDisco(carpeta);
+        const j = new Juego(mapa, 1, nivel.parametros);
         expect(j.red.nodos.length).toBe(nivel.mapa.nodos.length);
         // Hay bases, cada una con algún punto más alto, y ningún punto dentro de la plaza.
         const bases = j.red.nodos.filter((n) => n.tipo === 'base');

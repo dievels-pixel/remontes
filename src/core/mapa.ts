@@ -2,7 +2,7 @@
 // nodos (tipo y posición; la cota sale del PNG) y los parámetros propios del
 // mapa. Aquí solo la parte pura: validar el JSON y montar alturas y nodos a
 // partir de los grises ya leídos (el PNG lo decodifica quien lo carga).
-import { MapaAlturas } from './alturas';
+import { MapaAlturas, MASCARA } from './alturas';
 import type { Nodo, TipoNodo } from './red';
 import type { Punto } from './vector';
 
@@ -24,6 +24,11 @@ export interface DatosMapa {
   /** Plaza del pie de pistas: punto de entrada y obstáculo para las pistas. */
   plaza: Punto & { radio: number };
   nodos: DefinicionNodo[];
+  /**
+   * Carretera de acceso (polilínea; el último punto es la entrada, en el
+   * borde de la plaza). Si falta, el juego la traza desde el sureste.
+   */
+  carretera?: Punto[];
 }
 
 /** Mapa listo para jugar. */
@@ -61,7 +66,15 @@ export function leerDatosMapa(json: unknown): DatosMapa {
     return { tipo: d.tipo as TipoNodo, x, y };
   });
   if (!nodos.some((n) => n.tipo === 'base')) fallo('hace falta al menos una base');
-  return { nombre: typeof o.nombre === 'string' ? o.nombre : 'Sin nombre', ancho, alto, cotaMin, cotaMax, plaza, nodos };
+  let carretera: Punto[] | undefined;
+  if (o.carretera !== undefined) {
+    if (!Array.isArray(o.carretera) || o.carretera.length < 2) fallo('carretera debe ser una lista de al menos dos puntos');
+    carretera = (o.carretera as unknown[]).map((q, i) => {
+      const c = q as Record<string, unknown>;
+      return { x: num(c?.x, `carretera[${i}].x`), y: num(c?.y, `carretera[${i}].y`) };
+    });
+  }
+  return { nombre: typeof o.nombre === 'string' ? o.nombre : 'Sin nombre', ancho, alto, cotaMin, cotaMax, plaza, nodos, ...(carretera ? { carretera } : {}) };
 }
 
 /**
@@ -79,6 +92,32 @@ export function alturasDesdeGris(datos: DatosMapa, columnas: number, filas: numb
   const hv = (x: number, y: number) => h[Math.min(Math.max(y, 0), filas - 1) * columnas + x];
   for (let y = 0; y < filas; y++) for (let x = 0; x < columnas; x++) g[y * columnas + x] = (hv(x, y - 1) + 2 * hv(x, y) + hv(x, y + 1)) / 4 / 255;
   return new MapaAlturas(columnas, filas, datos.ancho, datos.alto, datos.cotaMin, datos.cotaMax, g);
+}
+
+/**
+ * Máscara de roca a partir de los grises de mascara.png (0..255, por filas):
+ * negro, automático; blanco (más de 191), roca forzada; gris medio (de 64 a
+ * 191), esquiable forzado. Debe tener el tamaño del PNG de alturas.
+ */
+export function mascaraDesdeGris(columnas: number, filas: number, gris: ArrayLike<number>): Uint8Array {
+  if (gris.length !== columnas * filas) throw new Error('Nivel no válido: mascara.png no tiene el tamaño de alturas.png');
+  const m = new Uint8Array(gris.length);
+  for (let i = 0; i < gris.length; i++) m[i] = gris[i] > 191 ? MASCARA.roca : gris[i] >= 64 ? MASCARA.esquiable : MASCARA.auto;
+  return m;
+}
+
+/** La máscara como grises para mascara.png (inversa de mascaraDesdeGris). */
+export function grisDeMascara(m: ArrayLike<number>): Uint8Array {
+  const g = new Uint8Array(m.length);
+  for (let i = 0; i < m.length; i++) g[i] = m[i] === MASCARA.roca ? 255 : m[i] === MASCARA.esquiable ? 128 : 0;
+  return g;
+}
+
+/** Mapa listo para jugar a partir de los grises de alturas.png y, si hay, de mascara.png. */
+export function montarMapa(datos: DatosMapa, columnas: number, filas: number, gris: ArrayLike<number>, grisMascara?: ArrayLike<number> | null): Mapa {
+  const alturas = alturasDesdeGris(datos, columnas, filas, gris);
+  if (grisMascara) alturas.mascara = mascaraDesdeGris(columnas, filas, grisMascara);
+  return { datos, alturas };
 }
 
 export function crearNodos(alturas: MapaAlturas, definicion: readonly DefinicionNodo[]): Nodo[] {

@@ -15,7 +15,8 @@
     "medir:arrastre": "node scripts/medirArrastre.mjs",
     "medir:eleccion": "node scripts/medirEleccion.mjs",
     "calibrar": "node scripts/calibrar.mjs",
-    "miniatura": "node scripts/generarMiniatura.mjs"
+    "miniatura": "node scripts/generarMiniatura.mjs",
+    "editor": "vite --open /remontes/tools/editor/"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

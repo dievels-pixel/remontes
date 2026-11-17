@@ -96,8 +96,8 @@ export class Juego {
   readonly plaza: Mapa['datos']['plaza'];
   /** Carretera de acceso, del borde del mapa a la plaza (el último punto es la entrada). */
   readonly carretera: Punto[];
-  /** Pendiente local a partir de la cual el terreno es roca (el panel de ajustes la cambia). */
-  umbralRoca: number = CONFIG.terreno.umbralRoca;
+  /** Pendiente local a partir de la que el terreno es roca: la del nivel si la trae (el panel de ajustes la cambia). */
+  umbralRoca: number;
   /** Límites del editor del mapa de pruebas. */
   private readonly limitesMapa: LimitesMapa;
   /** Editor del mapa de pruebas: herramienta activa, o null si está cerrado. */
@@ -151,18 +151,20 @@ export class Juego {
     parametros: ParametrosNivel = {},
   ) {
     this.config = aplicarParametros(CONFIG, parametros);
+    this.umbralRoca = this.config.terreno.umbralRoca;
     const { pista, remonte } = this.config;
     const { datos } = mapa;
     this.alturas = mapa.alturas;
     this.definicion = datos.nodos.map((d) => ({ ...d }));
     this.plaza = datos.plaza;
-    this.carretera = trazarCarretera(datos.plaza, datos.ancho, datos.alto);
+    // La del nivel si la trae; si no, desde el sureste hasta la plaza.
+    this.carretera = datos.carretera ? datos.carretera.map((p) => ({ ...p })) : trazarCarretera(datos.plaza, datos.ancho, datos.alto);
     this.limitesMapa = {
       ancho: datos.ancho,
       alto: datos.alto,
       separacion: 80,
       obstaculo: { ...datos.plaza, radio: datos.plaza.radio + 40 },
-      prohibido: (p) => this.alturas.pendienteEn(p) > this.umbralRoca,
+      prohibido: (p) => this.alturas.esRoca(p, this.umbralRoca),
     };
     this.reglasRed = {
       desnivelMinimoRemonte: remonte.desnivelMinimo,
@@ -175,7 +177,7 @@ export class Juego {
       // Para exigir que las pistas salgan cuesta abajo según el terreno.
       cotaTerreno: (p) => this.alturas.cotaEn(p),
       // Fuera del mapa cuenta como roca: ninguna pista se sale de él.
-      esRoca: (p) => !this.alturas.dentro(p) || this.alturas.pendienteEn(p) > this.umbralRoca,
+      esRoca: (p) => !this.alturas.dentro(p) || this.alturas.esRoca(p, this.umbralRoca),
     };
     this.red = new Red(crearNodos(this.alturas, this.definicion), this.reglasRed);
     this.parametrosSim = {

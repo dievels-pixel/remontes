@@ -1,6 +1,6 @@
 // Fondo precalculado una sola vez: degradado de color según la cota del mapa
 // de alturas (valle frío y grisáceo, cumbres casi blancas). Sin curvas de nivel.
-import type { MapaAlturas } from '../core/alturas';
+import { MASCARA, type MapaAlturas } from '../core/alturas';
 
 const PARADAS: [number, [number, number, number]][] = [
   [0.0, [150, 166, 164]],
@@ -35,7 +35,9 @@ export function pintarTerreno(mapa: MapaAlturas, umbralRoca: number): Uint8Clamp
   const dy = mapa.alto / (mapa.filas - 1);
   for (let i = 0; i < mapa.gris.length; i++) {
     const p = { x: (i % mapa.columnas) * dx, y: Math.floor(i / mapa.columnas) * dy };
-    const t = Math.min(Math.max((mapa.pendienteEn(p) - umbralRoca) / 0.15, 0), 1) * 0.9;
+    // Donde la máscara fuerza roca, roca plena; donde fuerza esquiable, nada.
+    const m = mapa.mascara ? mapa.mascara[i] : MASCARA.auto;
+    const t = m === MASCARA.roca ? 0.9 : m === MASCARA.esquiable ? 0 : Math.min(Math.max((mapa.pendienteEn(p) - umbralRoca) / 0.15, 0), 1) * 0.9;
     const [r, g, b] = colorDe(mapa.gris[i]).map((c, k) => c + (ROCA[k] - c) * t);
     rgba[i * 4] = r;
     rgba[i * 4 + 1] = g;

@@ -11,7 +11,10 @@ niveles/
     nivel.json       mapa, parámetros propios y retos
     alturas.png      relieve
     miniatura.png    imagen para el selector de niveles
+    mascara.png      roca pintada a mano (opcional)
 ```
+
+El editor de mapas (`npm run editor`, ver `README.md`) produce estas carpetas.
 
 Si algo no cumple el formato, el juego no arranca ese nivel y muestra un mensaje que dice qué falla (por ejemplo, «Nivel no válido: el nodo 7 está fuera del mapa»). `npm test` comprueba todos los niveles del índice.
 
@@ -67,7 +70,8 @@ Todas las distancias van en metros. El origen (0, 0) es la esquina superior izqu
 | `nombre` | texto | no (por defecto «Sin nombre») | Nombre que se muestra. |
 | `ancho`, `alto` | número > 0 | sí | Tamaño del mundo que cubre el PNG de alturas, en metros. |
 | `cotaMin`, `cotaMax` | número | sí | Cotas (m) que representan el negro (0) y el blanco (255) del PNG. `cotaMax` debe ser mayor. |
-| `plaza` | `{ x, y, radio }` | sí | Pie de pistas: por su borde entran los esquiadores (la carretera llega desde el borde derecho del mapa, por debajo de la plaza) y ninguna pista puede cruzarla. |
+| `plaza` | `{ x, y, radio }` | sí | Pie de pistas: por su borde entran los esquiadores y ninguna pista puede cruzarla. |
+| `carretera` | lista de `{ x, y }` | no | Trazado de la carretera de acceso, de fuera hacia la plaza, con al menos dos puntos. El último es la entrada de los esquiadores: conviene que esté en el borde de la plaza. Sin este campo, el juego traza una carretera serpenteante desde el sureste. |
 | `nodos` | lista | sí, no vacía | Puntos del mapa (ver abajo). |
 | `parametros` | objeto | no | Cambios de balance solo para este nivel (ver abajo). |
 | `retos` | lista | no | Retos del nivel (ver abajo). El selector muestra tres marcas: conviene que sean tres. |
@@ -129,7 +133,16 @@ Para ajustar los números de un nivel: `npm run calibrar -- todas 7 '{}' <id>` j
 - Negro (0) es `cotaMin` y blanco (255) es `cotaMax`, lineal.
 - Cubre el rectángulo `ancho` × `alto` del nivel; la primera fila es el norte (y = 0). Conviene que las proporciones del PNG sean las del mapa.
 - Resolución orientativa: una muestra cada 15 a 25 m (el primer nivel usa 200 × 300 muestras para 4000 × 6000 m). El juego suaviza las alturas con un filtro pequeño; con 8 bits, más resolución no da más detalle útil.
-- Del relieve salen las cotas de los nodos, el color del fondo y el terreno no esquiable: donde la pendiente local supera el umbral de roca (0,9 por defecto, `terreno.umbralRoca`), se pinta como roca y ninguna pista pasa. Una pista tampoco cruza terreno más alto que su salida ni se sale del mapa.
+- Del relieve salen las cotas de los nodos, el color del fondo y el terreno no esquiable: donde la pendiente local supera el umbral de roca (0,9 por defecto, `terreno.umbralRoca`, que el nivel puede cambiar en `parametros`), se pinta como roca y ninguna pista pasa. Una pista tampoco cruza terreno más alto que su salida ni se sale del mapa.
+
+## `mascara.png` (opcional)
+
+Corrige a mano el terreno no esquiable donde el umbral de pendiente no acierta.
+
+- PNG de 8 bits con el mismo número de píxeles que `alturas.png` (si no, el nivel se rechaza). Se lee el primer canal.
+- Negro (0 a 63): automático, manda el umbral de pendiente. Gris (64 a 191; el editor escribe 128): esquiable aunque sea empinado. Blanco (192 a 255): roca aunque sea llano.
+- Cada píxel vale para la celda más cercana de la rejilla de alturas. El juego la usa igual para pintar el terreno y para prohibir pistas.
+- Sin este archivo, todo es automático.
 
 ## `miniatura.png`
 

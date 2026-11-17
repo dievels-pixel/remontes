@@ -12,17 +12,17 @@ const anchoPx = Number(process.argv[3] ?? 240);
 if (!id) throw new Error('Falta el id del nivel: npm run miniatura -- <id>');
 const servidor = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 const cargar = (m) => servidor.ssrLoadModule(m);
-const { decodificarPngGris, codificarPngRGB } = await cargar('/scripts/png.ts');
-const { alturasDesdeGris } = await cargar('/src/core/mapa.ts');
-const { leerNivel } = await cargar('/src/core/nivel.ts');
+const { codificarPngRGB } = await cargar('/scripts/png.ts');
 const { pintarTerreno } = await cargar('/src/render/terreno.ts');
 const { CONFIG } = await cargar('/src/config.ts');
 
 const carpeta = `niveles/${id}`;
-const { mapa } = leerNivel(JSON.parse(readFileSync(`${carpeta}/nivel.json`, 'utf8')));
-const png = decodificarPngGris(readFileSync(`${carpeta}/alturas.png`));
-const alturas = alturasDesdeGris(mapa, png.ancho, png.alto, png.gris);
-const rgba = pintarTerreno(alturas, CONFIG.terreno.umbralRoca);
+const { cargarNivelDeDisco } = await cargar('/scripts/nivelDisco.ts');
+const { nivel, mapa: montado, columnas, filas } = cargarNivelDeDisco(carpeta);
+const mapa = nivel.mapa;
+const png = { ancho: columnas, alto: filas };
+const umbral = nivel.parametros.terreno?.umbralRoca ?? CONFIG.terreno.umbralRoca;
+const rgba = pintarTerreno(montado.alturas, umbral);
 
 // Reducción por promedio de bloques, manteniendo la proporción del mapa.
 const altoPx = Math.round((anchoPx * mapa.alto) / mapa.ancho);

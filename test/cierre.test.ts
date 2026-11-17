@@ -3,21 +3,19 @@
 // (La carga de niveles y los retos están en fase3.test.ts.)
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { decodificarPngGris } from '../scripts/png';
+import { cargarNivelDeDisco } from '../scripts/nivelDisco';
 import { ESTRATEGIAS } from '../src/bots/jugadores';
 import { crearAzar } from '../src/core/azar';
 import { COLORES, nivelDe } from '../src/core/colores';
-import { alturasDesdeGris } from '../src/core/mapa';
-import { leerIndice, leerNivel } from '../src/core/nivel';
+import { leerIndice } from '../src/core/nivel';
 import { Juego } from '../src/juego';
 
 const TOLERANCIA = 0.012;
 
 for (const entrada of leerIndice(JSON.parse(readFileSync('niveles/indice.json', 'utf8'))).filter((n) => !n.bloqueado)) {
   describe(`Partida en «${entrada.id}»`, () => {
-    const nivel = leerNivel(JSON.parse(readFileSync(`niveles/${entrada.id}/nivel.json`, 'utf8')));
-    const png = decodificarPngGris(readFileSync(`niveles/${entrada.id}/alturas.png`));
-    const j = new Juego({ datos: nivel.mapa, alturas: alturasDesdeGris(nivel.mapa, png.ancho, png.alto, png.gris) }, 7, nivel.parametros);
+    const { nivel, mapa } = cargarNivelDeDisco(`niveles/${entrada.id}`);
+    const j = new Juego(mapa, 7, nivel.parametros);
     const azar = crearAzar(3);
     const memoria: Record<string, number> = {};
     const { red, sim } = j;
