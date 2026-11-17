@@ -67,10 +67,31 @@ Qué falla o aburre:
 | 2. Animación, sonido y sensación | Hecha: animaciones (`src/render/efectos.ts`), mundo e interfaz separados (`escena.ts`, `interfaz.ts`), música (`src/audio/`), guía sin texto (`src/render/guia.ts`), pausa y 1×/2×, ciclo de día, fin de partida y pantalla de partida que se crea y se destruye sin recargar (`src/partida.ts`, `src/main.ts`). |
 | 3. Niveles y retos | Hecha: `niveles/` (índice y carpeta de Espot), cargador único (`src/niveles.ts`), parámetros por nivel (`Juego.config`), retos (`src/core/retos.ts`), progreso (`src/progreso.ts`) y `FORMATO_NIVEL.md`. |
 | 4. Pantalla inicial | Hecha: `src/menu.ts` (fondo animado, título, selector desde el índice, ajustes), `src/preferencias.ts` y modo para daltonismo. |
-| 5. Cierre | Pendiente |
+| 5. Cierre | Hecha: partidas completas en el navegador (vertical y horizontal), pruebas de cierre (`test/cierre.test.ts`), README y resumen final (abajo). |
 
 ## Pendiente tras la fase 2
 
 - El precálculo en segundo plano tras cada obra todavía alarga algunos fotogramas (cada tarea, hasta unos 8 ms en un ordenador).
 - La prueba de legibilidad de puntos y pistas de la etapa 5 no se hizo como pantalla de prueba: los puntos llevan ya contorno claro fino.
 - Los errores «Nueva partida recarga la página» y «textos de ayuda largos» de la auditoría están resueltos.
+
+## Resumen final (2026-11-17)
+
+**Hecho.** El juego se abre en un menú (fondo animado, selector de niveles desde el índice, ajustes de sonido, daltonismo y reinicio), entra con un fundido a la partida y vuelve igual. La partida tiene economía con mantenimiento, mejora de remontes, medidor de quejas con periodo de gracia, ciclo de día, animaciones de respuesta, música pentatónica, pausa y 1×/2×, guía sin texto y pantalla final con la red, el cuello de botella, los retos y el récord. Los niveles son datos (`niveles/`, `FORMATO_NIVEL.md`) y Espot es el único jugable. La calibración con cinco jugadores automáticos cumple los criterios pedidos (`CALIBRACION.md`).
+
+**Comprobado en el navegador (Pixel 7 emulado, vertical y horizontal).** Partidas completas con el jugador razonable dentro de la página: 8 a 9 días, sin errores en consola, progreso guardado. Gestos reales: arrastres, selector de color, pulsación larga para mejorar, botones, fin de partida, repetir y volver al menú.
+
+**Flojo:**
+- Sin probar en un móvil real: fotogramas por segundo, sonido en iOS y gestos con el dedo. En el entorno emulado el juego gasta de 2 a 8 ms por fotograma con 300 a 430 esquiadores, pero se pinta sin GPU.
+- Al final de la partida pueden juntarse más de 400 esquiadores, por encima del objetivo de 300.
+- El dinero sobra en el último tercio de la partida.
+- Una pista que se une a otra puede quedar con pendiente fuera de la banda de su color (manda la dificultad del tramo común, pero el número no cuadra).
+- El terreno es un degradado sin texturas de bosque ni roca.
+- El relieve de Espot es sintético (decisión 1).
+- El tercer reto de Espot depende de una sola variable (bajadas de negros).
+
+**Qué probaría a cambiar:**
+- Tope de afluencia o salida de esquiadores al llenarse la plaza, para limitar el número en pantalla al final.
+- Un sumidero de dinero tardío (mantenimiento que crece con los días o mejoras de estación).
+- Un reto de restricción en Espot («N días con M remontes como máximo») cuando haya un jugador automático que lo intente.
+- Texturas de bosque y roca en el terreno, y probar el modo para daltonismo con personas que lo necesiten.

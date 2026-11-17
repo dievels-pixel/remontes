@@ -195,7 +195,8 @@ export class PantallaPartida implements Pantalla, ReceptorEntrada {
       const panel = layoutFin(this.ancho, this.alto, this.fin.retos.length).panel;
       const abajo = d0.horizontal ? 12 : panel.alto + 28;
       const { datos } = j.mapa;
-      this.camara.ajustar(this.ancho, this.alto, datos.ancho, datos.alto, d0.arriba + (12 - d0.arriba) * entra, d0.abajo + (abajo - d0.abajo) * entra);
+      const derecha = d0.horizontal ? (this.ancho - panel.x + 8) * entra : 0;
+      this.camara.ajustar(this.ancho, this.alto, datos.ancho, datos.alto, d0.arriba + (12 - d0.arriba) * entra, d0.abajo + (abajo - d0.abajo) * entra, derecha);
       this.camara.haciaEncaje(dt * 3);
     }
 

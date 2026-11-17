@@ -113,16 +113,23 @@ export function dibujar(ctx: CanvasRenderingContext2D, juego: Juego, camara: Cam
   ctx.drawImage(terreno, esquina.x, esquina.y, wT, hT);
   // En pantallas más alargadas que el mundo se prolongan la primera y la última
   // fila del terreno para que no queden bandas planas.
-  if (esquina.y > 0) {
-    ctx.drawImage(terreno, 0, 0, terreno.width, 1, esquina.x, 0, wT, esquina.y + 1);
-    ctx.drawImage(terreno, 0, terreno.height - 1, terreno.width, 1, esquina.x, esquina.y + hT - 1, wT, alto - esquina.y - hT + 1);
-  }
-
+  const x1 = esquina.x + wT;
+  const y1 = esquina.y + hT;
+  const tw = terreno.width;
+  const th = terreno.height;
+  if (esquina.y > 0) ctx.drawImage(terreno, 0, 0, tw, 1, esquina.x, 0, wT, esquina.y + 1);
+  if (y1 < alto) ctx.drawImage(terreno, 0, th - 1, tw, 1, esquina.x, y1 - 1, wT, alto - y1 + 1);
   // Y en pantallas más anchas (móvil en horizontal), la primera y la última
-  // columna hacia los lados.
+  // columna hacia los lados, y el píxel de cada esquina en su rincón.
   if (esquina.x > 0) {
-    ctx.drawImage(terreno, 0, 0, 1, terreno.height, 0, esquina.y, esquina.x + 1, hT);
-    ctx.drawImage(terreno, terreno.width - 1, 0, 1, terreno.height, esquina.x + wT - 1, esquina.y, ancho - esquina.x - wT + 1, hT);
+    ctx.drawImage(terreno, 0, 0, 1, th, 0, esquina.y, esquina.x + 1, hT);
+    if (esquina.y > 0) ctx.drawImage(terreno, 0, 0, 1, 1, 0, 0, esquina.x + 1, esquina.y + 1);
+    if (y1 < alto) ctx.drawImage(terreno, 0, th - 1, 1, 1, 0, y1 - 1, esquina.x + 1, alto - y1 + 1);
+  }
+  if (x1 < ancho) {
+    ctx.drawImage(terreno, tw - 1, 0, 1, th, x1 - 1, esquina.y, ancho - x1 + 1, hT);
+    if (esquina.y > 0) ctx.drawImage(terreno, tw - 1, 0, 1, 1, x1 - 1, 0, ancho - x1 + 1, esquina.y + 1);
+    if (y1 < alto) ctx.drawImage(terreno, tw - 1, th - 1, 1, 1, x1 - 1, y1 - 1, ancho - x1 + 1, alto - y1 + 1);
   }
 
   // Ciclo de día: un tinte muy lento sobre el terreno (solo visual).

@@ -48,3 +48,9 @@ Cada vez que el encargo era ambiguo o chocaba con el documento de diseño se eli
 30. **Reiniciar el progreso pide un segundo toque** en 3,5 s, en vez de una ventana de confirmación. Borra récords, retos y la guía.
 31. **Se entra por el menú**; `?nivel=<id>` y `?ajustes` abren una partida directamente (pruebas y calibración).
 32. **Transición por fundido** al color del menú, con la tarjeta elegida creciendo un instante.
+
+## Fase 5
+
+33. **«A mano en el navegador» se hizo con gestos reales emulados** (Playwright con un Pixel 7, en vertical y horizontal) y con el jugador automático razonable jugando dentro de la página. No hay acceso a un móvil físico.
+34. **Las pruebas de cierre juegan una partida de 16 minutos de juego en cada nivel jugable** y comprueban cada minuto que no hay puntos ciegos (pistas activas solo hacia puntos viables, remontes en servicio con bajada, nadie en una pista o cola que no le corresponde) y que los colores ofrecidos caben por pendiente.
+35. **Las pistas con tramo común quedan fuera de la comprobación de banda**: al unirse a otra cambia su longitud y su pendiente media puede salirse de la banda de su color. Se anota como punto flojo.

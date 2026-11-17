@@ -11,7 +11,7 @@ export class Camara {
   dy = 0;
   /** Escala con la que cabe el mundo entero: es el zoom mínimo. */
   private escalaEncaje = 1;
-  private vista = { ancho: 0, alto: 0, arriba: 0, abajo: 0, anchoMundo: 1, altoMundo: 1 };
+  private vista = { ancho: 0, alto: 0, arriba: 0, abajo: 0, derecha: 0, anchoMundo: 1, altoMundo: 1 };
   private encajada = false;
 
   static readonly ZOOM_MAXIMO = 6;
@@ -21,11 +21,11 @@ export class Camara {
    * encaja en el espacio que queda entre ellas (texto de ayuda, botones,
    * panel de ajustes). Si ya se había acercado, se conserva el zoom.
    */
-  ajustar(anchoPantalla: number, altoPantalla: number, anchoMundo: number, altoMundo: number, reservaArriba = 0, reservaAbajo = 0): void {
+  ajustar(anchoPantalla: number, altoPantalla: number, anchoMundo: number, altoMundo: number, reservaArriba = 0, reservaAbajo = 0, reservaDerecha = 0): void {
     const margen = 0.98;
     const altoUtil = Math.max(altoPantalla - reservaArriba - reservaAbajo, 100);
-    this.vista = { ancho: anchoPantalla, alto: altoPantalla, arriba: reservaArriba, abajo: reservaAbajo, anchoMundo, altoMundo };
-    this.escalaEncaje = Math.min(anchoPantalla / anchoMundo, altoUtil / altoMundo) * margen;
+    this.vista = { ancho: anchoPantalla, alto: altoPantalla, arriba: reservaArriba, abajo: reservaAbajo, derecha: reservaDerecha, anchoMundo, altoMundo };
+    this.escalaEncaje = Math.min((anchoPantalla - reservaDerecha) / anchoMundo, altoUtil / altoMundo) * margen;
     if (!this.encajada || this.escala < this.escalaEncaje) {
       this.escala = this.escalaEncaje;
       this.encajada = true;
@@ -66,7 +66,9 @@ export class Camara {
    * si no, sin dejar hueco entre su borde y el de la zona útil.
    */
   private limitar(): void {
-    const { ancho, alto, arriba, abajo, anchoMundo, altoMundo } = this.vista;
+    const { alto, arriba, abajo, anchoMundo, altoMundo } = this.vista;
+    // La franja derecha reservada (panel final en horizontal) no cuenta como ancho útil.
+    const ancho = this.vista.ancho - this.vista.derecha;
     const w = anchoMundo * this.escala;
     const h = altoMundo * this.escala;
     const altoUtil = alto - arriba - abajo;
