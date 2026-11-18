@@ -83,7 +83,7 @@ export async function cargarNivel(id: string): Promise<NivelCargado> {
 
 /**
  * Nivel en pruebas que deja el editor de mapas (tools/editor) en el
- * almacenamiento del navegador, para abrirlo con ?prueba. Solo en desarrollo.
+ * almacenamiento del navegador, para abrirlo con ?prueba.
  */
 export async function cargarNivelEnPruebas(): Promise<NivelCargado> {
   const texto = localStorage.getItem('remontes.nivelPrueba');

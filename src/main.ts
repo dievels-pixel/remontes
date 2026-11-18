@@ -116,8 +116,8 @@ try {
   const consulta = new URLSearchParams(location.search);
   const directo = consulta.get('nivel') ?? (consulta.has('ajustes') ? fichasDeNiveles().find((n) => !n.bloqueado)!.id : null);
   redimensionar();
-  // ?prueba (solo en desarrollo): el nivel que deja el editor de mapas.
-  if (import.meta.env.DEV && consulta.has('prueba')) {
+  // ?prueba: el nivel que deja el editor de mapas en este navegador.
+  if (consulta.has('prueba')) {
     cargarNivelEnPruebas().then((nivel) => {
       poner(partida(nivel));
       requestAnimationFrame(fotograma);

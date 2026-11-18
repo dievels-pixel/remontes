@@ -33,8 +33,14 @@ function version(): string {
 }
 
 // En GitHub Pages el juego se sirve desde https://<usuario>.github.io/remontes/
+// y el editor de mapas desde .../remontes/tools/editor/ (el juego no lo enlaza).
 export default defineConfig({
   base: '/remontes/',
+  build: {
+    rollupOptions: {
+      input: { juego: 'index.html', editor: 'tools/editor/index.html' },
+    },
+  },
   define: {
     __VERSION__: JSON.stringify(version()),
   },

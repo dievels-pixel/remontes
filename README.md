@@ -23,7 +23,7 @@ Direcciones útiles en desarrollo:
 - `/remontes/` abre el menú.
 - `/remontes/?nivel=espot` abre directamente una partida en ese nivel.
 - `/remontes/?ajustes` abre una partida con el panel de calibración (herramienta de desarrollo).
-- `/remontes/tools/editor/` abre el editor de mapas (`npm run editor`). No se enlaza desde el juego ni se publica.
+- `/remontes/tools/editor/` abre el editor de mapas (`npm run editor`). También está publicado en https://dievels-pixel.github.io/remontes/tools/editor/; el juego no lo enlaza.
 
 ## Cómo se juega
 
@@ -87,7 +87,7 @@ Copia su carpeta a `niveles/<id>/` (`nivel.json`, `alturas.png`, `miniatura.png`
 npm run editor     # abre http://localhost:5173/remontes/tools/editor/
 ```
 
-Aplicación aparte para crear niveles con el ratón. Solo funciona con el servidor de desarrollo: no entra en `npm run build` ni se publica. Reutiliza del juego el pintado del terreno (`src/render/terreno.ts`), la red de pistas y remontes y las reglas de factibilidad (`Juego`), así que lo que el editor da por posible es lo que el juego permite.
+Aplicación aparte para crear niveles con el ratón. Se publica con el juego en https://dievels-pixel.github.io/remontes/tools/editor/ (el juego no la enlaza) y en local se abre con el servidor de desarrollo. Reutiliza del juego el pintado del terreno (`src/render/terreno.ts`), la red de pistas y remontes y las reglas de factibilidad (`Juego`), así que lo que el editor da por posible es lo que el juego permite.
 
 - **Relieve.** Puntos de cota (pico, intermedio, valle) con su altura en metros, y líneas de cresta y vaguada. La superficie es una placa delgada (*thin-plate spline*) que pasa por los puntos, con un suavizado ajustable y una rugosidad de ruido fractal con semilla. Se recalcula al soltar; mientras se arrastra, a media resolución.
 - **Roca.** Automática por pendiente (umbral ajustable, se guarda en los parámetros del nivel si no es el del juego) y pinceles para forzar roca o esquiable; se exporta como `mascara.png`.
@@ -95,7 +95,7 @@ Aplicación aparte para crear niveles con el ratón. Solo funciona con el servid
 - **Validación en directo.** Colores de pista posibles entre cada nodo y sus vecinos más bajos (las líneas del mapa, del color más difícil posible; a trazos grises si no cabe ninguno) y avisos: base sin pistas que lleguen, cima sin bajada, intermedio aislado, parejas cercanas demasiado planas, sin negras, sin rojas, sin verdes, base sin remonte asequible con el dinero inicial. Los avisos graves marcan el nodo en rojo; pulsar un aviso centra la vista.
 - **Fondo para calcar.** Imagen semitransparente (plano de pistas, captura topográfica) con su escala en metros por píxel y su posición.
 - **Mapa aleatorio.** Tamaño, semilla, número de cumbres, cotas de valle y cumbre, separación de nodos y rugosidad. Prueba semillas seguidas hasta dar con un mapa sin avisos graves. El resultado es un proyecto normal: se edita y se guarda.
-- **Salida.** «Probar en el juego» abre el juego con el mapa (`/remontes/?prueba`, solo en desarrollo; no guarda récords). «Exportar a carpeta» escribe `nivel.json`, `alturas.png`, `miniatura.png` y, si hay, `mascara.png` en una carpeta elegida (en Chrome; si no, «Descargar ZIP»); luego se añade el `id` a `niveles/indice.json`. «Guardar proyecto» descarga un JSON con todo lo editable (puntos, líneas, máscara, fondo) para retomarlo con «Abrir proyecto». El proyecto se guarda también solo en el navegador.
+- **Salida.** «Probar en el juego» abre el juego con el mapa (`/remontes/?prueba`, en el mismo navegador; no guarda récords). «Exportar a carpeta» escribe `nivel.json`, `alturas.png`, `miniatura.png` y, si hay, `mascara.png` en una carpeta elegida (en Chrome; si no, «Descargar ZIP»); luego se añade el `id` a `niveles/indice.json`. «Guardar proyecto» descarga un JSON con todo lo editable (puntos, líneas, máscara, fondo) para retomarlo con «Abrir proyecto». El proyecto se guarda también solo en el navegador.
 
 Ratón y teclado:
 
